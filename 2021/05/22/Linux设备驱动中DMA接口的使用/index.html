@@ -20,28 +20,32 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta property="og:type" content="website">
-<meta property="og:title" content="Sherlock&#39;s blog">
-<meta property="og:url" content="http://example.com/index.html">
+  <meta name="description" content="Linux设备驱动中DMA接口的使用-v0.1 2018.3.13 Sherlock init Westford 本文试图讲清楚linux里的DMA接口使用时的一些基本概念。阅读本文的时候，可以先看看内核里的Documentation&#x2F;DMA*(DMA相关的一些文件), 其实这里面讲的已经很清楚了，另外还可以看看知乎上的一篇文章：https:&#x2F;&#x2F;zhuanlan.zhihu.com&#x2F;p&#x2F;25999">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux设备驱动中DMA接口的使用">
+<meta property="og:url" content="http://example.com/2021/05/22/Linux%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E4%B8%ADDMA%E6%8E%A5%E5%8F%A3%E7%9A%84%E4%BD%BF%E7%94%A8/index.html">
 <meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="Linux设备驱动中DMA接口的使用-v0.1 2018.3.13 Sherlock init Westford 本文试图讲清楚linux里的DMA接口使用时的一些基本概念。阅读本文的时候，可以先看看内核里的Documentation&#x2F;DMA*(DMA相关的一些文件), 其实这里面讲的已经很清楚了，另外还可以看看知乎上的一篇文章：https:&#x2F;&#x2F;zhuanlan.zhihu.com&#x2F;p&#x2F;25999">
 <meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-05-22T04:13:51.000Z">
+<meta property="article:modified_time" content="2021-05-22T12:14:33.310Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="http://example.com/">
+<link rel="canonical" href="http://example.com/2021/05/22/Linux%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E4%B8%ADDMA%E6%8E%A5%E5%8F%A3%E7%9A%84%E4%BD%BF%E7%94%A8/">
 
 
 <script id="page-configurations">
   // https://hexo.io/docs/variables.html
   CONFIG.page = {
     sidebar: "",
-    isHome : true,
-    isPost : false,
+    isHome : false,
+    isPost : true,
     lang   : 'zh-CN'
   };
 </script>
 
-  <title>Sherlock's blog</title>
+  <title>Linux设备驱动中DMA接口的使用 | Sherlock's blog</title>
   
 
 
@@ -139,9 +143,10 @@
         <div class="content-wrap">
           
 
-          <div class="content index posts-expand">
+          <div class="content post posts-expand">
             
-      
+
+    
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
@@ -157,10 +162,9 @@
       <meta itemprop="name" content="Sherlock's blog">
     </span>
       <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/22/Linux%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E4%B8%ADDMA%E6%8E%A5%E5%8F%A3%E7%9A%84%E4%BD%BF%E7%94%A8/" class="post-title-link" itemprop="url">Linux设备驱动中DMA接口的使用</a>
-        </h2>
+        <h1 class="post-title" itemprop="name headline">
+          Linux设备驱动中DMA接口的使用
+        </h1>
 
         <div class="post-meta">
             <span class="post-meta-item">
@@ -184,7 +188,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <h2 id="Linux设备驱动中DMA接口的使用"><a href="#Linux设备驱动中DMA接口的使用" class="headerlink" title="Linux设备驱动中DMA接口的使用"></a>Linux设备驱动中DMA接口的使用</h2><p>-v0.1 2018.3.13 Sherlock init Westford</p>
+        <h2 id="Linux设备驱动中DMA接口的使用"><a href="#Linux设备驱动中DMA接口的使用" class="headerlink" title="Linux设备驱动中DMA接口的使用"></a>Linux设备驱动中DMA接口的使用</h2><p>-v0.1 2018.3.13 Sherlock init Westford</p>
 <p>本文试图讲清楚linux里的DMA接口使用时的一些基本概念。阅读本文的时候，可以先看看<br>内核里的Documentation/DMA*(DMA相关的一些文件), 其实这里面讲的已经很清楚了，另外<br>还可以看看知乎上的一篇文章：<a target="_blank" rel="noopener" href="https://zhuanlan.zhihu.com/p/25999484">https://zhuanlan.zhihu.com/p/25999484</a>, 这篇文章对<br>Linux里关于地址空间的各个概念有很好的讲解。</p>
 <ol start="0">
 <li><p>DMA的概念</p>
@@ -225,98 +229,30 @@
 </ol>
 <p>知道这些概念对我们编程有什么作用? 首先编程应该是基于正确语义的。你用get_free_page<br>或者是kmalloc分配一段地址给DMA，在特性的条件下或许没有问题。但是，语义完全是错的,<br>这些得到的地址都是CPU虚拟地址，CPU可以用这些地址访问数据。但是设备用这些地址发起<br>DMA操作，是很可能有问题的。</p>
 
-      
     </div>
 
     
     
     
+
       <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/05/20/TPH-analysis/">
+        
 
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="">
-    </span>
 
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/05/20/TPH-analysis/" class="post-title-link" itemprop="url">TPH analysis</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-05-21 05:15:56 / 修改时间：13:16:48" itemprop="dateCreated datePublished" datetime="2021-05-21T05:15:56+08:00">2021-05-21</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <h2 id="TPH-analysis"><a href="#TPH-analysis" class="headerlink" title="TPH analysis"></a>TPH analysis</h2><p>-v0.1 2017.6.1 Sherlock init</p>
-<p> TPH is a PCIe feature which can be seen in PCIe3.0 spec. This document will<br> analysis this feature, the goal here is to find how to support it from software<br> (Linux kernel)</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">               +-----+</span><br><span class="line">               | CPU |</span><br><span class="line">               +--+--+</span><br><span class="line">                  |</span><br><span class="line">             +----+-----+</span><br><span class="line">             | L3 cache |</span><br><span class="line">             +----+-----+</span><br><span class="line">                  |                 +-----+</span><br><span class="line">----------+-------+-----------------+ DDR |</span><br><span class="line">          |                         +-----+</span><br><span class="line">          |</span><br><span class="line">        +-+--+ &lt;--- stash table</span><br><span class="line">        | RP |</span><br><span class="line">        +-+--+</span><br><span class="line">          |</span><br><span class="line">        +-+--+ &lt;--- TH, PH, ST</span><br><span class="line">        | EP |</span><br><span class="line">        +----+</span><br></pre></td></tr></table></figure>
-
-<p>TPH is a feature by which we can controll if TLP from EP can read/write to DDR<br>or L3 cache directly. As the attribute of read/write flow is different, e.g.<br>some data will be read soon by CPU, after a DMA write to DDR/Cache, for this<br>kind of date, it is better to put them directly to cache.</p>
-<p>Physically, RP will do the read/write to DDR/cach. TH, PH, ST in PCIe TLP<br>will be used to control above operation. TH bit(one bit) in TLP indicates if we<br>enable TPH feature. PH(2 bits) in TLP indicates which kind of flow it is. ST is<br>a hardware specific design, which can be stored in MSI-X table or TPH capability.</p>
-<p>So the software interface about TPH is:</p>
-<pre><code>    PR: Device Capability 2(offset 0x24): TPH Completer Supported(12,13bit RO)
-    EP: TPH Requester Capability: Header, capability register(RO), controler register(RW),
-        ST table.(ST table can be in MSI-X table)
-    EP&#39;s DMA descriptor: must have a place to offer PH related information.
-</code></pre>
-<p>In our system, we have above registers, ST table is in EP’s MSI-X table. Further<br>more, we have a stash table in RP. We implement ST table with 8 bit ST entry in EP,<br>which indicates which core/cluster one flow is expected to go to. The stash table<br>is a self-defined table, which is used to translate PH/ST info to stash info.</p>
-<p>So from software view, we can controll TPH from EP’s DMA descriptor, ST table,<br>stash table. Now ST table and stash table have relationship, it is hard to modify<br>a PCIe device driver according to our chip’s ST table definition :(</p>
-<p>But currently there is no clear definition about ST in PCIe spec and ARM spec.</p>
-<p>Above is the first consideration, which means we may need private patch to do<br>optimization in the future.</p>
-<p>The second consideration is as stach table will be implemented in BIOS, which<br>is hard to modified, we only can use ST and DMA descriptor to controll TPH behavior.</p>
-<p>Then third is that we should firstly configure cacheable attribute, then enable<br>TPH to put data to L3 cache directly, e.g. we should firstly enable CCA=1 for RP,<br>then enable TPH feature(e.g. we can enable SMMU and CCA=1 to enable cacheable attribute).</p>
-<p>The last is integrated PCIe devices, e.g. networking, also have TPH like feature.</p>
-
-      
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/20/TPH-analysis/" rel="prev" title="TPH analysis">
+      <i class="fa fa-chevron-left"></i> TPH analysis
+    </a></div>
+      <div class="post-nav-item"></div>
     </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
       </footer>
+    
   </article>
   
   
-  
-
-
   
 
 
@@ -369,6 +305,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E4%B8%ADDMA%E6%8E%A5%E5%8F%A3%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="nav-number">1.</span> <span class="nav-text">Linux设备驱动中DMA接口的使用</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
