@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="这篇文章记录一个简单个人博客的搭建过程，我们使用GitHub page + hexo + NexT主题的搭建方式。 整个搭建的环境是在一台arm64 ubuntu20.04机器上。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用hexo NexT搭建个人博客">
+<meta property="og:url" content="http://example.com/2021/06/18/%E4%BD%BF%E7%94%A8hexo-NexT%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="这篇文章记录一个简单个人博客的搭建过程，我们使用GitHub page + hexo + NexT主题的搭建方式。 整个搭建的环境是在一台arm64 ubuntu20.04机器上。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-18T15:36:31.000Z">
+<meta property="article:modified_time" content="2021-06-18T15:42:02.372Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="静态博客搭建">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/06/18/%E4%BD%BF%E7%94%A8hexo-NexT%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>使用hexo NexT搭建个人博客 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/18/%E4%BD%BF%E7%94%A8hexo-NexT%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          使用hexo NexT搭建个人博客
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-18 23:36:31 / 修改时间：23:42:02" itemprop="dateCreated datePublished" datetime="2021-06-18T23:36:31+08:00">2021-06-18</time>
+            </span>
+
+          
+            <span id="/2021/06/18/%E4%BD%BF%E7%94%A8hexo-NexT%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/" class="post-meta-item leancloud_visitors" data-flag-title="使用hexo NexT搭建个人博客" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/18/%E4%BD%BF%E7%94%A8hexo-NexT%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/18/%E4%BD%BF%E7%94%A8hexo-NexT%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">这篇文章记录一个简单个人博客的搭建过程，我们使用GitHub page + hexo + NexT主题的搭建方式。 整个搭建的环境是在一台arm64 ubuntu20.04机器上。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ol>
+<li>基础逻辑说明</li>
+</ol>
+<hr>
+<p> github提供了静态网页展示的功能，我们可以在自己的github上创建username.github.io<br> 名字的仓库，然后在这个仓库的settings里开启Pages的功能。这里需要html文件才能以<br> 静态网页的形式把内容展示出来，而一般我们直接书写的是md或者是rst这样的文本文件。</p>
+<p> 网上有各种各样的从文本文件生成html文件的框架，hexo就是其中的一个，它是基于JS的。<br> hexo支持主题可选，通过选不同的主题，博客的风格会不一样，我们选的是NexT主题，这个<br> 主题使用的人很多，相关的资料也容易找。</p>
+<p> 我们把整个blog分成三个代码仓库来管理：</p>
+<ul>
+<li><p>hexo代码仓库，这个仓库是hexo代码，我们的博客原文也放在这个目录下。</p>
+</li>
+<li><p>静态网页仓库，这个仓库里的静态网页都是hexo生成的。我们把这个仓库推到如上的<br>username.github.io这个仓库，然后从浏览器就可有通过<a target="_blank" rel="noopener" href="https://username.github.io/">https://username.github.io</a><br>访问到。</p>
+</li>
+<li><p>NexT主题的仓库，我们把这个仓库fork一份到自己的github上，一般我们只需要改动<br>NexT的配置文件就好，但是我们这里还是把仓库本身也保存一份，日后可以直接修改NexT<br>的代码，然后提交到自己的仓库暂时保存。我们把自己的这个NexT仓库作为hexo仓库的<br>submodule保存。</p>
+</li>
+</ul>
+<ol start="2">
+<li>搭建过程</li>
+</ol>
+<hr>
+<ul>
+<li><p>安装npm、nodejs和hexo</p>
+<p>sudo apt install npm nodejs<br>sudo npm install -g hexo-cli</p>
+<p>Note: 上面安装的nodejs是10.x.x的，后面生成博客的时候会报错，我们这里需要安装</p>
+<pre><code>  12.x.x的nodejs版本。nodejs的版本可以通过node -v 来看。
+</code></pre>
+</li>
+<li><p>安装12.x.x nodejs</p>
+<p>curl -sL <a target="_blank" rel="noopener" href="https://deb.nodesource.com/setup_12.x">https://deb.nodesource.com/setup_12.x</a> | sudo -E bash -<br>sudp apt update<br>sudo apt install -y nodejs</p>
+</li>
+<li><p>下载hexo和NexT</p>
+<p>mkdir hexo; cd hexo<br>hexo init blog<br>cd blog<br>sudo npm install</p>
+<p>把NexT fork到自己的github, 我们用url_priv_next表示自己NexT的github仓库地址。<br>创建一个空的github仓库用来存放hexo代码, 我们用url_priv_hexo表示自己的这个hexo<br>仓库的github地址。在hexo仓库把自己的NexT仓库设置成自己的hexo仓库的submodule:</p>
+<p>git submodule add url_priv_next themes/next</p>
+<p>到这里为止，基本的仓库以及他们之间的关系我们都搞定了。我们看看hexo里几个目录<br>里放什么：source里放博客相关的原文件，其中包括md文件和相关的图片；themes放各种<br>主题，所以NexT也放到这个目录下；scaffolds放各种模版，比如后面会讲到的生成文章<br>就会默认用到scaffolds/post.md这个模版，所以我们更改这个模版生成的文章也会带上<br>相关的改动，如下的description就是这样的一个例子, draft.md这个模版可以用来生成<br>草稿文档，比如我们可以用hexo new draft “draft_1”来生成名字是draft_1的草稿文档，<br>这个草稿文档以draft.md为模版，存放在source/_drafts下；public用来放后面生成<br>的html文档；node_modules是一些和Hexo nodejs相关的东西。</p>
+</li>
+<li><p>配置hexo以及NexT的配置文件</p>
+<p>如上的配置已经可以生成静态网页。出于个人偏好，我自己的配置文件的改动如下，<br>具体的改动可以看相关地方的注释：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">hexo _config.yml</span><br><span class="line"></span><br><span class="line">diff --git a/_config.yml b/_config.yml</span><br><span class="line">index 2dc35e6..97fc902 100644</span><br><span class="line">--- a/_config.yml</span><br><span class="line">+++ b/_config.yml</span><br><span class="line">@@ -97,7 +97,7 @@ ignore:</span><br><span class="line"> # Extensions</span><br><span class="line"> ## Plugins: https://hexo.io/plugins/</span><br><span class="line"> ## Themes: https://hexo.io/themes/</span><br><span class="line">-theme: landscape</span><br><span class="line">+theme: next  # 使用NexT主题</span><br><span class="line"></span><br><span class="line">diff --git a/scaffolds/post.md b/scaffolds/post.md</span><br><span class="line">index 1f9b9a4..91f86d0 100644</span><br><span class="line">--- a/scaffolds/post.md</span><br><span class="line">+++ b/scaffolds/post.md</span><br><span class="line">@@ -2,4 +2,5 @@</span><br><span class="line"> title: &#123;&#123; title &#125;&#125;</span><br><span class="line"> date: &#123;&#123; date &#125;&#125;</span><br><span class="line"> tags:</span><br><span class="line">+description:    # 如下使用hexo g 生成新md文档的时候会使用这个地方的模版，如果这里加上description</span><br><span class="line">                 # 主页就不会展示全部文件，而是只是显示这里的摘要。</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br></pre></td><td class="code"><pre><span class="line">NexT _config.yml</span><br><span class="line"></span><br><span class="line">diff --git a/_config.yml b/_config.yml</span><br><span class="line">index 61cc72d..957ae93 100644</span><br><span class="line">--- a/_config.yml</span><br><span class="line">+++ b/_config.yml</span><br><span class="line">@@ -67,7 +67,7 @@ footer:</span><br><span class="line">   copyright:</span><br><span class="line"> </span><br><span class="line">   # Powered by hexo &amp; NexT</span><br><span class="line">-  powered: true</span><br><span class="line">+  powered: false    # 个人喜欢极简的风格，所以去掉主页底部的&quot;Powered by hexo &amp; NexT&quot;</span><br><span class="line"> </span><br><span class="line">   # Beian ICP and gongan information for Chinese users. See: https://beian.miit.gov.cn, http://www.beian.gov.cn</span><br><span class="line">   beian:</span><br><span class="line">@@ -97,10 +97,10 @@ creative_commons:</span><br><span class="line"> # ---------------------------------------------------------------</span><br><span class="line"> </span><br><span class="line"> # Schemes</span><br><span class="line">-scheme: Muse</span><br><span class="line">+#scheme: Muse</span><br><span class="line"> #scheme: Mist</span><br><span class="line"> #scheme: Pisces</span><br><span class="line">-#scheme: Gemini</span><br><span class="line">+scheme: Gemini     # 换一个带边栏的风格，scheme是NexT内部的风格</span><br><span class="line"> </span><br><span class="line"> # Dark Mode</span><br><span class="line"> darkmode: false</span><br><span class="line">@@ -117,10 +117,10 @@ darkmode: false</span><br><span class="line"> # External url should start with http:// or https://</span><br><span class="line"> menu:</span><br><span class="line">   home: / || fa fa-home</span><br><span class="line">-  #about: /about/ || fa fa-user</span><br><span class="line">-  #tags: /tags/ || fa fa-tags</span><br><span class="line">+  about: /about || fa fa-user    # 打开about, tags, archives标签</span><br><span class="line">+  tags: /tags || fa fa-tags</span><br><span class="line">   #categories: /categories/ || fa fa-th</span><br><span class="line">-  archives: /archives/ || fa fa-archive</span><br><span class="line">+  archives: /archives || fa fa-archive</span><br><span class="line">   #schedule: /schedule/ || fa fa-calendar</span><br><span class="line">   #sitemap: /sitemap.xml || fa fa-sitemap</span><br><span class="line">   #commonweal: /404/ || fa fa-heartbeat</span><br><span class="line">@@ -138,8 +138,8 @@ menu_settings:</span><br><span class="line"> </span><br><span class="line"> sidebar:</span><br><span class="line">   # Sidebar Position.</span><br><span class="line">-  position: left</span><br><span class="line">-  #position: right</span><br><span class="line">+  #position: left</span><br><span class="line">+  position: right     # 边栏移动到右边</span><br><span class="line"> </span><br><span class="line">   # Manual define the sidebar width. If commented, will be default for:</span><br><span class="line">   # Muse | Mist: 320</span><br><span class="line">@@ -261,12 +261,12 @@ tag_icon: false</span><br><span class="line"> # Front-matter variable (unsupport animation).</span><br><span class="line"> reward_settings:</span><br><span class="line">   # If true, reward will be displayed in every article by default.</span><br><span class="line">-  enable: false</span><br><span class="line">+  enable: true        # 打开打赏的功能</span><br><span class="line">   animation: false</span><br><span class="line">   #comment: Donate comment here.</span><br><span class="line"> </span><br><span class="line"> reward:</span><br><span class="line">-  #wechatpay: /images/wechatpay.png</span><br><span class="line">+  wechatpay: /images/weixinpay.svg       # 把微信的付款二维码放到这个地方</span><br><span class="line">   #alipay: /images/alipay.png</span><br><span class="line">   #paypal: /images/paypal.png</span><br><span class="line">   #bitcoin: /images/bitcoin.png</span><br><span class="line">@@ -354,7 +354,7 @@ codeblock:</span><br><span class="line">   # Code Highlight theme</span><br><span class="line">   # Available values: normal | night | night eighties | night blue | night bright | solarized | solarized dark | galactic</span><br><span class="line">   # See: https://github.com/chriskempson/tomorrow-theme</span><br><span class="line">-  highlight_theme: normal</span><br><span class="line">+  highlight_theme: night blue            # 选择嵌入代码的显示风格，这里是深蓝色底</span><br><span class="line">   # Add copy button on codeblock</span><br><span class="line">   copy_button:</span><br><span class="line">     enable: false</span><br><span class="line">@@ -823,7 +823,7 @@ mermaid:</span><br><span class="line"> # Use velocity to animate everything.</span><br><span class="line"> # For more information: http://velocityjs.org</span><br><span class="line"> motion:</span><br><span class="line">-  enable: true</span><br><span class="line">+  enable: false          # 不禁止这个的话，打开一个文章会有动画，个人不喜欢这个</span><br><span class="line">   async: false</span><br><span class="line">   transition:</span><br><span class="line">     # Transition variants:</span><br></pre></td></tr></table></figure></li>
+<li><p>添加文章和生成静态网页</p>
+<p>hexo n “文章名字”<br>hexo clean &amp;&amp; hexo g</p>
+<p>会在public目录里生成相关的静态网页，把public里的内容copy出来然后push到如上的<br>username.github.io仓库里。</p>
+<p>本地调试的话可以先运行: hexo server, 然后在本地浏览器里通过<a target="_blank" rel="noopener" href="http://localhost:4000/">http://localhost:4000</a><br>观察生成的静态网页。</p>
+</li>
+<li><p>保存本地改动到GitHub</p>
+<p>cd hexo/blog; git add &lt;改动文件&gt;; git commit -s -m &lt;改动描述&gt;;<br>cd hexo/blog/themes/next; git add &lt;改动文件&gt;; git commit -s -m &lt;改动描述&gt;;<br>git remote add url_priv_hexo<br>git push –recurse-submodules=on-demand origin master:master</p>
+<p>在其他地方可以使用如下的方式迭代clone hexo和NexT仓库:<br>git clone –recursive url_priv_hexo</p>
+</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E9%9D%99%E6%80%81%E5%8D%9A%E5%AE%A2%E6%90%AD%E5%BB%BA/" rel="tag"># 静态博客搭建</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/05/22/how-to-test-RoCE-driver/" rel="prev" title="how to test RoCE driver">
+      <i class="fa fa-chevron-left"></i> how to test RoCE driver
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/18/%E4%BD%BF%E7%94%A8eBPF%E5%BE%97%E5%88%B0%E5%86%85%E6%A0%B8%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B%E7%9A%84%E6%97%B6%E9%97%B4%E5%88%86%E5%B8%83/" rel="next" title="使用eBPF得到内核执行过程的时间分布">
+      使用eBPF得到内核执行过程的时间分布 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://blog.csdn.net/scarecrow_byr" title="CSDN → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr" rel="noopener" target="_blank"><i class="fab fa-csdn fa-fw"></i>CSDN</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : '' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
