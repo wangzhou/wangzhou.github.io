@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文简单介绍Linux内核透明大页的概念、使用方式和代码">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux透明大页(THP)分析">
+<meta property="og:url" content="http://example.com/2021/06/19/Linux%E9%80%8F%E6%98%8E%E5%A4%A7%E9%A1%B5-THP-%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文简单介绍Linux内核透明大页的概念、使用方式和代码">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-19T02:05:48.000Z">
+<meta property="article:modified_time" content="2021-06-19T03:09:36.447Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="Linux内核">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/06/19/Linux%E9%80%8F%E6%98%8E%E5%A4%A7%E9%A1%B5-THP-%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux透明大页(THP)分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/19/Linux%E9%80%8F%E6%98%8E%E5%A4%A7%E9%A1%B5-THP-%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux透明大页(THP)分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-19 10:05:48 / 修改时间：11:09:36" itemprop="dateCreated datePublished" datetime="2021-06-19T10:05:48+08:00">2021-06-19</time>
+            </span>
+
+          
+            <span id="/2021/06/19/Linux%E9%80%8F%E6%98%8E%E5%A4%A7%E9%A1%B5-THP-%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Linux透明大页(THP)分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/19/Linux%E9%80%8F%E6%98%8E%E5%A4%A7%E9%A1%B5-THP-%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/19/Linux%E9%80%8F%E6%98%8E%E5%A4%A7%E9%A1%B5-THP-%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文简单介绍Linux内核透明大页的概念、使用方式和代码</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ol start="0">
+<li>THP是什么</li>
+</ol>
+<hr>
+<p> Linux有两种使用大页的方式，一种是普通大页，另一种是透明大页。本文说的就是透明<br> 大页，透明大页的本意是系统在可以搞成大页的时候，自动的给你做大页的映射，这样<br> 有两个好处，一是减少缺页的次数，另一个是减少TLB miss的数量。</p>
+<p> 可以在这里找见THP的说明文档：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">linux/Documentation/vm/transhuge.rst</span><br><span class="line">linux/Documentation/admin-guide/mm/transhuge.rst</span><br></pre></td></tr></table></figure>
+
+<ol>
+<li>THP的使用方式</li>
+</ol>
+<hr>
+<p> 上面的内核文档已经详细介绍了THP的使用方式。简单总结，就是sysfs中提供了三大类<br> 接口去控制THP的使用方式。</p>
+<p> 第一类接口配置THP的使用范围: /sys/kernel/mm/transparent_hugepage/enabled<br> alway是指在整个系统里使用THP, madvise是指可以用madvise指定使用THP的地址范围，<br> never是关掉THP。内核提供了CONFIG_TRANSPARENT_HUGEPAGE_ALWAYS以及<br> CONFIG_TRANSPARENT_HUGEPAGE_MADVISE去配置如上enable里的默认值。</p>
+<p> 第二类接口配置生成大页的方式：/sys/kernel/mm/transparent_hugepage/defrag<br> always是在内存申请或者madvise的时候直接stall住内存申请，直到内核通过各种手段<br> 把大页搞出来。内存申请返回或者是madvise返回的时候，已经是大页了; defer是随后<br> 内核会异步的把大页给你搞好; defer+madvise是只对madvise是立即搞定大页，其他的<br> 情况还是按照defer的来; madvise是只对madvise立即搞定大页。</p>
+<p> 第三类接口，配置内核khugepaged线程的一些参数，比如多少长时间做一次扫描, 具体<br> 可以参考上面的内核文档：/sys/kernel/mm/transparent_hugepage/khugepaged/*</p>
+<p> 内核文档里也介绍了THP相关的一些统计参数，比如/proc/vmstat里的thp_*的各个参数，<br> /proc/meminfo、/proc/PID/smap里的AnonHugePages。从内核代码里还可以看到有debugfs<br> 下的接口/sys/kernel/debug/split_huge_pages。</p>
+<p> 整个系统使用THP，打开enabled always就好。单独一段内存使用THP，需要用madvise打<br> 上一个MADV_HUGEPAGE, 类似:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">p = mmap(NULL, MEM_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE |</span><br><span class="line">	 MAP_ANONYMOUS, -1, 0);</span><br><span class="line">if (p == MAP_FAILED)</span><br><span class="line">	exit(1);</span><br><span class="line"></span><br><span class="line">ret = madvise(p, MEM_SIZE, MADV_HUGEPAGE);</span><br><span class="line">if (ret)</span><br><span class="line">	exit(1);</span><br><span class="line"></span><br><span class="line">munmap(p, MEM_SIZE);</span><br></pre></td></tr></table></figure>
+
+<p> 实际上, 现在的内核代码和defrag中的定义已经没有严格对应。比如在enable: always,<br> defrag: madvise的时候，vma merge还是会把大于2MB的vma扔给khugepaged线程去扫描、<br> 然后触发huge page collapse。</p>
+<ol start="2">
+<li>THP内核代码分析</li>
+</ol>
+<hr>
+<p> 透明巨页的内核配置是CONFIG_TRANSPARENT_HUGEPAGE，代码主要在mm/khugepages.c，<br> mm/huge_memory.c，相关的头文件在include/linux/huge_mm.h，include/linux/khugepaged.h。</p>
+<p> THP的初始化在huge_memory.c的hugepage_init(), 这个函数初始化THP, 并且start<br> khugepaged内核线程。/sys/kernel/mm/transparent_hugepage/enabled里写always或者<br> madvise也可以start khugepaged内核线程。</p>
+<p> 我们跟踪代码的从三个地方入手，一个是__transparent_hugepage_enabled，这个是内核<br> 缺页流程__handle_mm_fault里, 这里会判断系统有没有使能透明大页，如果使能了，会直<br> 接分配大物理页。另外一个是，系统会启动一个内核线程持续扫描系统里的页，进行大页<br> 的合并。代码分析依赖5.11-rc4。第三个地方是madvise系统调用。</p>
+<p> mm/memory.c</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">__handle_mm_fault</span><br><span class="line">  +-&gt; __transparent_hugepage_enabled</span><br><span class="line">    /* 忽略细节，可以看到在下面的函数里申请page、安装页表 */</span><br><span class="line">    +-&gt; create_huge_pmd/pud</span><br><span class="line">      +-&gt; do_huge_pmd_anonymous_page</span><br><span class="line">        /* 分配内存 */</span><br><span class="line">        +-&gt; alloc_hugepage_vma</span><br><span class="line">	/* 安装页表并且处理和其他mm部件的关系 */</span><br><span class="line">	+-&gt; __do_huge_pmd_anonymous_page</span><br><span class="line"></span><br><span class="line">  /* ? */</span><br><span class="line">  +-&gt; handle_pte_fault</span><br></pre></td></tr></table></figure>
+<p> khugepaged的线程函数：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">khugepaged</span><br><span class="line">  +-&gt; khugepaged_do_scan</span><br><span class="line">    /* 一般情况不会进去这里 */</span><br><span class="line">    +-&gt; collapse_pte_mapped_thp</span><br><span class="line">    /*</span><br><span class="line">     * 有这两个入口做小页换成大页的操作, 第一个和file-back的内存有关系，</span><br><span class="line">     * 下面调用的是: collapse_file。第二个处理匿名页或者是堆上的内存，</span><br><span class="line">     * 下面调用的是：collapse_huge_page。</span><br><span class="line">     */</span><br><span class="line">    +-&gt; khugepaged_scan_file</span><br><span class="line">    /* 先扫描整个pmd下的页，可以做collapase的时候，最后走到collapse_huge_page */</span><br><span class="line">    +-&gt; khugepaged_scan_pmd</span><br><span class="line">      /*</span><br><span class="line">       * 这个是小页换成大页的核心函数，先分配2MB连续页面，然后断开pmd，</span><br><span class="line">       * 同时做tlb invalidate，然后把小页的内存copy到大页，然后把pmd页表</span><br><span class="line">       * 安装上。其中涉及的同步逻辑在最后collapse_huge_page页表同步里</span><br><span class="line">       * 展开分析。</span><br><span class="line">       */</span><br><span class="line">      +-&gt; collapse_huge_page</span><br></pre></td></tr></table></figure>
+<p> khugepaged的扫描需要内核的其他部分提供需要扫描的对象，这个入口函数是<br> khugepaged_enter。可以发现整个系统里有mm/mmap.c、mm/huge_memory.c、mm/shmem.c<br> 里调用了。</p>
+<p> madvise系统调用，mm/madvise.c</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">madvise_behavior</span><br><span class="line">  +-&gt; hugepage_madvise</span><br><span class="line">   ...</span><br><span class="line">     /*</span><br><span class="line">      * 这个函数为对应的mm生成一个mm_slot，把mm_slot添加到khugepaged的</span><br><span class="line">      * 扫描链表里，然后wakeup khugepaged线程。</span><br><span class="line">      */</span><br><span class="line">   +-&gt; __khugepaged_enter</span><br></pre></td></tr></table></figure>
+<p> mmap.c里的调用是在mmap或者brk系统调用，在不断的做vma_merge的时候，如果发现有<br> vma的range跨越了2MB的连续va，就会把对应的vma交给khugepaged扫描，做大页的替换。</p>
+<p> collapse_huge_page页表同步分析:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">    /* 分配大页 */</span><br><span class="line">+-&gt; khugepaged_alloc_page</span><br><span class="line"></span><br><span class="line">+-&gt; mmap_write_lock</span><br><span class="line"></span><br><span class="line">    /* 做secondory mmu tlbi */</span><br><span class="line">+-&gt; mmu_notifier_invalidate_range_start</span><br><span class="line"></span><br><span class="line">    /* 清空pmd页表项，做cpu tlbi */</span><br><span class="line">+-&gt; pmdp_collapse_flush</span><br><span class="line"></span><br><span class="line">+-&gt; mmu_notifier_invalidate_range_end</span><br><span class="line"></span><br><span class="line">    /* 清空pte页表, free相关页面 */</span><br><span class="line">+-&gt; __collapse_huge_page_isolate</span><br><span class="line"></span><br><span class="line">    /* 把小页里的内容copy到大页 */</span><br><span class="line">+-&gt; __collapse_huge_page_copy</span><br><span class="line"></span><br><span class="line">[...]</span><br><span class="line"></span><br><span class="line">    /* 装大页页表 */</span><br><span class="line">+-&gt; set_pmd_at</span><br><span class="line"></span><br><span class="line">+-&gt; mmap_write_unlock</span><br></pre></td></tr></table></figure>
+<p>  注意其他的cpu或者设备可以这个过程中还在写原来的小页内存，这些操作和如上页表<br>  变动的同步点在上面两个tlbi处，tlbi和随后的barrier可以保证之前正在总线上的相关<br>  地址操作都完成。这样在barrier后的新访存操作都会触发fault，这些fault都会在<br>  mmap_write_lock上排队。等到新访问的fault可以执行的时候，发现已经有大页，就可以<br>  做后续的处理。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" rel="tag"># 内存管理</a>
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/19/%E6%B5%8B%E8%AF%95openssl%E7%9A%84%E6%80%A7%E8%83%BD/" rel="prev" title="测试openssl的性能">
+      <i class="fa fa-chevron-left"></i> 测试openssl的性能
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/19/Linux%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E7%9A%84%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/" rel="next" title="Linux内存相关的测试工具">
+      Linux内存相关的测试工具 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://blog.csdn.net/scarecrow_byr" title="CSDN → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr" rel="noopener" target="_blank"><i class="fab fa-csdn fa-fw"></i>CSDN</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : '' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

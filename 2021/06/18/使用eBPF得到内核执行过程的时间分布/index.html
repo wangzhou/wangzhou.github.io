@@ -28,9 +28,9 @@
 <meta property="og:description" content="本文来自于一个这样的需求，我们需要统计Linux内核里一段执行流程执行时间的 分布情况，得到这个信息对于我们做系统优化有很大的帮助。除了帮助我们得到系统 运行情况的统计特征，我们还可以基于这样的基准测试来衡量我们的优化效果。本 文以一个实际的例子介绍怎么得到这样的统计信息。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-06-18T15:53:18.000Z">
-<meta property="article:modified_time" content="2021-06-18T15:55:19.126Z">
+<meta property="article:modified_time" content="2021-06-19T03:14:45.956Z">
 <meta property="article:author" content="Sherlock Wang">
-<meta property="article:tag" content="程序性能">
+<meta property="article:tag" content="软件性能">
 <meta name="twitter:card" content="summary">
 
 <link rel="canonical" href="http://example.com/2021/06/18/%E4%BD%BF%E7%94%A8eBPF%E5%BE%97%E5%88%B0%E5%86%85%E6%A0%B8%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B%E7%9A%84%E6%97%B6%E9%97%B4%E5%88%86%E5%B8%83/">
@@ -183,10 +183,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-18 23:53:18 / 修改时间：23:55:19" itemprop="dateCreated datePublished" datetime="2021-06-18T23:53:18+08:00">2021-06-18</time>
+              <time title="创建时间：2021-06-18 23:53:18" itemprop="dateCreated datePublished" datetime="2021-06-18T23:53:18+08:00">2021-06-18</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-06-19 11:14:45" itemprop="dateModified" datetime="2021-06-19T11:14:45+08:00">2021-06-19</time>
+              </span>
 
           
             <span id="/2021/06/18/%E4%BD%BF%E7%94%A8eBPF%E5%BE%97%E5%88%B0%E5%86%85%E6%A0%B8%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B%E7%9A%84%E6%97%B6%E9%97%B4%E5%88%86%E5%B8%83/" class="post-meta-item leancloud_visitors" data-flag-title="使用eBPF得到内核执行过程的时间分布" title="阅读次数">
@@ -297,7 +303,7 @@
 
       <footer class="post-footer">
           <div class="post-tags">
-              <a href="/tags/%E7%A8%8B%E5%BA%8F%E6%80%A7%E8%83%BD/" rel="tag"># 程序性能</a>
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E6%80%A7%E8%83%BD/" rel="tag"># 软件性能</a>
           </div>
 
         
@@ -309,7 +315,10 @@
     <a href="/2021/06/18/%E4%BD%BF%E7%94%A8hexo-NexT%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/" rel="prev" title="使用hexo NexT搭建个人博客">
       <i class="fa fa-chevron-left"></i> 使用hexo NexT搭建个人博客
     </a></div>
-      <div class="post-nav-item"></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/19/Linux%E7%BA%BF%E7%A8%8B%E5%AD%A6%E4%B9%A0-APUE11-12%E7%AB%A0/" rel="next" title="Linux线程学习- APUE11/12章">
+      Linux线程学习- APUE11/12章 <i class="fa fa-chevron-right"></i>
+    </a></div>
     </div>
       </footer>
     
@@ -382,14 +391,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">5</span>
+          <span class="site-state-item-count">18</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">5</span>
+        <span class="site-state-item-count">18</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

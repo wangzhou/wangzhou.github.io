@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文分析SMMU-v3 tlbi相关的硬件语义和linux相关驱动代码的实现。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="SMMU TLBI分析">
+<meta property="og:url" content="http://example.com/2021/06/19/SMMU-TLBI%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析SMMU-v3 tlbi相关的硬件语义和linux相关驱动代码的实现。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-19T02:28:42.000Z">
+<meta property="article:modified_time" content="2021-06-19T03:10:53.233Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta property="article:tag" content="SMMU">
+<meta property="article:tag" content="计算机体系构架">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/06/19/SMMU-TLBI%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>SMMU TLBI分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/19/SMMU-TLBI%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          SMMU TLBI分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-19 10:28:42 / 修改时间：11:10:53" itemprop="dateCreated datePublished" datetime="2021-06-19T10:28:42+08:00">2021-06-19</time>
+            </span>
+
+          
+            <span id="/2021/06/19/SMMU-TLBI%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="SMMU TLBI分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/19/SMMU-TLBI%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/19/SMMU-TLBI%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析SMMU-v3 tlbi相关的硬件语义和linux相关驱动代码的实现。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ol>
+<li>SMMU E2H支持</li>
+</ol>
+<hr>
+<p> SMMU SVA支持的patchset里有一个补丁：iommu/arm-smmu-v3: Add support for VHE<br> 这个补丁的基本逻辑是, CPU支持VHE，且内核支持时，host kernel工作在EL2，在SVA<br> 下，因为需要做DVM tlbi广播，且tlbi广播在同一个EL里生效，所以需要SMMU这边的TLB<br> 也打上EL2的标记。这个是通过设置设备对应的STE里的STRW生效的，这个配置对SMMU tlb<br> 影响是全局的。</p>
+<p> 这里面还有三个逻辑：</p>
+<ol>
+<li><p>要使得DVM tlbi的广播生效，还要设置下SMMU CR2.E2H寄存器(使得ASID标记生效)。<br>这个补丁里配置了E2H。</p>
+</li>
+<li><p>因为STRW的配置是STE全局的，SMMU管理的内核地址的TLB也打上了EL2的标记，这就<br>需要把原来对内核地址的tlbi命令从TLBI_NH改成TLBI_VA。</p>
+</li>
+<li><p>原来invalidate内核地址的tlbi命令又可以分为TLBI_VA和TLBI_ASID，所以，上面<br>一步还要把原来的TLBI_NH_VA/TLBI_NH_ASID都改成TLBI_EL2_VA/TLBI_EL2_ASID。</p>
+</li>
+</ol>
+<p> 这个补丁做了上述的修改，使得SVA和内核地址的tlbi在VHE使能的时候都可以正常使用。</p>
+<ol start="2">
+<li>SMMU tlbi相关命令</li>
+</ol>
+<hr>
+<p> SMMU spec 4.4章节介绍了tlbi相关的command, 上面提到的相关tlbi命令在这一章节中<br> 都有详细的描述。EL2和NH的标记在上面已经介绍。关于VA和ASID标记的区别在于做tlb<br> 无效化的时候作用的范围是不一样的。简单的讲带ASID的tlbi会无效化对应asid的tlb，<br> 理论上讲，SVA需要用这个，但是现在SVA用的是DVM，还没有用到带ASID的tlbi，在实际<br> 分析的时候，还看到no-strict时使用的是带ASID的tlbi，这个下面结合代码来分析。<br> 直接带VA的tlbi可以对一段地址做tlb无效化，相关的command域段里的值有: scale,<br> num, asid, address, tg, ttl, leaf。当SMMU硬件支持tlbi by range(IDR3_RIL = 1)时，<br> 还可以用带VA的tlbi实现tlbi by range.</p>
+<ol start="3">
+<li>linux SMMU驱动里的实现</li>
+</ol>
+<hr>
+<p> 因为SVA没有用tlbi，所以我们主要分析内核dma内存中的tlbi就好了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">/* drivers/iommu/dma-iommu.c */</span><br><span class="line">iommu_dma_free</span><br><span class="line">  +-&gt; __iommu_dma_unmap</span><br><span class="line">    /* 用来init iotlb_gather，为以后做tlbi by range做准备 */</span><br><span class="line">    +-&gt; iommu_iotlb_gather_init</span><br><span class="line">    +-&gt; iommu_unmap_fast</span><br><span class="line">      ...</span><br><span class="line"> +-&gt; arm_smmu_unmap</span><br><span class="line">   /* drivers/iommu/io-pgtable-arm.c, 这一步跳的有点大:) */</span><br><span class="line">   +-&gt; arm_lpae_unmap </span><br><span class="line">     +-&gt; __arm_lpae_unmap</span><br><span class="line">       +-&gt; io_pgtable_tlb_add_page</span><br><span class="line">  /* drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c */</span><br><span class="line">  +-&gt; arm_smmu_tlb_inv_page_nosync </span><br><span class="line">    /*</span><br><span class="line">     * 不断的收集tlbi的range，遇到不相连的range就做tlbi</span><br><span class="line">     */</span><br><span class="line">    +-&gt; iommu_iotlb_gather_add_page</span><br><span class="line">      +-&gt; iommu_tlb_sync</span><br><span class="line">        /* arm-smmu-v3.c */</span><br><span class="line">        +-&gt; arm_smmu_iotlb_sync</span><br><span class="line">	  /* 使用VA tlbi，range invalidate的逻辑也在这里 */</span><br><span class="line">	  +-&gt; arm_smmu_tlb_inv_range</span><br><span class="line"></span><br><span class="line">    +-&gt; iommu_tlb_sync (如果没有fq_domain，即使用strict mode)</span><br><span class="line">      +-&gt; arm_smmu_iotlb_sync</span><br><span class="line">    ...</span><br></pre></td></tr></table></figure>
+<p> 使用no-strict模式会起一个定时器, 在队列满或者定时器到时做tlbi。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">/* drivers/iommu/iova.c */</span><br><span class="line">iova_domain_flush</span><br><span class="line">  /* drivers/iommu/dma-iommu.c */</span><br><span class="line">  +-&gt; iommu_dma_flush_iotlb_all</span><br><span class="line">    /* arm-smmu-v3.c */</span><br><span class="line">    +-&gt; arm_smmu_flush_iotlb_all</span><br><span class="line">      /* 这个函数里会下发带ASID的tlb */</span><br><span class="line">      +-&gt; arm_smmu_tlb_inv_context</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+              <a href="/tags/SMMU/" rel="tag"># SMMU</a>
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E6%9E%84%E6%9E%B6/" rel="tag"># 计算机体系构架</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/19/%E4%BD%BF%E7%94%A8github%E5%81%9A%E5%BC%80%E6%BA%90%E5%BC%80%E5%8F%91/" rel="prev" title="使用github做开源开发">
+      <i class="fa fa-chevron-left"></i> 使用github做开源开发
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/19/%E4%BD%BF%E7%94%A8perf-trace%E8%B7%9F%E8%B8%AAIO%E7%BC%BA%E9%A1%B5/" rel="next" title="使用perf trace跟踪IO缺页">
+      使用perf trace跟踪IO缺页 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://blog.csdn.net/scarecrow_byr" title="CSDN → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr" rel="noopener" target="_blank"><i class="fab fa-csdn fa-fw"></i>CSDN</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : '' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

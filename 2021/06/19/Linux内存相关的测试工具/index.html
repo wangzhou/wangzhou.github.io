@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":false,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文用来整理Linux内存相关的测试工具">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux内存相关的测试工具">
+<meta property="og:url" content="http://example.com/2021/06/19/Linux%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E7%9A%84%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文用来整理Linux内存相关的测试工具">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-19T02:11:01.000Z">
+<meta property="article:modified_time" content="2021-06-19T02:12:46.175Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="内存管理">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/06/19/Linux%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E7%9A%84%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux内存相关的测试工具 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/19/Linux%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E7%9A%84%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux内存相关的测试工具
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-19 10:11:01 / 修改时间：10:12:46" itemprop="dateCreated datePublished" datetime="2021-06-19T10:11:01+08:00">2021-06-19</time>
+            </span>
+
+          
+            <span id="/2021/06/19/Linux%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E7%9A%84%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/" class="post-meta-item leancloud_visitors" data-flag-title="Linux内存相关的测试工具" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/19/Linux%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E7%9A%84%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/19/Linux%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E7%9A%84%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文用来整理Linux内存相关的测试工具</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ol>
+<li>smem</li>
+</ol>
+<hr>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">  PID User     Command                         Swap      USS      PSS      RSS </span><br><span class="line">40200 test     bash                               0   524.0K   687.0K     3.1M </span><br><span class="line">39757 test     bash                               0   524.0K   692.0K     3.2M </span><br><span class="line">40203 test     /usr/bin/python /usr/bin/sm        0     6.1M     6.2M     7.7M </span><br></pre></td></tr></table></figure>
+<p>运行smem -k命令可以看到系统里进程占用内存的情况。如上各个SS的含义是:</p>
+<p> USS: unique set size. 表示的是进程独占的物理内存，不包含动态库占的内存。<br> PSS: proportional set size. 进程自己的物理内存 + 动态库折算到进程里的内存。<br> RSS: resident set size. 进程实际使用的物理内存，包括共享库内存。<br> VSS: virtual set size. 进程使用的所有虚拟内存，包括共享库虚拟内存。</p>
+<ol start="2">
+<li>/proc/buddyinfo</li>
+</ol>
+<hr>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">Node 1, zone      DMA     10     12     11     11     13     11     10     10      6      6    226 </span><br><span class="line">Node 1, zone    DMA32      1      0      1      1      4      2      4      3      4      4    176 </span><br><span class="line">Node 1, zone   Normal  15807  52091  12723    877    258    703    579    194     35     34   5546 </span><br><span class="line">Node 3, zone   Normal  54266  41801  23819  10038   3476    641     65     29     13     19   6714 </span><br></pre></td></tr></table></figure>
+<p>表示系统里伙伴系统中，2^1, 2^2…连续页有多少个，这个可以看到伙伴系统内存碎片的<br>情况。</p>
+<ol start="3">
+<li>/sys/kernel/mm/*</li>
+</ol>
+<hr>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">├── hugepages</span><br><span class="line">├── ksm</span><br><span class="line">├── swap</span><br><span class="line">└── transparent_hugepage</span><br></pre></td></tr></table></figure>
+<p>可以看到如上各个特性的一些统计值。</p>
+<ol start="4">
+<li>pidof + pmap + /proc/pid/maps /proc/pid/smaps /proc/pid/stack</li>
+</ol>
+<hr>
+<p>./a.out &amp;<br>pmap -x <code>pidof a.out</code></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">41677:   ./a.out</span><br><span class="line">Address           Kbytes     RSS   Dirty Mode  Mapping</span><br><span class="line">0000000000400000       4       4       0 r-x-- a.out</span><br><span class="line">0000000000400000       0       0       0 r-x-- a.out</span><br><span class="line">0000000000410000       4       4       4 r---- a.out</span><br><span class="line">0000000000410000       0       0       0 r---- a.out</span><br><span class="line">0000000000411000       4       4       4 rw--- a.out</span><br><span class="line">0000000000411000       0       0       0 rw--- a.out</span><br><span class="line">0000ffff8dac8000    1204     480       0 r-x-- libc-2.23.so</span><br><span class="line">0000ffff8dac8000       0       0       0 r-x-- libc-2.23.so</span><br><span class="line">0000ffff8dbf5000      60       0       0 ----- libc-2.23.so</span><br><span class="line">0000ffff8dbf5000       0       0       0 ----- libc-2.23.so</span><br><span class="line">0000ffff8dc04000      16      16      16 r---- libc-2.23.so</span><br><span class="line">0000ffff8dc04000       0       0       0 r---- libc-2.23.so</span><br><span class="line">0000ffff8dc08000       8       8       8 rw--- libc-2.23.so</span><br><span class="line">0000ffff8dc08000       0       0       0 rw--- libc-2.23.so</span><br><span class="line">0000ffff8dc0a000      16       8       8 rw---   [ anon ]</span><br><span class="line">0000ffff8dc0a000       0       0       0 rw---   [ anon ]</span><br><span class="line">0000ffff8dc0e000     112     112       0 r-x-- ld-2.23.so</span><br><span class="line">0000ffff8dc0e000       0       0       0 r-x-- ld-2.23.so</span><br><span class="line">0000ffff8dc2b000       8       8       8 rw---   [ anon ]</span><br><span class="line">0000ffff8dc2b000       0       0       0 rw---   [ anon ]</span><br><span class="line">0000ffff8dc37000       8       0       0 r----   [ anon ]</span><br><span class="line">0000ffff8dc37000       0       0       0 r----   [ anon ]</span><br><span class="line">0000ffff8dc39000       4       4       0 r-x--   [ anon ]</span><br><span class="line">0000ffff8dc39000       0       0       0 r-x--   [ anon ]</span><br><span class="line">0000ffff8dc3a000       4       4       4 r---- ld-2.23.so</span><br><span class="line">0000ffff8dc3a000       0       0       0 r---- ld-2.23.so</span><br><span class="line">0000ffff8dc3b000       8       8       8 rw--- ld-2.23.so</span><br><span class="line">0000ffff8dc3b000       0       0       0 rw--- ld-2.23.so</span><br><span class="line">0000ffffc48f9000     132      12      12 rw---   [ stack ]</span><br><span class="line">0000ffffc48f9000       0       0       0 rw---   [ stack ]</span><br><span class="line">---------------- ------- ------- ------- </span><br><span class="line">total kB            1592     672      72</span><br></pre></td></tr></table></figure>
+
+<p>/proc/pid/smaps反应一个进程里的各个vma里的信息。提供的信息比/proc/pid/maps多</p>
+<ol start="5">
+<li>numastat -p <pid></li>
+</ol>
+<hr>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">Per-node process memory usage (in MBs) for PID 417 (a.out)</span><br><span class="line">                           Node 0          Node 1           Total</span><br><span class="line">                  --------------- --------------- ---------------</span><br><span class="line">Huge                         0.00            0.00            0.00</span><br><span class="line">Heap                         0.01            0.00            0.01</span><br><span class="line">Stack                        0.00            0.00            0.01</span><br><span class="line">Private                      0.17            0.40            0.57</span><br><span class="line">----------------  --------------- --------------- ---------------</span><br><span class="line">Total                        0.18            0.41            0.59</span><br></pre></td></tr></table></figure>
+<p>可以看到一个进程在各个numa节点上的内存使用情况，可以用这个命令观察一段时间进程<br>的内存在各个numa之间使用的情况。</p>
+<ol start="6">
+<li>mallopt</li>
+</ol>
+<hr>
+<p>C库中设定内存分配配置的接口, 通过mallopt这个函数可以改变malloc/free的行为。</p>
+<ol start="7">
+<li>mbind/madvise</li>
+</ol>
+<hr>
+<p>mbind是对应系统调用的封装，可以把虚拟内存对应的物理内存和对应的numa节点绑定。<br>madvise也是对应系统调用的封装，可以从用户态传递一些内存相关的属性给内核。</p>
+<ol start="8">
+<li>getrusage</li>
+</ol>
+<hr>
+<p>getrusage是一个库函数，可以得到一个进程的相关资源的使用情况。其中包括内存使用<br>的统计。比如其中，ru_minflt就是系统里初次分配内存这种缺页的次数，而ru_majflt<br>是从swap分区里换入内存这样缺页的数目。</p>
+<ol start="9">
+<li>proc下的关于内存的信息</li>
+</ol>
+<hr>
+<p>/proc/slabinfo<br>/proc/iomem<br>/proc/meminfo<br>/proc/vmstat<br>/proc/zoneinfo<br>/proc/vmallocinfo<br>/proc/sys/vm/*</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" rel="tag"># 内存管理</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/19/Linux%E9%80%8F%E6%98%8E%E5%A4%A7%E9%A1%B5-THP-%E5%88%86%E6%9E%90/" rel="prev" title="Linux透明大页(THP)分析">
+      <i class="fa fa-chevron-left"></i> Linux透明大页(THP)分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/19/Dump-Linux%E5%86%85%E6%A0%B8%E5%92%8C%E7%94%A8%E6%88%B7%E8%BF%9B%E7%A8%8B%E9%A1%B5%E8%A1%A8/" rel="next" title="Dump Linux内核和用户进程页表">
+      Dump Linux内核和用户进程页表 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description"></div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">18</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">18</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://blog.csdn.net/scarecrow_byr" title="CSDN → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr" rel="noopener" target="_blank"><i class="fab fa-csdn fa-fw"></i>CSDN</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : '' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
