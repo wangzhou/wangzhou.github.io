@@ -229,7 +229,7 @@
 </ol>
 <hr>
 <p> Linux系统下线程和进程的概念是比较模糊的。一般来说，线程是调度的单位，进程是资源<br> 的单位。本质上来说，内核看到都是一个个线程，但是线程之间可以通过共享资源，相互<br> 之间又划分到不同的进程里。</p>
-<p> 从内核视角上看各种不同的ID会比较清楚。之前的这篇文章对进程ID, 线程ID，进程组，<br> 线程组，会话已经有了简单描述：<br> <a target="_blank" rel="noopener" href="https://blog.csdn.net/scarecrow_byr/article/details/50437626?spm=1001.2014.3001.5501">https://blog.csdn.net/scarecrow_byr/article/details/50437626?spm=1001.2014.3001.5501</a></p>
+<p> 从内核视角上看各种不同的ID会比较清楚。之前的这篇文章对进程ID, 线程ID，进程组，<br> 线程组，会话已经有了简单描述：<br> <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzUwNDM3NjI2P3NwbT0xMDAxLjIwMTQuMzAwMS41NTAx">https://blog.csdn.net/scarecrow_byr/article/details/50437626?spm=1001.2014.3001.5501<i class="fa fa-external-link-alt"></i></span></p>
 <p> 在一个进程的多个线程里调用getpid，这个是一个c库对getpid系统调用的封装，所以这<br> 个函数返回调用线程的进程ID, 这个ID其实就是这个线程组的线程组ID，也是这个线程组<br> 的主线程的内核pid，这个从kernel代码kernel/sys.c getpid的系统调用可以看的很清楚。<br> 使用gettid系统调用可以得到一个线程的对应内核pid。</p>
 <p> 而所谓pthread库的pthread_self()得到的只是pthread库自定义的线程ID，这个东西和上<br> 面内核里真正的各种ID是完全不同的。</p>
 <p> 线程的创建用pthread_create, 用的系统调用是clone。我们考虑线程结束的方法，线程执<br> 行完线程函数后自己会退出，这其中也包括线程函数自己调用pthread_exit把自己结束。<br> 线程也可以被进程中的其他线程取消，取消一个线程使用的函数是：pthread_cancel(pthread_t tid)。<br> 用strace跟踪下，可以发现pthread_cancel中的系统调用是tgkill(tgid, tid, SIGRTMIN),<br> 这个系统调用向线程组tgid里的tid线程发送SIGRTMIN信号。</p>
@@ -239,7 +239,7 @@
 <li>线程同步的锁</li>
 </ol>
 <hr>
-<p> 线程之间共享变量的时候需要加锁，以pthread库为例，我们有pthread_mutex, pthead_spinlock,<br> pthread读写锁。此外我们还可以自己实现锁，这个的好处是不受具体线程库的限制，<br> 不好的地方是，我们自己实现的锁一定没有pthread库实现的性能高。如下的测试代码中<br> 比较了pthread mutex/spinlock，以及自己实现的spinlock的性能:<br> <a target="_blank" rel="noopener" href="https://github.com/wangzhou/tests/blob/master/lock_test/test.c">https://github.com/wangzhou/tests/blob/master/lock_test/test.c</a></p>
+<p> 线程之间共享变量的时候需要加锁，以pthread库为例，我们有pthread_mutex, pthead_spinlock,<br> pthread读写锁。此外我们还可以自己实现锁，这个的好处是不受具体线程库的限制，<br> 不好的地方是，我们自己实现的锁一定没有pthread库实现的性能高。如下的测试代码中<br> 比较了pthread mutex/spinlock，以及自己实现的spinlock的性能:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL2xvY2tfdGVzdC90ZXN0LmM=">https://github.com/wangzhou/tests/blob/master/lock_test/test.c<i class="fa fa-external-link-alt"></i></span></p>
 <p> apue这里的例子11-5很好的展示了一个引用计数的实现方式。<br> 一定要避免A-B/B-A这种交叉加锁的情况，但是注意这里只是加锁，减锁的顺序可以随意。</p>
 <p> 如果一定要出现交叉加锁的情况，要做成如果第二把锁没有抢到(所以，第二把锁要用try<br> 锁)，那么已经锁上的第一把锁也要放开，要留出一条通道把可能的死锁情况放过去。过<br> 一段时间再锁上第一把锁，再try第二把锁。</p>
 <p> 11-6的代码对于交叉加锁的处理方式是，需要上第二把锁的时候，直接放开第一把锁，<br> 然后先上第二把锁，再上第一把锁，由于这个时候有个时间的空隙，可能不满足之前的<br> 条件了，所以要再check下之前需要第二把锁的条件。当然apue举这个例子的目的这里是<br> 为了说明可以简化加锁，需要在复杂度和性能之间权衡。</p>
@@ -247,14 +247,14 @@
 <li>条件变量和信号量</li>
 </ol>
 <hr>
-<p> 条件变量和信号量都是为了线程/进程之间同步用的，提供了线程/进程之间相互等待、<br> 通知的机制。简单写一个测试:<br> <a target="_blank" rel="noopener" href="https://github.com/wangzhou/tests/blob/master/pthread/thread.c">https://github.com/wangzhou/tests/blob/master/pthread/thread.c</a><br> <a target="_blank" rel="noopener" href="https://github.com/wangzhou/tests/blob/master/pthread/sem.c">https://github.com/wangzhou/tests/blob/master/pthread/sem.c</a><br> 在thread.c和sem.c里都会出现同一个问题，如果不在enqueue_msg函数里unlock和发信号<br> 之间增加时延，会出现发送线程一直持有锁，接收线程得不到锁从而无法及时接收的情况。<br> 测试发现，在unlock和发送信号(比如thread.c的pthread_mutex_unlock和pthread_cond_signal)<br> 之间增加usleep(1)的时延就可以使如上的这种情况不出现。</p>
+<p> 条件变量和信号量都是为了线程/进程之间同步用的，提供了线程/进程之间相互等待、<br> 通知的机制。简单写一个测试:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvdGhyZWFkLmM=">https://github.com/wangzhou/tests/blob/master/pthread/thread.c<i class="fa fa-external-link-alt"></i></span><br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvc2VtLmM=">https://github.com/wangzhou/tests/blob/master/pthread/sem.c<i class="fa fa-external-link-alt"></i></span><br> 在thread.c和sem.c里都会出现同一个问题，如果不在enqueue_msg函数里unlock和发信号<br> 之间增加时延，会出现发送线程一直持有锁，接收线程得不到锁从而无法及时接收的情况。<br> 测试发现，在unlock和发送信号(比如thread.c的pthread_mutex_unlock和pthread_cond_signal)<br> 之间增加usleep(1)的时延就可以使如上的这种情况不出现。</p>
 <ol start="4">
 <li>线程控制</li>
 </ol>
 <hr>
 <p> pthread库还有很多控制接口，这些接口可以改变如上接口的语义，或者增减新的功能。<br> 比如，每种锁的初始化接口都可以控制这些锁在嵌套加锁、不对称加锁等的语义，遇到<br> 这样的情况，可以配置成容许或者是返回错误值; 可以配置锁在线程之间还是进程之间<br> 共享; 可以配置线程栈的大小等; 可以申请线程的私有数据; 可以使得一个函数只执行<br> 一次。</p>
-<p> 简单写一个线程私有数据的测试:<br> <a target="_blank" rel="noopener" href="https://github.com/wangzhou/tests/blob/master/pthread/priv.c">https://github.com/wangzhou/tests/blob/master/pthread/priv.c</a><br> 可以看到，pthread_key_t key1的create没有和线程绑定。基本的逻辑是，pthread_key_create<br> 可以在任意一个线程里，pthread_setspecific和pthread_getspecific是在线程里对应的，<br> 在线程A里set的数据，可以在线程A里通过get拿到，但是在另外的一个线程B里对全局的<br> key1使用pthread_getspecific只能拿到NULL。apue里的例子把pthread_key_create放到<br> 了每个线程里，为了只调用一次pthread_key_create, 还介绍只跑一个函数一次的接口：<br> int pthread_once(pthread_once_t *initflag, void (*initfn)(void))，可以想象这个<br> 函数的实现是先上锁，然后检查initflag，initflag没有置上已经跑过的flag就调用initfn，<br> 如果已经跑过就不用跑了。这个只跑一次的接口在某些库的设计里是很有用的，比如一个<br> 库需要在进程使用的时候初始化一次，这里就可以用相似的设计或者直接用这个API。</p>
-<p> 关于信号可以参考如下link，线程和信号的细节内容需要另外描述。<br> <a target="_blank" rel="noopener" href="https://blog.csdn.net/scarecrow_byr/article/details/97621432?spm=1001.2014.3001.5501">https://blog.csdn.net/scarecrow_byr/article/details/97621432?spm=1001.2014.3001.5501</a></p>
+<p> 简单写一个线程私有数据的测试:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvcHJpdi5j">https://github.com/wangzhou/tests/blob/master/pthread/priv.c<i class="fa fa-external-link-alt"></i></span><br> 可以看到，pthread_key_t key1的create没有和线程绑定。基本的逻辑是，pthread_key_create<br> 可以在任意一个线程里，pthread_setspecific和pthread_getspecific是在线程里对应的，<br> 在线程A里set的数据，可以在线程A里通过get拿到，但是在另外的一个线程B里对全局的<br> key1使用pthread_getspecific只能拿到NULL。apue里的例子把pthread_key_create放到<br> 了每个线程里，为了只调用一次pthread_key_create, 还介绍只跑一个函数一次的接口：<br> int pthread_once(pthread_once_t *initflag, void (*initfn)(void))，可以想象这个<br> 函数的实现是先上锁，然后检查initflag，initflag没有置上已经跑过的flag就调用initfn，<br> 如果已经跑过就不用跑了。这个只跑一次的接口在某些库的设计里是很有用的，比如一个<br> 库需要在进程使用的时候初始化一次，这里就可以用相似的设计或者直接用这个API。</p>
+<p> 关于信号可以参考如下link，线程和信号的细节内容需要另外描述。<br> <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzk3NjIxNDMyP3NwbT0xMDAxLjIwMTQuMzAwMS41NTAx">https://blog.csdn.net/scarecrow_byr/article/details/97621432?spm=1001.2014.3001.5501<i class="fa fa-external-link-alt"></i></span></p>
 <p> 线程在fork系统调用上遇到的问题，我们自己写一个独立的应用的时候比较难遇到，因为<br> 全局受自己的控制，我们只要一开始fork进程，做好规划就好。但是，当我们要写一个库，<br> 这个库可以被其他上层代码调用，我们的库里又要起独立的线程时，这个问题就会出来。<br> 这个问题的本质是自己写的库里向上层export出了全局的资源，比如，如果库里只出函数<br> 接口，就没有问题，所有库里的资源都在函数的栈上，但是，如果库里有了全局资源，相当<br> 于，我们的库向调用进程里增加了全局的资源，调用进程将需要考虑这些全局资源(当然库<br> 可以向上层的调用者提出诉求或者接口)。具体看，子进程会从父进程那里继承:<br> 全局变量(子进程在没有写之前，如果去读这个变量，依然得到的是父进程里的值，如果拿<br> 这个值去做判断就有可能出错)、各种锁、信号量和条件变量。如果fork出来的进程不是<br> 调用exec系列函数去执行一个新的程序，那么子进程里拥有和父进程一样的锁、信号量和<br> 条件变量。可以通过pthread_atfork提前挂上fork时候的回调函数进行处理，即一定是在<br> prepare回调里先获取所有的锁，在parent、child里再释放所有的锁，注意这里的获取释放<br> 的操作和父进程里的可能获取锁的行为做了互斥。</p>
 <p> preaed/pwrite可以保证多线程对一个fd的操作是原子的。</p>
 
@@ -370,14 +370,14 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">28</span>
+          <span class="site-state-item-count">33</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">23</span>
+        <span class="site-state-item-count">28</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
