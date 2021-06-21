@@ -1165,7 +1165,7 @@ pre .javascript .function {
 }
 .links-of-author a::before,
 .links-of-author span.exturl::before {
-  background: #0aac13;
+  background: #4ac730;
   border-radius: 50%;
   content: ' ';
   display: inline-block;
@@ -1809,7 +1809,7 @@ pre .javascript .function {
   color: #999;
   font-family: 'Monda', "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 0.75em;
-  margin: 3px 0 10px 0;
+  margin: 3px 0 20px 0;
   text-align: center;
 }
 .posts-expand .post-meta .post-description {
@@ -2559,6 +2559,7 @@ body {
   background: url("/images/xiaozhen.jpeg");
   background-repeat: no-repeat;
   background-attachment: fixed;
+  background-size: cover;
   color: var(--text-color);
   font-family: 'Lato', "PingFang SC", "Microsoft YaHei", sans-serif;
   font-size: 1em;
