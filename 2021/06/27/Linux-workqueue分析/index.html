@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文介绍Linux内核里workqueue的使用方法，分析workqueue具体的代码实现。 并且基于qemu虚拟机做简单的测试。本文的分析基于Linux主线代码v5.5, 分析参考了蜗窝科技的分析文章: http:&#x2F;&#x2F;www.wowotech.net&#x2F;irq_subsystem&#x2F;workqueue.html http:&#x2F;&#x2F;www.wowotech.net&#x2F;irq_subsystem&#x2F;cmwq-i">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux workqueue分析">
+<meta property="og:url" content="http://example.com/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文介绍Linux内核里workqueue的使用方法，分析workqueue具体的代码实现。 并且基于qemu虚拟机做简单的测试。本文的分析基于Linux主线代码v5.5, 分析参考了蜗窝科技的分析文章: http:&#x2F;&#x2F;www.wowotech.net&#x2F;irq_subsystem&#x2F;workqueue.html http:&#x2F;&#x2F;www.wowotech.net&#x2F;irq_subsystem&#x2F;cmwq-i">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-27T10:01:35.000Z">
+<meta property="article:modified_time" content="2021-06-27T13:01:21.620Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux workqueue分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">53</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux workqueue分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-27 18:01:35 / 修改时间：21:01:21" itemprop="dateCreated datePublished" datetime="2021-06-27T18:01:35+08:00">2021-06-27</time>
+            </span>
+
+          
+            <span id="/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Linux workqueue分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文介绍Linux内核里workqueue的使用方法，分析workqueue具体的代码实现。 并且基于qemu虚拟机做简单的测试。本文的分析基于Linux主线代码v5.5, 分析参考了蜗窝科技的分析文章: http://www.wowotech.net/irq_subsystem/workqueue.html http://www.wowotech.net/irq_subsystem/cmwq-intro.html http://www.wowotech.net/irq_subsystem/alloc_workqueue.html http://www.wowotech.net/irq_subsystem/queue_and_handle_work.html</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ol>
+<li>workqueue基本使用方法</li>
+</ol>
+<hr>
+<p> workqueue机制可以异步执行内核其他模块的任务。内核其他模块有任务需要异步执行的<br> 时候，可以调用workqueue提供的接口，把任务丢给一个对应的内核线程去执行。这里<br> 提到的任务定义是一个函数。</p>
+<p> 这里我们提到的workqueue是内核最新的版本，它的正规名字叫做Concurrency Managed<br> Workqueue。代码路劲在：linux/kernel/workqueue.c, linux/include/linux/workqueue.h</p>
+<p> workqueue相关的基本概念有: work, workqueue, pool workqueue, worker pool, worker,<br> per-cpu worker pool, unbound worker pool, per-cpu workqueue, unbound workqueue.</p>
+<p> work, workqueue是workqueue对其他模块的接口。使用者要先创建需要执行的任务, 即work。<br> 然后调用workqueue API把这个任务放入相关的workqueue里执行。</p>
+<p> 整个workqueue又分per-cpu workqueue和unbound workqueue。per-cpu workqueue是系统<br> 启动的时候就分配好的(to do: 需要分析)。unbound workqueue需要用户自己创建。</p>
+<p> 如果用户使用per-cpu workqueue，只需要调用schedule_work(struct work_struct *work)<br> 即可。这个API会把work放到当前cpu的normal kworker pool中的一个worker上跑。<br> 使用queue_work_on(cpu, system_highpri_wq, work)可以把一个work放到指定cpu 高优先<br> 级pool上跑，使用queue_work_on(cpu, system_wq, work)可以把work放到指定cpu normal<br> kworker pool上跑。</p>
+<p> 如果用户使用unbound workqueue, 需要先使用<br> alloc_workqueue(const char *fmt, unsigned int flags, int max_active, …)申请<br> workqueue, 其中flags中要使用WQ_UNBOUND。随后使用<br> queue_work(struct workqueue_struct *wq, struct work_strct *work)把work放到wq<br> 里执行，也可以用queue_work_on(int cpu, struct workqueue_struct *wq, struct work_strct *work)，<br> 但是，上面的这个函数执行的时候并不能精确的把work放在cpu上执行。这两个函数的<br> 效果都是，把work放到当前cpu对应的numa node上的一个cpu跑。</p>
+<p> 可以看到，虽然workqueue的用户接口是work定义和work queue，但是最新workqueue的设计<br> 把前端的用户接口和后端的执行线程解耦开来，而且进一步加入了work pool即线程池的<br> 概念，把具体的执行线程即worker的创建和销毁变成了一个动态的过程。所以，我们的讨论<br> 要先基于线程池来。对于per-cpu workqueue, 在workqueue初始化的过程中，为每一个cpu<br> 都创建一个normal work pool和高优先级的work pool。对于unbound workqueue使用的<br> unbound work pool，系统建立一个全局的hash表保存所有不同种类的unbound work pool,<br> 所谓的种类由nice、cpumask、no numa三个参数决定，如果发现需要的unbound work pool<br> 在系统里已经有了，那么直接使用已有的unbound work pool, 一个work可以显示的放在<br> 一个unbound workqueue上跑，但是真正调度到哪个unbound work pool、还是新建立一个<br> unbound work pool, 这个需要运行时才能决定。</p>
+<p> 如上，现在workqueue的设计分了前端和后端, 前端是workqueue，后端是kworker pool，<br> worker。中间靠一个pool workqueue的东西连接。这里kworker pool就是一个线程池，<br> worker就是一个个线程，pool workqueue的pool是一个动作，这个动作把前端的workqueue<br> 和后端的一个线程池建立起联系。</p>
+<p> 至此，我们还需要知道线程池里线程创建和销毁的机制。首先创建线程池的时候会默认<br> 创建一个线程，注意，这里不是在创建队列的时候。也就是说，对于一个unbound work<br> queue, 在复用系统已经的unbound线程池的时候(绝大多数是复用已有的, 从调试结果看,<br> 系统一开始就会给每个numa node上创建一个normal unbound work pool和一个高优先级<br> unbound work pool), 是完全可能不新建线程的。当线程池里的线程没有被使用的时候，<br> 会自动进入idle状态，idle装态的线程在一定时间后会被销毁。线程池里至少要保持有一个<br> idle线程在，即使超时也不会被销毁。所以，当一个线程池里只有一个idle线程，这时我们<br> 又queue work到这个线程池时，workqueue的代码会首先wake up这个idle线程，这个idle<br> 线程起来后首先要做的就是看看有没有idle线程，如果没有，就要创建一个线程出来，可以<br> 看到idle线程被wake up后，这个线程池里已经没有idle线程，所以这里就会在线程池里<br> 创建新线程。当线程池里的线程被阻塞，这时又有新的work被调度的到这个线程池里时，<br> 也会创建新的线程(to do: 分析code)。处于运行状态的线程会把work queue里缓存的任务<br> 都执行一遍。当一个任务需要执行的时候，如果work pool里有运行状态的线程时，workqueue<br> 代码不会wake up idle线程。</p>
+<p> 当频繁把work放到一个unbound work pool上时，会有新worker创建被创建出来。但是<br> 当频繁的把work放到per-cpu work pool上的时候，任务只会在一个相同的worker上执行。<br> (to do: 分析code)</p>
+<p> 以上的数据结构大致是这样的:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">+----------+</span><br><span class="line">|unbound wq+-+- kworker pool(node0)-+- worker0 (u&lt;work pool id&gt;:&lt;worker num&gt;)</span><br><span class="line">+----------+ |                      +- worker1</span><br><span class="line">             |                      `- ...</span><br><span class="line">             |</span><br><span class="line">             `- kworker pool(node1)-+- worker0</span><br><span class="line">                                    +- worker1</span><br><span class="line">                                    `- ...</span><br><span class="line">+------------+</span><br><span class="line">|numa node 0 |</span><br><span class="line">|            |  .-- kworker pool    -+- worker0 (&lt;cpu num&gt;:&lt;worker num&gt;)</span><br><span class="line">|   cpu 0 ---+--+-- kworker pool[H]  +- worker1 </span><br><span class="line">|            |  .-- kworker pool     `- ...</span><br><span class="line">|   cpu 1 ---+--+-- kworker pool[H] -+- worker0 (&lt;cpu num&gt;:&lt;worker num&gt;H)</span><br><span class="line">+------------+                       +- worker1</span><br><span class="line">                                     `- ...</span><br><span class="line">+------------+</span><br><span class="line">|numa node 1 |</span><br><span class="line">|            |</span><br><span class="line">|   cpu 2    |      ...</span><br><span class="line">|            |</span><br><span class="line">|   cpu 3    |</span><br><span class="line">+------------+</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>workqueue代码的基本结构</li>
+</ol>
+<hr>
+<p> 详见简介中的连接, 这四篇文章已经讲的很好。</p>
+<ol start="3">
+<li>workqeueu API再挖掘</li>
+</ol>
+<hr>
+<p> 如上，workqueue的work不会直接和worker绑定，而是在queue_work的时候选择一个<br> kworker pool。</p>
+<p> 对于unbound workqueue, alloc_workqueue中会判断系统里是否有相同的kworker pool,<br> 如果有，就用已有的kworker pool。判断相同的依据是nice，cpumask，no numa。对于<br> per-cpu workqueue，直接选择当前cpu上的kworker pool。</p>
+<p> 创建一个新的kworker pool肯定至少要创建一个内核线程。所以，如果alloc_workqueue<br> 复用旧的kworker pool可能会用之前kworker pool里的线程，如果alloc_workqueue里创建<br> 新的kworker pool，那么这个步骤就会新建一个内核线程。</p>
+<p> kworker pool的worker是动态调整的，pool里的线程都处于阻塞状态的时候，pool就会<br> 新起一个线程执行work。下面的测试中，我们给一个unbound wq里发work，每个work里<br> sleep一段时间，可以看到，这个unbound wq是复用的系统已经有的kworker pool，在用完<br> 该kworker pool里本来已有的线程后，该worker pool会起新的线程执行work, 过一会<br> 可以发现，该worker pool里的线程有一部分被回收。(case 3)</p>
+<p> 注意, 在申请workqueue的时候加上WQ_SYSFS参数，可以把该workqueue的信息通过sysfs<br> 暴露到用户态：e.g. /sys/bus/workqueue/devices/writeback</p>
+<ol start="4">
+<li>测试</li>
+</ol>
+<hr>
+<p> 如下附录中的测试代码, 以下是测试得到的结论:</p>
+<p> case 1: queue_work_on, 对unbound work queue操作时只能把work放在对应numa node上<br>         的cpu，无法具体到cpu。</p>
+<p> case 2: schedule_work可以把work放到当前的cpu上。</p>
+<p> case 3: 当kwork pool里的线程都处于block状态的时候，如果有work需要执行，对应<br>         的pool就会新分配内核线程。(这个对于per-cpu和unbound work queue都是一样的)</p>
+<p> case 4: schedule_work会把work放到当前cpu上跑，block的时候，pool会新分配线程。</p>
+<p> case 5: schedule_work_on会只把work放到指定cpu上，block的时候，pool会新分配线程。</p>
+<p> case 6: 使用unboud pool, 频繁queue_work_on, 即使没有block，pool里也会创建新<br>         线程。</p>
+<p> case 7: 使用queue_work_on(cpu, system_highpri_wq, work)可以把一个work放到指定<br>         cpu上的高优先级pool上跑。如果有block, pool里会分配新线程，如果没有block，<br>     即使频繁调用queue_work_on pool也不会创建新线程。</p>
+<h2 id="附录"><a href="#附录" class="headerlink" title="附录"></a>附录</h2><p> wq_test.c测试代码：<span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL2t3cS93cV90ZXN0LmM=">https://github.com/wangzhou/tests/blob/master/kwq/wq_test.c<i class="fa fa-external-link-alt"></i></span></p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/27/Unix-Linux%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E7%A8%8B%E7%AC%94%E8%AE%B0-11-15/" rel="prev" title="Unix/Linux编程实践教程笔记(11-15)">
+      <i class="fa fa-chevron-left"></i> Unix/Linux编程实践教程笔记(11-15)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/27/Linux-zswap%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/" rel="next" title="Linux zswap构架分析">
+      Linux zswap构架分析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%99%84%E5%BD%95"><span class="nav-number">1.</span> <span class="nav-text">附录</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">53</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

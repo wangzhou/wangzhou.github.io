@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="最近Linux社区在上传SVA特性(share virtual memory), 简单讲这个特性可以达到 这样的功能，就是可以是设备直接使用进程里的虚拟地址。如果把设备操作映射到用户态， 就可以在用户态叫设备直接使用进程虚拟地址。设备可以使用进程虚拟地址做DMA，如果 设备功能强大，比如可以执行一段指令，设备甚至可以直接执行相应进程虚拟地址上的 指令。目前SVA特性正处于上传阶段，这个特性的补丁涉">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux SVA特性分析">
+<meta property="og:url" content="http://example.com/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="最近Linux社区在上传SVA特性(share virtual memory), 简单讲这个特性可以达到 这样的功能，就是可以是设备直接使用进程里的虚拟地址。如果把设备操作映射到用户态， 就可以在用户态叫设备直接使用进程虚拟地址。设备可以使用进程虚拟地址做DMA，如果 设备功能强大，比如可以执行一段指令，设备甚至可以直接执行相应进程虚拟地址上的 指令。目前SVA特性正处于上传阶段，这个特性的补丁涉">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-27T10:08:06.000Z">
+<meta property="article:modified_time" content="2021-06-27T14:45:26.979Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta property="article:tag" content="iommu">
+<meta property="article:tag" content="SMMU">
+<meta property="article:tag" content="内存管理">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux SVA特性分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">53</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux SVA特性分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-27 18:08:06 / 修改时间：22:45:26" itemprop="dateCreated datePublished" datetime="2021-06-27T18:08:06+08:00">2021-06-27</time>
+            </span>
+
+          
+            <span id="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Linux SVA特性分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">最近Linux社区在上传SVA特性(share virtual memory), 简单讲这个特性可以达到 这样的功能，就是可以是设备直接使用进程里的虚拟地址。如果把设备操作映射到用户态， 就可以在用户态叫设备直接使用进程虚拟地址。设备可以使用进程虚拟地址做DMA，如果 设备功能强大，比如可以执行一段指令，设备甚至可以直接执行相应进程虚拟地址上的 指令。目前SVA特性正处于上传阶段，这个特性的补丁涉及到IOMMU, PCI, 内存管理(MM), SMMU, VFIO, 虚拟化，DT, ACPI等方面的修改，所以补丁比较分散，不过好在这个特性的 上传者把相关补丁收集在了一个分支上，即https://jpbrucker.net/sva/ 的sva/current 分支上。想要了解SVA的整体，可以直接查看这个分支上的各个提交。需要说明是，这个 分支的base是5.2-rc7, 在5.3中这个分支上的少量补丁已经合入Linux主线，如果想用最 新内核测试SVA需要做一定的适配工作。本文的分析以base是5.2-rc7的sva/current分支 上的补丁为基础。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="使用场景介绍"><a href="#使用场景介绍" class="headerlink" title="使用场景介绍"></a>使用场景介绍</h2><hr>
+<p>  如上，SVA特性可以做到进程虚拟地址在进程和设备之间共享。最直观的使用场景就是在<br>  用户态做DMA。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">            </span><br><span class="line">   +------------------+     +----------------+</span><br><span class="line">   |   进程           |     |  进程          |       ...</span><br><span class="line">   |                  |     |                |</span><br><span class="line">   | va = malloc();   |     |                |</span><br><span class="line">   | set dma dst: va  |     |                |</span><br><span class="line">   |      +---------+ |     |                |          用户态</span><br><span class="line">   +------+ mmap io +-+     +----------------+</span><br><span class="line">&lt;---------+         +------------------------------------------&gt; </span><br><span class="line">          +---------+</span><br><span class="line">                       内核</span><br><span class="line"></span><br><span class="line">&lt;--------------------------------------------------------------&gt; </span><br><span class="line">               +--------------+</span><br><span class="line">               |  DMA dst: va |</span><br><span class="line">               |              |</span><br><span class="line">               |  设备        |</span><br><span class="line">               +--------------+</span><br></pre></td></tr></table></figure>
+<p>  如上图所示，在SVA的支持下，我们可以在用户态进程malloc一段内存，然后把得到va<br>  直接配置给设备的DMA，然后启动DMA向va对应的虚拟地址写数据，当然也可以从va对应<br>  的虚拟地址上往设备读数据。这里我们把设备DMA相关的寄存器先mmap到用户态，这样<br>  DMA操作在用户态就可以完成。</p>
+<p>  可以注意到，SVA可以支持功能很大一部分取决于设备的功能，SVA就是提供一个进程和<br>  设备一致的虚拟地址空间，其他的设备想怎么用都可以。如上，如果设备做的足够强，<br>  设备完全可以执行va上对应的代码。</p>
+<p>  可以看到，设备完全可以把自身的资源分配给不同的进程同时使用。</p>
+<p>  为了满足上面的使用场景，SVA特性需要硬件支持IOMMU以及设备发起缺页。在下一节<br>  先介绍硬件，再基于此分析SVA的软件实现。</p>
+<h2 id="硬件基础介绍"><a href="#硬件基础介绍" class="headerlink" title="硬件基础介绍"></a>硬件基础介绍</h2><hr>
+<p>  本文以ARM64体系结构为基础分析，在ARM64下，IOMMU指的就是SMMU。对于设备，ARM64<br>  下有平台设备和PCI设备。整体的硬件示意图如下，图中也画出了硬件工作时相关的内存<br>  里的数据结构。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">             +-----+</span><br><span class="line">             | CPU |</span><br><span class="line">             +--+--+</span><br><span class="line">                |             </span><br><span class="line">                v             </span><br><span class="line">             +-----+           +---------------------------------------------+</span><br><span class="line">             | MMU |-----------+------------------------------------+        |</span><br><span class="line">             +--+--+           | DDR                                |        |</span><br><span class="line">                |              |                                    |        |</span><br><span class="line">                v              |                                    |        |</span><br><span class="line">system bus ------------------&gt; |                                    |        |</span><br><span class="line">                ^              |                                    v        |</span><br><span class="line">                |   SID/SSID   |      +-----+     +----+      +------------+ |</span><br><span class="line">                |       +------+----&gt; | STE |----&gt;| CD |-----&gt;| page table | |</span><br><span class="line">                |       |      |      +-----+     +----+      +------------+ |</span><br><span class="line">                |       |      |       ...        | CD |-----&gt;| page table | |</span><br><span class="line">                |       |      |                  +----+      +------------+ |</span><br><span class="line">        IRQs    |       |      |                  | .. |      | ..         | |</span><br><span class="line">              ^ |^  ^   |      |                  +----+      +------------+ |</span><br><span class="line">              | ||  |   |      |                  | CD |-----&gt;| page table | |</span><br><span class="line">    +---------+-++--+---+---+  |                  +----+      +------------+ |</span><br><span class="line">    | SMMU    |  |  |   |   |  |                                             |</span><br><span class="line">    |         |  |  |       |  |     +-------------+                         |</span><br><span class="line">    |  +------+--+-CMD Q ---+--+----&gt;| CMD queue   |                         |</span><br><span class="line">    +--v--+   |  |          |  |     +-------------+                         |</span><br><span class="line">    | PRI |---&gt; PRI Q ------+--+----&gt;| PRI queue   |                         |</span><br><span class="line">    +-----+   |             |  |     +-------------+                         |</span><br><span class="line">    | ATS |  EVENT Q -------+--+----&gt;| EVENT queue |                         |</span><br><span class="line">    +-----+-----------------+  |     +-------------+                         |</span><br><span class="line">      ^ |     ^            ^   +---------------------------------------------+</span><br><span class="line">      | |     |            |</span><br><span class="line">      | v     | BDF/PASID  +--------------+</span><br><span class="line">    +---------+-------------+             | </span><br><span class="line">    |         RP            |             | </span><br><span class="line">    +-----------------------+             | </span><br><span class="line">      ^ |       ^                         | </span><br><span class="line">      | v       |  BDF/PASID              | </span><br><span class="line">    +-+----+----+-+---------+  +-----+----+----------+</span><br><span class="line">    | ATC  |      |         |  |     |               |                       </span><br><span class="line">    +------+      |         |  | DMA |               |                       </span><br><span class="line">    | PRI  |      |  EP     |  |     |               |                       </span><br><span class="line">    +------+ DMA  |         |  +-----+  platform dev |                       </span><br><span class="line">    +-------------+         |  |                     |                       </span><br><span class="line">    +-----------------------+  +---------------------+</span><br></pre></td></tr></table></figure>
+<p>   基于上一节中提到的使用场景, 我们梳理硬件中的逻辑关系。调用malloc后，其实只是<br>   拿到了一个虚拟地址，内核并没有为申请的地址空间分配实际的物理内存，直到访问这<br>   块地址空间时引发缺页，内核在缺页流程里分配实际的物理内存，然后建立虚拟地址到<br>   物理内存的映射。这个过程需要MMU的参与。设想SVA的场景中，先malloc得到va, 然后<br>   把这个va传给设备，配置设备DMA去访问该地址空间，这时内核并没有为va分配实际的<br>   物理内存，所以设备一侧的访问流程必然需要进行类似的缺页请求。支持设备侧缺页<br>   请求的硬件设备就是上面所示的SMMU，其中对于PCI设备，还需要ATS、PRI硬件特性支持。<br>   平台设备需要SMMU stall mode支持(使用event queue)。PCI设备和平台设备都需要<br>   PASID特性的支持。</p>
+<p>   如上图所示，引入SVA后，MMU和SMMU使用相同的进程页表, SMMU使用STE表和CD表管理<br>   当前SMMU下设备的页表，其中STE表用来区分设备，CD表用来区分同一个设备上分配给<br>   不同进程使用的硬件资源所对应的进程页表。STE表和CD表都需要SMMU驱动预先分配好。</p>
+<p>   SMMU内部使用command queue，event queue，pri queue做基本的事件管理。当有相应<br>   硬件事件发生时，硬件把相应的描述符写入event queue或者pri queue, 然后上报中断。<br>   软件使用command queue下发相应的命令操作硬件。</p>
+<p>   PCI设备和平台设备的硬件缺页流程有一些差异，下面分别介绍。对于PCI设备，ATS,<br>   PRI和PASID的概念同时存在于PCIe和SMMU规范中。对于ATS的介绍可以参考这里:<br>   <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzc0Mjc2OTQwJUUzJTgwJTgyJUU3JUFFJTgwJUU1JThEJTk1JUU4JUFFJUIyJUVGJUJDJThDQVRTJUU3JTg5JUI5JUU2JTgwJUE3">https://blog.csdn.net/scarecrow_byr/article/details/74276940。简单讲，ATS特性<i class="fa fa-external-link-alt"></i></span><br>   由设备侧的ATC和SMMU侧的ATS同时支持，其目的是在设备中缓存va对应的pa，设备随后<br>   使用pa做内存访问时无需经过SMMU页表转换，可以提高性能。PRI(page request<br>   interface)也是需要设备和SMMU一起工作，PCIe设备可以发出缺页请求，SMMU硬件在解<br>   析到缺页请求后可以直接将缺页请求写入PRI queueu, 软件在建立好页表后，可以通过<br>   CMD queue发送PRI response给PCIe设备。具体的ATS和PRI的实现是硬件相关的，目前<br>   市面上还没有实现这两个硬件特性的PCIe设备，但是我们可以设想一下ATS和PRI的硬件<br>   实现，最好的实现应该是软件透明的，也就是软件配置给设备DMA的访问地址是va, 软件<br>   控制DMA发起后，硬件先发起ATC请求，从SMMU请求该va对应的pa，如果SMMU里已经有va<br>   到pa的映射，那么设备可以得到pa，然后设备再用pa发起一次内存访问，该访问将直接<br>   访问对应pa地址，不在SMMU做地址翻译，如果SMMU没有va到pa的映射, 那么设备得到<br>   这个消息后会继续向SMMU发PRI请求，设备得到从SMMU来的PRI response后发送内存访问<br>   请求，该请求就可以在SMMU中翻译得到pa, 最终访问到物理内存。</p>
+<p>   PRI请求是基于PCIe协议的, 平台设备无法用PRI发起缺页请求。实际上，平台设备是无法<br>   靠自身发起缺页请求的，SMMU用stall模式支持平台设备的缺页，当一个平台设备的内存<br>   访问请求到达SMMU后，如果SMMU里没有为va做到pa的映射，硬件会给SMMU的event queue<br>   里写一个信息，SMMU的event queue中断处理里可以做缺页处理，然后SMMU可以回信息给<br>   设备(fix me: 请求设备重发，还是smmu缺页处理后已经把该访问翻译后送到上游总线)。<br>   实际上, SMMU使用event queue来处理各种错误异常，这里的stall模式是借用了event<br>   queue来处理缺页。</p>
+<p>   可以注意到PRI和stall模式完成缺页的区别是，PRI缺页的时候并不是在IO实际发生的<br>   时候，因为如果PRI response表示PRI请求失败，硬件完全可以不发起后续的IO操作。<br>   而stall模式，完全发生在IO请求的途中。所以，他被叫做stall模式。</p>
+<h2 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h2><hr>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">struct device</span><br><span class="line">        +-&gt; struct iommu_param</span><br><span class="line">                +-&gt; struct iommu_fault_param</span><br><span class="line">                        +-&gt; handler(struct iommu_fault, void *)</span><br><span class="line">                        +-&gt; faults list</span><br><span class="line">                +-&gt; struct iopf_device_param</span><br><span class="line">                     +-&gt; struct iopf_queue</span><br><span class="line">                             +-&gt; work queue</span><br><span class="line">                             +-&gt; devices list</span><br><span class="line">                     +-&gt; wait queue</span><br><span class="line">                +-&gt; struct iommu_sva_param</span><br></pre></td></tr></table></figure>
+<p>  在引起缺页的外设的device里，需要添加缺页相关的数据结构。handler是缺页要执行<br>  的函数，具体见下面动态流程分析。iopf_queue在smmu驱动初始化时添加，这里iopf_queue<br>  可能是eventq对应的，也可能是priq对应的，iopf_queue是smmu里的概念，所以同一个<br>  iopf_queue会服务同一个smmu下的所有外设, 上面的devices list链表就是用来收集这个<br>  smmu下的外设。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">struct iommu_bond</span><br><span class="line">      +-&gt; struct iommu_sva</span><br><span class="line">              +-&gt; device</span><br><span class="line">              +-&gt; struct iommu_sva_ops</span><br><span class="line">                      +-&gt; iommu_mmu_exit_handle ?</span><br><span class="line">      +-&gt; struct io_mm</span><br><span class="line">              +-&gt; pasid</span><br><span class="line">              +-&gt; device list</span><br><span class="line">              +-&gt; mm</span><br><span class="line">              +-&gt; mmu_notifier</span><br><span class="line">              +-&gt; iommu_ops</span><br><span class="line">                      +-&gt; attach</span><br><span class="line">                      +-&gt; dettach</span><br><span class="line">                      +-&gt; invalidat</span><br><span class="line">                      +-&gt; release</span><br><span class="line">      +-&gt; mm list</span><br><span class="line">      +-&gt; device list</span><br><span class="line">      +-&gt; wait queue</span><br></pre></td></tr></table></figure>
+<p>  下面的图引用自JPB的补丁，该图描述的是建立好的静态数据结构之间的关系，以及IOMMU<br>  (e.g. SMMU的STE和CD表在这种数据结构下的具体配置情况)表格的配置。用这个图可以<br>  很好说明iommu_bond中的各个数据结构的意义以及之间的关系。</p>
+<p>  iommu_bond这个结构并不对外, 用下面的iommu_sva_bind_device/unbind接口时，函数<br>  参数都是iommu_sva。使用SVA的设备可以把一个设备的一些资源和一个进程地址空间绑定，<br>  这种绑定关系是灵活的，比如可以一个设备上的不同资源和不用的进程地址空间绑定<br>  (bond 1, bond 2), 还可以同一个设备上的资源都绑定在一个进程的地址空间上(bond 3,<br>  bond 4)。从进程地址空间的角度看，一个进程地址空间可能和多个设备资源绑定。</p>
+<p>  iommu_bond指的就是一个绑定，io_mm指的是绑定了外设资源的一个进程地址空间。<br>  io_pgtables是指内核dma接口申请内存的页表。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line">        ___________________________</span><br><span class="line">       |  IOMMU domain A           |</span><br><span class="line">       |  ________________         |</span><br><span class="line">       | |  IOMMU group   |        +------- io_pgtables</span><br><span class="line">       | |                |        |</span><br><span class="line">       | |   dev 00:00.0 ----+------- bond 1 --- io_mm X</span><br><span class="line">       | |________________|   \    |</span><br><span class="line">       |                       &#x27;----- bond 2 ---.</span><br><span class="line">       |___________________________|             \</span><br><span class="line">        ___________________________               \</span><br><span class="line">       |  IOMMU domain B           |             io_mm Y</span><br><span class="line">       |  ________________         |             / /</span><br><span class="line">       | |  IOMMU group   |        |            / /</span><br><span class="line">       | |                |        |           / /</span><br><span class="line">       | |   dev 00:01.0 ------------ bond 3 -&#x27; /</span><br><span class="line">       | |   dev 00:01.1 ------------ bond 4 --&#x27;</span><br><span class="line">       | |________________|        |</span><br><span class="line">       |                           +------- io_pgtables</span><br><span class="line">       |___________________________|</span><br><span class="line"></span><br><span class="line">                          PASID tables</span><br><span class="line">                           of domain A</span><br><span class="line">                        .-&gt;+--------+</span><br><span class="line">                       / 0 |        |-------&gt; io_pgtable</span><br><span class="line">                      /    +--------+</span><br><span class="line">      Device tables  /   1 |        |-------&gt; pgd X</span><br><span class="line">        +--------+  /      +--------+</span><br><span class="line">00:00.0 |      A |-&#x27;     2 |        |--.</span><br><span class="line">        +--------+         +--------+   \</span><br><span class="line">        :        :       3 |        |    \</span><br><span class="line">        +--------+         +--------+     --&gt; pgd Y</span><br><span class="line">00:01.0 |      B |--.                    /</span><br><span class="line">        +--------+   \                  |</span><br><span class="line">00:01.1 |      B |----+   PASID tables  |</span><br><span class="line">        +--------+     \   of domain B  |</span><br><span class="line">                        &#x27;-&gt;+--------+   |</span><br><span class="line">                         0 |        |-- | --&gt; io_pgtable</span><br><span class="line">                           +--------+   |</span><br><span class="line">                         1 |        |   |</span><br><span class="line">                           +--------+   |</span><br><span class="line">                         2 |        |---&#x27;</span><br><span class="line">                           +--------+</span><br><span class="line">                         3 |        |</span><br><span class="line">                           +--------+</span><br></pre></td></tr></table></figure>
+
+<p>  相关接口:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line">- iommu_dev_enable_feature: 准备和sva相关的smmu中的管理结构, 该接口可以在</span><br><span class="line">                                设备驱动里调用，用来使能sva的功能</span><br><span class="line">  +-&gt; arm_smmu_dev_enable_feature</span><br><span class="line">      +-&gt; arm_smmu_dev_enable_sva</span><br><span class="line">        +-&gt; iommu_sva_enable</span><br><span class="line">          +-&gt; iommu_register_device_fault_handler(dev, iommu_queue_iopf, dev)</span><br><span class="line">              /* 动态部分将执行iommu_queue_iopf */</span><br><span class="line">              把iommu_queue_iopf赋值给iommu_fault_param里的handler                  </span><br><span class="line">        +-&gt; iopf_queue_add_device(struct iopf_queue, dev)</span><br><span class="line">            把相应的iopf_queue赋值给iopf_device_param里的iopf_queue, 这里有</span><br><span class="line">            pri对应的iopf_queue或者是stall mode对应的iopf_queue。初始化</span><br><span class="line">            iopf_device_param里的wait queue</span><br><span class="line"></span><br><span class="line">            对应iopf_queue的初始化在在smmu驱动probe流程中: e.g.</span><br><span class="line">            arm_smmu_init_queues</span><br><span class="line">              +-&gt; smmu-&gt;prq.iopf = iopf_queue_alloc</span><br><span class="line">                                       +-&gt; alloc_workqueue</span><br><span class="line">                                         分配以及初始化iopf_queue里的工作队列</span><br><span class="line">        +-&gt; arm_smmu_enable_pri</span><br><span class="line">            调用PCI函数是能EP设备的PRI功能</span><br><span class="line"></span><br><span class="line">- iommu_sva_bind_device: 将设备和mm绑定, 该接口可以在设备驱动里调用，把一个</span><br><span class="line">                         设备和mm绑定在一起。返回struct iommu_sva *</span><br><span class="line">  +-&gt; iommu_sva_bind_group</span><br><span class="line">    +-&gt; iommu_group_do_bind_dev</span><br><span class="line">      +-&gt; arm_smmu_sva_bind</span><br><span class="line">        +-&gt; arm_smmu_alloc_shared_cd(mm)</span><br><span class="line">            分配相应的CD表项，并且把CD表项里的页表地址指向mm里保存的进程页表</span><br><span class="line">            地址。这个函数主要配置SMMU的硬件</span><br><span class="line">        +-&gt; iommu_sva_bind_generic(dev, mm, cd, &amp;arm_smmu_mm_ops, drvdata)</span><br><span class="line">          +-&gt; io_mm_alloc</span><br><span class="line">              分配io_mm以及初始化其中的数据域段, 向mm注册io_mm的notifier</span><br><span class="line">              /* to do: mm发生变化的时候通知io_mm */</span><br><span class="line">              +-&gt; mmu_notifier_register</span><br><span class="line">          +-&gt; io_mm_attach</span><br><span class="line">            +-&gt; init_waitqueue_head</span><br><span class="line">                初始化iommu_bond里的等待队列mm_exit_wq /* to do: 作用 */</span><br><span class="line">            +-&gt; io_mm-&gt;ops-&gt;attach(bond-&gt;sva.dev, io_mm-&gt;pasid, io_mm-&gt;ctx)</span><br><span class="line">                调用e.g.SMMU arm_smmu_mm_ops里的attach函数</span><br><span class="line">                +-&gt; arm_smmu_mm_attach</span><br><span class="line">                  +-&gt; __arm_smmu_write_ctx_desc</span><br><span class="line">                    下发SMMU command使能CD配置。可以看到arm_smmu_mm_ops里的</span><br><span class="line">                    这一组回调函数基本都是下发SMMU命令控制CD/ATC/TLB相关的</span><br><span class="line">                    配置</span><br><span class="line"></span><br><span class="line">- iommu_sva_unbind_device</span><br><span class="line">    +-&gt; iopf_queue_flush_dev</span><br><span class="line">    +-&gt; iommu_unbind_locked(to_iommu_bond(handle))</span><br><span class="line">    这里的handle是一个struct iommu_sva</span><br></pre></td></tr></table></figure>
+<pre><code>- iommu_sva_set_ops(iommu_sva, iommu_sva_ops)
+
+  这个接口把iommu_sva_ops传递给iommu_sva, iommu_sva_ops包含mm_exit回调。
+  在上面的iommu_sva_bind_generic里会调用mmu_notifier_register给当前的mm里
+  注册一个notifier，在mm发生改变的时候，mm子系统可以触发notifier里的回调
+  函数。当前的代码里，是在notifier的release回调里去调用iommu_sva里保存的
+  mm_exit回调函数。
+
+  SVA特性使得设备可以看到进程虚拟地址空间，这样在进程虚拟地址空间销毁的时候
+  应该调用设备驱动提供的函数停止设备继续访问进程虚拟地址空间。这里iommu_sva_set_ops
+  就是把设备驱动的回调函数注册给进程mm。
+
+  注意上面的mmu_notifier_register注册的iommu_mmu_notifier_ops回调里。release
+  只在进程异常时调用到，用户态进程正常退出时并不会调用。在进程正常退出时，
+  如何保证设备停止访问将要释放的进程地址空间，这里还有疑问。
+
+  进程退出的调用链是:
+  kernel/exit.c:
+  do_exit
+    +-&gt; exit_mm
+  +-&gt; mmput
+    +-&gt; exit_mmap
+      +-&gt; mmu_notifier_release
+
+- iommu_sva_get_pasid
+
+  这个接口返回返回smmu_sva对应的pasid数值，设备驱动需要把pasid配置给与这个
+  smmu_sva相关的硬件资源。
+</code></pre>
+<p>  需要使用SVA特性的社区驱动在调用上面的接口后，可以建立起静态的数据结构。</p>
+<h2 id="动态分析"><a href="#动态分析" class="headerlink" title="动态分析"></a>动态分析</h2><hr>
+<ul>
+<li><p>缺页流程</p>
+<p>当一个PRI或者是一个stall event上报后, 软件会在缺页流程里建立页表，然后控制<br>SMMU给设备返送reponse信息。我们可以从SMMU PRI queue或者是event queue的中断<br>处理流程入手跟踪: e.g.PRI中断流程</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">devm_request_threaded_irq(..., arm_smmu_priq_thread, ...)</span><br><span class="line">arm_smmu_priq_thread</span><br><span class="line">  +-&gt; arm_smmu_handle_ppr</span><br><span class="line">    +-&gt; iommu_report_device_fault</span><br><span class="line">      +-&gt; iommu_fault_param-&gt;handler</span><br><span class="line">        +-&gt; iommu_queue_iopf /* 初始化参见上面第2部分 */</span><br><span class="line">          +-&gt; iopf_group = kzalloc</span><br><span class="line">          +-&gt; list_add(faults list in group, fault)</span><br><span class="line">          +-&gt; INIT_WORK(&amp;group-&gt;work, iopf_handle_group)</span><br><span class="line">          +-&gt; queue_work(iopf_param-&gt;queue-&gt;wq, &amp;group-&gt;work)</span><br><span class="line">          这段代码创建缺页的group，并把当前的缺页请求挂入group里的链表，然后</span><br><span class="line">          创建一个任务，并调度这个任务运行</span><br><span class="line"></span><br><span class="line">          在工作队列线程中:</span><br><span class="line">          +-&gt; iopf_handle_group</span><br><span class="line">            +-&gt; iopf_handle_single</span><br><span class="line">              +-&gt; handle_mm_fault</span><br><span class="line">                  这里会最终申请内存并建立页表</span><br><span class="line"></span><br><span class="line">    +-&gt; arm_smmu_page_response</span><br><span class="line">        软件执行完缺页流程后，软件控制SMMU向设备回响应。</span><br></pre></td></tr></table></figure></li>
+<li><p>Invalid流程</p>
+<p>当软件释放申请的内存时，SMMU中关于这些内存的tlb以及设备ATC里都要Invalid。<br>进程mm变动的时候，调用注册的io_mm notifier完成相关的tlb、atc的invalid。</p>
+<p>[…]</p>
+</li>
+</ul>
+<h2 id="性能分析"><a href="#性能分析" class="headerlink" title="性能分析"></a>性能分析</h2><hr>
+<pre><code>[...]
+</code></pre>
+<h2 id="虚拟化"><a href="#虚拟化" class="headerlink" title="虚拟化"></a>虚拟化</h2><hr>
+<p> <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzEwNDYwNjU3MQ==">https://blog.csdn.net/scarecrow_byr/article/details/104606571<i class="fa fa-external-link-alt"></i></span></p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+              <a href="/tags/iommu/" rel="tag"># iommu</a>
+              <a href="/tags/SMMU/" rel="tag"># SMMU</a>
+              <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" rel="tag"># 内存管理</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/" rel="prev" title="Linux文件引用计数的逻辑">
+      <i class="fa fa-chevron-left"></i> Linux文件引用计数的逻辑
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/" rel="next" title="锁使用的一些笔记">
+      锁使用的一些笔记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">使用场景介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%A1%AC%E4%BB%B6%E5%9F%BA%E7%A1%80%E4%BB%8B%E7%BB%8D"><span class="nav-number">2.</span> <span class="nav-text">硬件基础介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-number">3.</span> <span class="nav-text">数据结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8A%A8%E6%80%81%E5%88%86%E6%9E%90"><span class="nav-number">4.</span> <span class="nav-text">动态分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90"><span class="nav-number">5.</span> <span class="nav-text">性能分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%99%9A%E6%8B%9F%E5%8C%96"><span class="nav-number">6.</span> <span class="nav-text">虚拟化</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">53</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

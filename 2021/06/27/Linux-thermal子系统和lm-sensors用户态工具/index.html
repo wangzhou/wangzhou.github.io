@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文分析Linux thermal子系统的现状，以及可能与之配套使用的lm_sensors用户态工具的软件构架。提供给写thermal驱动的同学可以参考。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux thermal子系统和lm_sensors用户态工具">
+<meta property="og:url" content="http://example.com/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析Linux thermal子系统的现状，以及可能与之配套使用的lm_sensors用户态工具的软件构架。提供给写thermal驱动的同学可以参考。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-27T09:59:41.000Z">
+<meta property="article:modified_time" content="2021-06-27T12:49:34.872Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux thermal子系统和lm_sensors用户态工具 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">35</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">53</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux thermal子系统和lm_sensors用户态工具
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-27 17:59:41 / 修改时间：20:49:34" itemprop="dateCreated datePublished" datetime="2021-06-27T17:59:41+08:00">2021-06-27</time>
+            </span>
+
+          
+            <span id="/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/" class="post-meta-item leancloud_visitors" data-flag-title="Linux thermal子系统和lm_sensors用户态工具" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析Linux thermal子系统的现状，以及可能与之配套使用的lm_sensors用户态工具的软件构架。提供给写thermal驱动的同学可以参考。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ol>
+<li>Linux thermal驱动</li>
+</ol>
+<hr>
+<p>   Linux thermal是一个内核和温度检测控制有关的驱动子系统，他的位置在drivers/thermal/*.<br>   相关的内核头文件在include/linux/thermal.h。具体的设备驱动需要向thermal框架注册<br>   thermal_zone_device, thermal框架会在thermal_zone_device里封装一个device向系统<br>   注册，通过这个device向用户态暴露一组sysfs属性文件。用户态可以通过这组文件设置相关<br>   参数、获取相关信息。</p>
+<p>   在我的笔记本上，这组属性文件大概是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">wangzhou@kllp05:/sys/class$ tree thermal/thermal_zone0</span><br><span class="line">thermal/thermal_zone0</span><br><span class="line">├── available_policies</span><br><span class="line">├── device -&gt; ../../../LNXSYSTM:00/LNXSYBUS:01/LNXTHERM:00</span><br><span class="line">├── emul_temp</span><br><span class="line">├── integral_cutoff</span><br><span class="line">├── k_d</span><br><span class="line">├── k_i</span><br><span class="line">├── k_po</span><br><span class="line">├── k_pu</span><br><span class="line">├── mode</span><br><span class="line">├── offset</span><br><span class="line">├── passive</span><br><span class="line">├── policy</span><br><span class="line">├── power</span><br><span class="line">│   ├── async</span><br><span class="line">│   ├── autosuspend_delay_ms</span><br><span class="line">│   ├── control</span><br><span class="line">│   ├── runtime_active_kids</span><br><span class="line">│   ├── runtime_active_time</span><br><span class="line">│   ├── runtime_enabled</span><br><span class="line">│   ├── runtime_status</span><br><span class="line">│   ├── runtime_suspended_time</span><br><span class="line">│   └── runtime_usage</span><br><span class="line">├── slope</span><br><span class="line">├── subsystem -&gt; ../../../../class/thermal</span><br><span class="line">├── sustainable_power</span><br><span class="line">├── temp</span><br><span class="line">├── trip_point_0_temp</span><br><span class="line">├── trip_point_0_type</span><br><span class="line">├── type</span><br><span class="line">└── uevent</span><br></pre></td></tr></table></figure>
+<p>   这里只是展示了thermal_zone0, 当然一个系统里可以多个这样的设备。</p>
+<p>   实际上一个具体的驱动和thermal子系统的关系可以通过三个对象去描述，一个就是<br>   这里的thermal_zone_thermal，它表示测量温度的sensor；还可以注册这个sensor所在<br>   温度管理域的降温设备；有了降温设备，还可以注册相应的温度调节策略。（to do: …）</p>
+<p>   实际上，你要是只想读温度出来，只注册一个thermal_zone_thermal并提供其中一个<br>   获取温度的回调函数的实现就可以了：thermal_zone_device_ops-&gt;.get_temp。这个函数<br>   会被/sys/class/thermal/<dev>/temp的show函数调用，从而显示测量的温度。</p>
+<p>   thermal子系统还会根据注册thermal_zone_device时的参数，把设备的信息通过<br>   /sys/class/hwmon子系统暴露出来。如果你不带注册参数，thermal子系统默认会通过<br>   /sys/class/hwmon暴露信息, 比如这样：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">wangzhou@kllp05:/sys/class$ tree hwmon/hwmon0</span><br><span class="line">hwmon/hwmon0</span><br><span class="line">├── name</span><br><span class="line">├── power</span><br><span class="line">│   ├── async</span><br><span class="line">│   ├── autosuspend_delay_ms</span><br><span class="line">│   ├── control</span><br><span class="line">│   ├── runtime_active_kids</span><br><span class="line">│   ├── runtime_active_time</span><br><span class="line">│   ├── runtime_enabled</span><br><span class="line">│   ├── runtime_status</span><br><span class="line">│   ├── runtime_suspended_time</span><br><span class="line">│   └── runtime_usage</span><br><span class="line">├── subsystem -&gt; ../../../../class/hwmon</span><br><span class="line">├── temp1_crit</span><br><span class="line">├── temp1_input</span><br><span class="line">└── uevent</span><br></pre></td></tr></table></figure>
+<p>   temp1_input的show函数会最终调用到驱动里的.get_temp。</p>
+<ol start="2">
+<li>lm_sensors用户态工具的使用</li>
+</ol>
+<hr>
+<p>  lm_sensors可以读取系统上sensor的信息。它的源代码可以在这里下载到：<br>  <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL2xtLXNlbnNvcnMvbG0tc2Vuc29ycy5naXQ=">https://github.com/lm-sensors/lm-sensors.git<i class="fa fa-external-link-alt"></i></span></p>
+<p>  粗略从代码上看，它使用的是hwmon接口提供的信息。</p>
+<p>  在ubuntu系统上你可以使用如下命令简单尝试下lm_sensors:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">sudo apt-get install lm-sensors</span><br><span class="line"></span><br><span class="line">/* this is a Perl script in /usr/sbin/ */</span><br><span class="line">sudo sensors-detect</span><br><span class="line">输入这个命令后，一路YES。</span><br><span class="line"></span><br><span class="line">wangzhou@kllp05:~/notes$ sensors</span><br><span class="line">iwlwifi-virtual-0</span><br><span class="line">Adapter: Virtual device</span><br><span class="line">temp1:        +37.0°C  </span><br><span class="line"></span><br><span class="line">thinkpad-isa-0000</span><br><span class="line">Adapter: ISA adapter</span><br><span class="line">fan1:           0 RPM</span><br><span class="line"></span><br><span class="line">acpitz-virtual-0</span><br><span class="line">Adapter: Virtual device</span><br><span class="line">temp1:        +30.0°C  (crit = +128.0°C)</span><br><span class="line"></span><br><span class="line">coretemp-isa-0000</span><br><span class="line">Adapter: ISA adapter</span><br><span class="line">Package id 0:  +33.0°C  (high = +100.0°C, crit = +100.0°C)</span><br><span class="line">Core 0:        +31.0°C  (high = +100.0°C, crit = +100.0°C)</span><br><span class="line">Core 1:        +33.0°C  (high = +100.0°C, crit = +100.0°C)</span><br><span class="line"></span><br><span class="line">pch_skylake-virtual-0</span><br><span class="line">Adapter: Virtual device</span><br><span class="line">temp1:        +30.0°C  </span><br></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>lm_sensors分析</li>
+</ol>
+<hr>
+<p>  (to do: sensors-detect, sensors, sensord, config…)</p>
+<ol start="4">
+<li>Linux thermal和lm_sensors的关系</li>
+</ol>
+<hr>
+<p>  如上，现在的lm_sensors使用的是hwmon接口获取信息。<br>  (to do: …)</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/27/SMMU-stalled-transaction-with-device/" rel="prev" title="SMMU stalled transaction with device">
+      <i class="fa fa-chevron-left"></i> SMMU stalled transaction with device
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/27/Unix-Linux%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E7%A8%8B%E7%AC%94%E8%AE%B0-11-15/" rel="next" title="Unix/Linux编程实践教程笔记(11-15)">
+      Unix/Linux编程实践教程笔记(11-15) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">53</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

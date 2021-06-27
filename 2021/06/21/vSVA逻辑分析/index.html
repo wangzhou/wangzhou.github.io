@@ -30,11 +30,11 @@
 <meta property="og:description" content="本文分析Linux vSVA现在的构架逻辑，用于相关开发人员对齐认识。目前为止Linux vSVA的代码还在构架讨论和代码review阶段。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-06-21T05:07:11.000Z">
-<meta property="article:modified_time" content="2021-06-21T05:20:13.552Z">
+<meta property="article:modified_time" content="2021-06-27T15:33:46.153Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="Linux内核">
+<meta property="article:tag" content="QEMU">
 <meta property="article:tag" content="虚拟化">
-<meta property="article:tag" content="qemu">
 <meta name="twitter:card" content="summary">
 
 <link rel="canonical" href="http://example.com/2021/06/21/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
@@ -129,12 +129,17 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">35</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">53</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
 
   </li>
   </ul>
@@ -170,7 +175,7 @@
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -187,10 +192,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-21 13:07:11 / 修改时间：13:20:13" itemprop="dateCreated datePublished" datetime="2021-06-21T13:07:11+08:00">2021-06-21</time>
+              <time title="创建时间：2021-06-21 13:07:11" itemprop="dateCreated datePublished" datetime="2021-06-21T13:07:11+08:00">2021-06-21</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-06-27 23:33:46" itemprop="dateModified" datetime="2021-06-27T23:33:46+08:00">2021-06-27</time>
+              </span>
 
           
             <span id="/2021/06/21/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="vSVA逻辑分析" title="阅读次数">
@@ -281,8 +292,8 @@
       <footer class="post-footer">
           <div class="post-tags">
               <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
               <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"># 虚拟化</a>
-              <a href="/tags/qemu/" rel="tag"># qemu</a>
           </div>
 
         
@@ -294,7 +305,10 @@
     <a href="/2021/06/21/ARM-SMMUv3-architecture/" rel="prev" title="ARM SMMUv3 architecture">
       <i class="fa fa-chevron-left"></i> ARM SMMUv3 architecture
     </a></div>
-      <div class="post-nav-item"></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/27/SMMU-stalled-transaction-with-device/" rel="next" title="SMMU stalled transaction with device">
+      SMMU stalled transaction with device <i class="fa fa-chevron-right"></i>
+    </a></div>
     </div>
       </footer>
     
@@ -360,21 +374,21 @@
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
   <p class="site-author-name" itemprop="name">Sherlock Wang</p>
-  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系构架</div>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
 </div>
 <div class="site-state-wrap motion-element">
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">33</span>
+          <span class="site-state-item-count">53</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-count">35</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

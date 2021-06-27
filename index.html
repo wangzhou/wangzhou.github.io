@@ -22,15 +22,15 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
-  <meta name="description" content="Linux, kernel, 计算机体系构架">
+  <meta name="description" content="Linux, kernel, 计算机体系结构">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Sherlock&#39;s blog">
 <meta property="og:url" content="http://example.com/index.html">
 <meta property="og:site_name" content="Sherlock&#39;s blog">
-<meta property="og:description" content="Linux, kernel, 计算机体系构架">
+<meta property="og:description" content="Linux, kernel, 计算机体系结构">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:author" content="Sherlock Wang">
-<meta property="article:tag" content="Linux, kernel, 计算机体系构架">
+<meta property="article:tag" content="Linux, kernel, 计算机体系结构">
 <meta name="twitter:card" content="summary">
 
 <link rel="canonical" href="http://example.com/">
@@ -125,12 +125,17 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">35</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">53</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
 
   </li>
   </ul>
@@ -160,12 +165,12 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/21/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/SMMU%E7%9A%84BBML%E8%AF%AD%E6%84%8F/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -174,7 +179,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/21/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">vSVA逻辑分析</a>
+            <a href="/2021/06/27/SMMU%E7%9A%84BBML%E8%AF%AD%E6%84%8F/" class="post-title-link" itemprop="url">SMMU的BBML语意</a>
         </h2>
 
         <div class="post-meta">
@@ -185,11 +190,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-21 13:07:11 / 修改时间：13:20:13" itemprop="dateCreated datePublished" datetime="2021-06-21T13:07:11+08:00">2021-06-21</time>
+              <time title="创建时间：2021-06-27 23:44:38 / 修改时间：23:46:01" itemprop="dateCreated datePublished" datetime="2021-06-27T23:44:38+08:00">2021-06-27</time>
             </span>
 
           
-            <span id="/2021/06/21/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="vSVA逻辑分析" title="阅读次数">
+            <span id="/2021/06/27/SMMU%E7%9A%84BBML%E8%AF%AD%E6%84%8F/" class="post-meta-item leancloud_visitors" data-flag-title="SMMU的BBML语意" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -204,8 +209,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/21/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/21/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/06/27/SMMU%E7%9A%84BBML%E8%AF%AD%E6%84%8F/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/SMMU%E7%9A%84BBML%E8%AF%AD%E6%84%8F/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -220,10 +225,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文分析Linux vSVA现在的构架逻辑，用于相关开发人员对齐认识。目前为止Linux vSVA的代码还在构架讨论和代码review阶段。</p>
+          <p>本文整理SMMU和ARM里BBML相关的逻辑。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/21/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+              <a class="btn" href="/2021/06/27/SMMU%E7%9A%84BBML%E8%AF%AD%E6%84%8F/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -247,12 +252,12 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/21/ARM-SMMUv3-architecture/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-IO-DMA%E5%9C%B0%E5%9D%80%E6%98%A0%E5%B0%84%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -261,7 +266,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/21/ARM-SMMUv3-architecture/" class="post-title-link" itemprop="url">ARM SMMUv3 architecture</a>
+            <a href="/2021/06/27/Linux-IO-DMA%E5%9C%B0%E5%9D%80%E6%98%A0%E5%B0%84%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Linux IO DMA地址映射流程分析</a>
         </h2>
 
         <div class="post-meta">
@@ -272,11 +277,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-21 13:06:42 / 修改时间：13:17:33" itemprop="dateCreated datePublished" datetime="2021-06-21T13:06:42+08:00">2021-06-21</time>
+              <time title="创建时间：2021-06-27 23:17:20 / 修改时间：23:26:50" itemprop="dateCreated datePublished" datetime="2021-06-27T23:17:20+08:00">2021-06-27</time>
             </span>
 
           
-            <span id="/2021/06/21/ARM-SMMUv3-architecture/" class="post-meta-item leancloud_visitors" data-flag-title="ARM SMMUv3 architecture" title="阅读次数">
+            <span id="/2021/06/27/Linux-IO-DMA%E5%9C%B0%E5%9D%80%E6%98%A0%E5%B0%84%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Linux IO DMA地址映射流程分析" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -291,8 +296,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/21/ARM-SMMUv3-architecture/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/21/ARM-SMMUv3-architecture/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/06/27/Linux-IO-DMA%E5%9C%B0%E5%9D%80%E6%98%A0%E5%B0%84%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-IO-DMA%E5%9C%B0%E5%9D%80%E6%98%A0%E5%B0%84%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -307,10 +312,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文梳理IOMMU相关的整体软硬件设计的全貌。具体的硬件以ARM SMMUv3作为例子。</p>
+          <p>本文分析Linux内核中IO DMA地址映射的流程，其中涉及到的具体iommu硬件以及驱动， 我们分析ARM SMMUv3的相关的实现。分析内容基于Linux主线5.13-rc4。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/21/ARM-SMMUv3-architecture/">
+              <a class="btn" href="/2021/06/27/Linux-IO-DMA%E5%9C%B0%E5%9D%80%E6%98%A0%E5%B0%84%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -334,12 +339,12 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/21/%E5%A6%82%E4%BD%95%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8Linux-SVA/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -348,7 +353,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/21/%E5%A6%82%E4%BD%95%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8Linux-SVA/" class="post-title-link" itemprop="url">如何尝试使用Linux SVA</a>
+            <a href="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/" class="post-title-link" itemprop="url">用mprotect定位踩内存问题</a>
         </h2>
 
         <div class="post-meta">
@@ -359,11 +364,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-21 13:05:38 / 修改时间：13:15:58" itemprop="dateCreated datePublished" datetime="2021-06-21T13:05:38+08:00">2021-06-21</time>
+              <time title="创建时间：2021-06-27 18:13:40 / 修改时间：22:41:15" itemprop="dateCreated datePublished" datetime="2021-06-27T18:13:40+08:00">2021-06-27</time>
             </span>
 
           
-            <span id="/2021/06/21/%E5%A6%82%E4%BD%95%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8Linux-SVA/" class="post-meta-item leancloud_visitors" data-flag-title="如何尝试使用Linux SVA" title="阅读次数">
+            <span id="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/" class="post-meta-item leancloud_visitors" data-flag-title="用mprotect定位踩内存问题" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -378,8 +383,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/21/%E5%A6%82%E4%BD%95%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8Linux-SVA/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/21/%E5%A6%82%E4%BD%95%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8Linux-SVA/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -394,10 +399,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文介绍使用Linux SVA技术的方法，基于KunPeng920上的压缩解压缩设备。</p>
+          <p>本文以一个实际的例子介绍如何使用mprotect定位踩内存的问题</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/21/%E5%A6%82%E4%BD%95%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8Linux-SVA/">
+              <a class="btn" href="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -421,12 +426,12 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/21/%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%BA%93%E5%AE%9E%E7%8E%B0%E7%A7%81%E6%9C%89%E9%A9%B1%E5%8A%A8%E7%9A%84%E5%8A%A0%E8%BD%BD/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -435,7 +440,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/21/%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%BA%93%E5%AE%9E%E7%8E%B0%E7%A7%81%E6%9C%89%E9%A9%B1%E5%8A%A8%E7%9A%84%E5%8A%A0%E8%BD%BD/" class="post-title-link" itemprop="url">使用动态库实现私有驱动的加载</a>
+            <a href="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">linux O_CLOEXEC标志位笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -446,11 +451,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-21 13:05:08 / 修改时间：13:12:41" itemprop="dateCreated datePublished" datetime="2021-06-21T13:05:08+08:00">2021-06-21</time>
+              <time title="创建时间：2021-06-27 18:12:49 / 修改时间：22:39:09" itemprop="dateCreated datePublished" datetime="2021-06-27T18:12:49+08:00">2021-06-27</time>
             </span>
 
           
-            <span id="/2021/06/21/%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%BA%93%E5%AE%9E%E7%8E%B0%E7%A7%81%E6%9C%89%E9%A9%B1%E5%8A%A8%E7%9A%84%E5%8A%A0%E8%BD%BD/" class="post-meta-item leancloud_visitors" data-flag-title="使用动态库实现私有驱动的加载" title="阅读次数">
+            <span id="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="linux O_CLOEXEC标志位笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -465,8 +470,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/21/%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%BA%93%E5%AE%9E%E7%8E%B0%E7%A7%81%E6%9C%89%E9%A9%B1%E5%8A%A8%E7%9A%84%E5%8A%A0%E8%BD%BD/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/21/%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%BA%93%E5%AE%9E%E7%8E%B0%E7%A7%81%E6%9C%89%E9%A9%B1%E5%8A%A8%E7%9A%84%E5%8A%A0%E8%BD%BD/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -481,10 +486,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文讨论linux下使用动态库加载私有驱动库的一个设计。</p>
+          <p>本文介绍Linux O_CLOEXEC标志位的语意</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/21/%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%BA%93%E5%AE%9E%E7%8E%B0%E7%A7%81%E6%9C%89%E9%A9%B1%E5%8A%A8%E7%9A%84%E5%8A%A0%E8%BD%BD/">
+              <a class="btn" href="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -508,12 +513,12 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/21/C%E8%AF%AD%E8%A8%80%E6%B8%A9%E6%95%85%E8%80%8C%E7%9F%A5%E6%96%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -522,7 +527,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/21/C%E8%AF%AD%E8%A8%80%E6%B8%A9%E6%95%85%E8%80%8C%E7%9F%A5%E6%96%B0/" class="post-title-link" itemprop="url">C语言温故而知新</a>
+            <a href="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">Linux信号笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -533,11 +538,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-21 13:04:19 / 修改时间：13:10:10" itemprop="dateCreated datePublished" datetime="2021-06-21T13:04:19+08:00">2021-06-21</time>
+              <time title="创建时间：2021-06-27 18:10:30 / 修改时间：22:35:18" itemprop="dateCreated datePublished" datetime="2021-06-27T18:10:30+08:00">2021-06-27</time>
             </span>
 
           
-            <span id="/2021/06/21/C%E8%AF%AD%E8%A8%80%E6%B8%A9%E6%95%85%E8%80%8C%E7%9F%A5%E6%96%B0/" class="post-meta-item leancloud_visitors" data-flag-title="C语言温故而知新" title="阅读次数">
+            <span id="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="Linux信号笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -552,8 +557,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/21/C%E8%AF%AD%E8%A8%80%E6%B8%A9%E6%95%85%E8%80%8C%E7%9F%A5%E6%96%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/21/C%E8%AF%AD%E8%A8%80%E6%B8%A9%E6%95%85%E8%80%8C%E7%9F%A5%E6%96%B0/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -568,10 +573,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>用这个文章来记录一些C语言里的知识点</p>
+          <p>Linux中可以用信号来做通信，本文是对linux信号的一个使用总结。也会总结下APUE第10 章中关于信号的内容。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/21/C%E8%AF%AD%E8%A8%80%E6%B8%A9%E6%95%85%E8%80%8C%E7%9F%A5%E6%96%B0/">
+              <a class="btn" href="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -595,12 +600,12 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/20/KAE%E7%AC%94%E8%AE%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -609,193 +614,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/20/KAE%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">KAE笔记</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-06-20 23:19:27" itemprop="dateCreated datePublished" datetime="2021-06-20T23:19:27+08:00">2021-06-20</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-06-21 00:10:50" itemprop="dateModified" datetime="2021-06-21T00:10:50+08:00">2021-06-21</time>
-              </span>
-
-          
-            <span id="/2021/06/20/KAE%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="KAE笔记" title="阅读次数">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-eye"></i>
-              </span>
-              <span class="post-meta-item-text">阅读次数：</span>
-              <span class="leancloud-visitors-count"></span>
-            </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Valine：</span>
-    
-    <a title="valine" href="/2021/06/20/KAE%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/20/KAE%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>KAE是华为KunPeng服务器上加速器模块对应的openssl engine实现。本文是KAE的学习笔记。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/06/20/KAE%E7%AC%94%E8%AE%B0/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/20/Linux%E9%A1%B5%E9%9D%A2%E8%BF%81%E7%A7%BB/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/06/20/Linux%E9%A1%B5%E9%9D%A2%E8%BF%81%E7%A7%BB/" class="post-title-link" itemprop="url">Linux页面迁移</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-06-20 23:19:00" itemprop="dateCreated datePublished" datetime="2021-06-20T23:19:00+08:00">2021-06-20</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-06-21 00:07:26" itemprop="dateModified" datetime="2021-06-21T00:07:26+08:00">2021-06-21</time>
-              </span>
-
-          
-            <span id="/2021/06/20/Linux%E9%A1%B5%E9%9D%A2%E8%BF%81%E7%A7%BB/" class="post-meta-item leancloud_visitors" data-flag-title="Linux页面迁移" title="阅读次数">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-eye"></i>
-              </span>
-              <span class="post-meta-item-text">阅读次数：</span>
-              <span class="leancloud-visitors-count"></span>
-            </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Valine：</span>
-    
-    <a title="valine" href="/2021/06/20/Linux%E9%A1%B5%E9%9D%A2%E8%BF%81%E7%A7%BB/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/20/Linux%E9%A1%B5%E9%9D%A2%E8%BF%81%E7%A7%BB/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>转载宋宝华老师Linux页面迁移的文章</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/06/20/Linux%E9%A1%B5%E9%9D%A2%E8%BF%81%E7%A7%BB/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/20/Linux%E6%8A%A2%E5%8D%A0%E6%A6%82%E5%BF%B5/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/06/20/Linux%E6%8A%A2%E5%8D%A0%E6%A6%82%E5%BF%B5/" class="post-title-link" itemprop="url">Linux抢占概念</a>
+            <a href="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">perf flame graph笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -806,11 +625,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-20 23:18:11 / 修改时间：23:54:52" itemprop="dateCreated datePublished" datetime="2021-06-20T23:18:11+08:00">2021-06-20</time>
+              <time title="创建时间：2021-06-27 18:09:46 / 修改时间：22:33:31" itemprop="dateCreated datePublished" datetime="2021-06-27T18:09:46+08:00">2021-06-27</time>
             </span>
 
           
-            <span id="/2021/06/20/Linux%E6%8A%A2%E5%8D%A0%E6%A6%82%E5%BF%B5/" class="post-meta-item leancloud_visitors" data-flag-title="Linux抢占概念" title="阅读次数">
+            <span id="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="perf flame graph笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -825,8 +644,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/20/Linux%E6%8A%A2%E5%8D%A0%E6%A6%82%E5%BF%B5/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/20/Linux%E6%8A%A2%E5%8D%A0%E6%A6%82%E5%BF%B5/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -841,10 +660,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>这篇文章把linux内核里的preempt这个概念介绍的比较清楚: http://news.eeworld.com.cn/mp/ymc/a52661.jspx 本文再把一些关键的点总结下。</p>
+          <p>本文记录使用Linux下使用perf生成火焰图的方法</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/20/Linux%E6%8A%A2%E5%8D%A0%E6%A6%82%E5%BF%B5/">
+              <a class="btn" href="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -868,12 +687,12 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/20/Linux-kernel-poll/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -882,7 +701,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/20/Linux-kernel-poll/" class="post-title-link" itemprop="url">Linux kernel poll</a>
+            <a href="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">锁使用的一些笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -893,11 +712,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-20 23:17:48 / 修改时间：23:52:08" itemprop="dateCreated datePublished" datetime="2021-06-20T23:17:48+08:00">2021-06-20</time>
+              <time title="创建时间：2021-06-27 18:09:08 / 修改时间：22:31:06" itemprop="dateCreated datePublished" datetime="2021-06-27T18:09:08+08:00">2021-06-27</time>
             </span>
 
           
-            <span id="/2021/06/20/Linux-kernel-poll/" class="post-meta-item leancloud_visitors" data-flag-title="Linux kernel poll" title="阅读次数">
+            <span id="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="锁使用的一些笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -912,8 +731,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/20/Linux-kernel-poll/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/20/Linux-kernel-poll/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -928,10 +747,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>Linux内核poll系统调用实现的分析。</p>
+          <p>在Linux系统下编程的时候，当需要保护特性数据结构的时候会用到各种锁。本文记录作者在实际使用时候的一些心得。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/20/Linux-kernel-poll/">
+              <a class="btn" href="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -955,12 +774,12 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/20/%E5%AF%B9%E7%A7%B0%E5%8A%A0%E8%A7%A3%E5%AF%86/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系构架">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -969,7 +788,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/20/%E5%AF%B9%E7%A7%B0%E5%8A%A0%E8%A7%A3%E5%AF%86/" class="post-title-link" itemprop="url">对称加解密</a>
+            <a href="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Linux SVA特性分析</a>
         </h2>
 
         <div class="post-meta">
@@ -980,11 +799,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-20 23:17:06 / 修改时间：23:48:14" itemprop="dateCreated datePublished" datetime="2021-06-20T23:17:06+08:00">2021-06-20</time>
+              <time title="创建时间：2021-06-27 18:08:06 / 修改时间：22:45:26" itemprop="dateCreated datePublished" datetime="2021-06-27T18:08:06+08:00">2021-06-27</time>
             </span>
 
           
-            <span id="/2021/06/20/%E5%AF%B9%E7%A7%B0%E5%8A%A0%E8%A7%A3%E5%AF%86/" class="post-meta-item leancloud_visitors" data-flag-title="对称加解密" title="阅读次数">
+            <span id="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Linux SVA特性分析" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -999,8 +818,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/20/%E5%AF%B9%E7%A7%B0%E5%8A%A0%E8%A7%A3%E5%AF%86/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/20/%E5%AF%B9%E7%A7%B0%E5%8A%A0%E8%A7%A3%E5%AF%86/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -1015,10 +834,184 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文是学习对称加解密时的一个笔记</p>
+          <p>最近Linux社区在上传SVA特性(share virtual memory), 简单讲这个特性可以达到 这样的功能，就是可以是设备直接使用进程里的虚拟地址。如果把设备操作映射到用户态， 就可以在用户态叫设备直接使用进程虚拟地址。设备可以使用进程虚拟地址做DMA，如果 设备功能强大，比如可以执行一段指令，设备甚至可以直接执行相应进程虚拟地址上的 指令。目前SVA特性正处于上传阶段，这个特性的补丁涉及到IOMMU, PCI, 内存管理(MM), SMMU, VFIO, 虚拟化，DT, ACPI等方面的修改，所以补丁比较分散，不过好在这个特性的 上传者把相关补丁收集在了一个分支上，即https://jpbrucker.net/sva/ 的sva/current 分支上。想要了解SVA的整体，可以直接查看这个分支上的各个提交。需要说明是，这个 分支的base是5.2-rc7, 在5.3中这个分支上的少量补丁已经合入Linux主线，如果想用最 新内核测试SVA需要做一定的适配工作。本文的分析以base是5.2-rc7的sva/current分支 上的补丁为基础。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/20/%E5%AF%B9%E7%A7%B0%E5%8A%A0%E8%A7%A3%E5%AF%86/">
+              <a class="btn" href="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-title-link" itemprop="url">Linux文件引用计数的逻辑</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-27 18:07:01 / 修改时间：22:26:04" itemprop="dateCreated datePublished" datetime="2021-06-27T18:07:01+08:00">2021-06-27</time>
+            </span>
+
+          
+            <span id="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-meta-item leancloud_visitors" data-flag-title="Linux文件引用计数的逻辑" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>本文分析现在Linux内核中对打开文件引用计数的处理逻辑，目的是解答一个问题，即对设备文件的操作会不会引用到已经释放的文件上。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-title-link" itemprop="url">SMMU SSV的逻辑</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-06-27 18:06:35 / 修改时间：23:29:57" itemprop="dateCreated datePublished" datetime="2021-06-27T18:06:35+08:00">2021-06-27</time>
+            </span>
+
+          
+            <span id="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-meta-item leancloud_visitors" data-flag-title="SMMU SSV的逻辑" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>本文描述SMMU协议中SSV的基本逻辑</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -1041,7 +1034,7 @@
 
   
   <nav class="pagination">
-    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><span class="space">&hellip;</span><a class="page-number" href="/page/4/">4</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><span class="space">&hellip;</span><a class="page-number" href="/page/6/">6</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
   </nav>
 
 
@@ -1100,21 +1093,21 @@
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
   <p class="site-author-name" itemprop="name">Sherlock Wang</p>
-  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系构架</div>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
 </div>
 <div class="site-state-wrap motion-element">
   <nav class="site-state">
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">33</span>
+          <span class="site-state-item-count">53</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">28</span>
+        <span class="site-state-item-count">35</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
