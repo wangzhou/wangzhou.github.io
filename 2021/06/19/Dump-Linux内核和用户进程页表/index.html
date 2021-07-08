@@ -16,10 +16,11 @@
 
 <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
   <meta name="description" content="本文介绍dump Linux内核和用户进程页表的办法">
@@ -128,17 +129,22 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">35</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">53</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
 
     <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
 
   </li>
   </ul>
@@ -239,7 +245,7 @@
 </ol>
 </li>
 <li><p>dump 进程页表</p>
-<p>linux系统上，通过对/proc/<pid>/pagemap的操作可以dump进程的页表信息。<br>这个文件的介绍可以参考linux/Documentation/vm/pagemap.txt。直接cat<br>这个文件的无法得到信息，我们需要按照上面文件中描述的格式写代码解析。<br>内核代码在tools/vm/page-types.c提供了解析的工具。可以使用:<br>make -C tools/vm 编译得到page-types这个工具。使用的效果类似:</p>
+<p>linux系统上，通过对/proc/<pid>/pagemap的操作可以dump进程的页表信息。<br>这个文件的介绍可以参考linux/Documentation/vm/pagemap.txt。直接cat<br>这个文件的无法得到信息，我们需要按照上面文件中描述的格式写代码解析。<br>内核代码在tools/vm/page-types.c提供了解析的工具。可以使用:<br>make -C tools/vm 编译得到page-types这个工具。使用的效果类似:</pid></p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">sudo ./page-types --pid 91228</span><br><span class="line">             flags	page-count       MB  symbolic-flags			long-symbolic-flags</span><br><span class="line">0x0000000000000800	         1        0  ___________M________________________________	mmap</span><br><span class="line">0x000000000000086c	       706        2  __RU_lA____M________________________________	referenced,uptodate,lru,active,mmap</span><br><span class="line">0x0000000000005828	       520        2  ___U_l_____Ma_b_____________________________	uptodate,lru,mmap,anonymous,swapbacked</span><br><span class="line">0x000000000000586c	         1        0  __RU_lA____Ma_b_____________________________	referenced,uptodate,lru,active,mmap,anonymous,swapbacked</span><br><span class="line">             total	      1228        4</span><br></pre></td></tr></table></figure></li>
 </ol>
 
@@ -355,14 +361,18 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">53</span>
+          <span class="site-state-item-count">91</span>
           <span class="site-state-item-name">日志</span>
         </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-count">56</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -419,6 +429,8 @@
 
   
   <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
 
 <script src="/js/utils.js"></script>
 

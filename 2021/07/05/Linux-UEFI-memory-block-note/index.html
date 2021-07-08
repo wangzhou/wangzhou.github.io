@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="This doc shows how UEFI reports memory blocks to OS">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux&#x2F;UEFI memory block note">
+<meta property="og:url" content="http://example.com/2021/07/05/Linux-UEFI-memory-block-note/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="This doc shows how UEFI reports memory blocks to OS">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-05T14:29:05.000Z">
+<meta property="article:modified_time" content="2021-07-05T15:37:32.586Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/05/Linux-UEFI-memory-block-note/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux/UEFI memory block note | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/Linux-UEFI-memory-block-note/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux/UEFI memory block note
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-07-05 22:29:05 / 修改时间：23:37:32" itemprop="dateCreated datePublished" datetime="2021-07-05T22:29:05+08:00">2021-07-05</time>
+            </span>
+
+          
+            <span id="/2021/07/05/Linux-UEFI-memory-block-note/" class="post-meta-item leancloud_visitors" data-flag-title="Linux/UEFI memory block note" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/05/Linux-UEFI-memory-block-note/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/Linux-UEFI-memory-block-note/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">This doc shows how UEFI reports memory blocks to OS</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>D05 CPU and memory hardware topology</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">|||| +--------+  |||| ||||  +---------+  ||||</span><br><span class="line">|||| |        |  |||| ||||  |         |  ||||</span><br><span class="line">|||| |  CPU   |  |||| ||||  |   CPU   |  ||||</span><br><span class="line">|||| |        |  |||| ||||  |         |  ||||</span><br><span class="line">|||| +--------+  |||| ||||  +---------+  ||||</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"> Dim A        Dim B</span><br><span class="line">   |     | |    |   | |</span><br><span class="line">   +---&gt; | | &lt;--+   | |</span><br><span class="line">         | |        | |</span><br><span class="line">         | |        | |</span><br><span class="line"> +-------+-+--------+-+---------+</span><br><span class="line"> |      ++-+-+     ++-+-+       | &lt;-- CPU</span><br><span class="line"> |      |ddrc|     |ddrc|       |</span><br><span class="line"> |     ++----+-+  ++----+-+     |</span><br><span class="line"> |     |       |  |       |     |</span><br><span class="line"> |     |       +--+       |     |</span><br><span class="line"> |     | C Die |  | C Die |     |</span><br><span class="line"> |     |       +--+       |     |</span><br><span class="line"> |     |       |  |       |     |</span><br><span class="line"> |     ++----+-+  ++----+-+ ... |</span><br><span class="line"> |      |ddrc|     |ddrc|       |</span><br><span class="line"> |      ++-+-+     ++-+-+       |</span><br><span class="line"> +-------+-+--------+-+---------+</span><br><span class="line">         | |        | |</span><br><span class="line">         | |        | |</span><br><span class="line">         | |        | |</span><br><span class="line">         | |        | |</span><br></pre></td></tr></table></figure>
+<p>ACPI SRAT table will discribe this topology. In SRAT table CPU will be discribed<br>statically, but memory block will be discribed drynamically. UEFI will detect<br>the DDR in the Dims and report memory blocks in SRAT table to OS.</p>
+<p>The logic of how UEFI defines a memmroy block is based on specific UEFI.<br>Now D05 UEFI will assigned memory range for each ddrc, e.g. 0 ~ 32G. ddr plugging<br>in specific dim will get the cpu address from its ddrc.</p>
+<p>D05 UEFI can connect two memory rangs of different ddrc to one memory block and<br>report this to OS, if these two memory ranges’ ddr is contiguous:</p>
+<p>  contiguous:      ddrc 0 ~ 32G, plugging 2 16G ddr.</p>
+<p>  not contiguous:  ddrc 0 ~ 32G, plugging 1 16G ddr.</p>
+<p>In D05, run dmesg | grep SRAT:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line">[    0.000000] ACPI: SRAT 0x00000000397F0000 000578 (v03 HISI   HIP07    00000000 INTL 20151124)</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10000 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10001 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10002 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10003 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10100 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10101 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10102 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10103 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10200 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10201 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10202 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10203 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10300 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10301 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10302 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 0 -&gt; MPIDR 0x10303 -&gt; Node 0</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30000 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30001 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30002 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30003 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30100 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30101 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30102 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30103 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30200 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30201 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30202 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30203 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30300 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30301 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30302 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 1 -&gt; MPIDR 0x30303 -&gt; Node 1</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50000 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50001 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50002 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50003 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50100 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50101 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50102 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50103 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50200 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50201 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50202 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50203 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50300 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50301 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50302 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 2 -&gt; MPIDR 0x50303 -&gt; Node 2</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70000 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70001 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70002 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70003 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70100 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70101 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70102 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70103 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70200 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70201 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70202 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70203 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70300 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70301 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70302 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: NUMA: SRAT: PXM 3 -&gt; MPIDR 0x70303 -&gt; Node 3</span><br><span class="line">[    0.000000] ACPI: SRAT: Node 0 PXM 0 [mem 0x00000000-0x3fffffff]</span><br><span class="line">[    0.000000] ACPI: SRAT: Node 1 PXM 1 [mem 0x1400000000-0x17ffffffff]</span><br><span class="line">[    0.000000] ACPI: SRAT: Node 0 PXM 0 [mem 0x1000000000-0x13ffffffff]</span><br><span class="line">[    0.000000] ACPI: SRAT: Node 3 PXM 3 [mem 0x8800000000-0x8bffffffff]</span><br><span class="line">[    0.000000] ACPI: SRAT: Node 2 PXM 2 [mem 0x8400000000-0x87ffffffff]</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"># 计算机体系结构</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/05/how-to-compile-perf-tool-statically/" rel="prev" title="how to compile perf tool statically">
+      <i class="fa fa-chevron-left"></i> how to compile perf tool statically
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/05/How-to-dump-acpi-tables-in-CentOS/" rel="next" title="How to dump acpi tables in CentOS">
+      How to dump acpi tables in CentOS <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">91</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">56</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

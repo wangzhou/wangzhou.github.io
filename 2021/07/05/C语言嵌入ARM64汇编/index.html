@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文介绍在C语言嵌入汇编语言的方法，linux kernel里有很多这样的例子。这里在aarch64 平台下介绍，所有例子都是这个平台下的。网上的这篇文章已经有很好的介绍，大家可以 参阅： http:&#x2F;&#x2F;www.ethernut.de&#x2F;en&#x2F;documents&#x2F;arm-inline-asm.html, http:&#x2F;&#x2F;ericw.ca&#x2F;notes&#x2F;a-tiny-guide-to-gcc-inline">
+<meta property="og:type" content="article">
+<meta property="og:title" content="C语言嵌入ARM64汇编">
+<meta property="og:url" content="http://example.com/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文介绍在C语言嵌入汇编语言的方法，linux kernel里有很多这样的例子。这里在aarch64 平台下介绍，所有例子都是这个平台下的。网上的这篇文章已经有很好的介绍，大家可以 参阅： http:&#x2F;&#x2F;www.ethernut.de&#x2F;en&#x2F;documents&#x2F;arm-inline-asm.html, http:&#x2F;&#x2F;ericw.ca&#x2F;notes&#x2F;a-tiny-guide-to-gcc-inline">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-05T14:34:15.000Z">
+<meta property="article:modified_time" content="2021-07-05T16:01:24.761Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="ARM64">
+<meta property="article:tag" content="汇编">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>C语言嵌入ARM64汇编 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          C语言嵌入ARM64汇编
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-05 22:34:15" itemprop="dateCreated datePublished" datetime="2021-07-05T22:34:15+08:00">2021-07-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-06 00:01:24" itemprop="dateModified" datetime="2021-07-06T00:01:24+08:00">2021-07-06</time>
+              </span>
+
+          
+            <span id="/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/" class="post-meta-item leancloud_visitors" data-flag-title="C语言嵌入ARM64汇编" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文介绍在C语言嵌入汇编语言的方法，linux kernel里有很多这样的例子。这里在aarch64 平台下介绍，所有例子都是这个平台下的。网上的这篇文章已经有很好的介绍，大家可以 参阅： http://www.ethernut.de/en/documents/arm-inline-asm.html, http://ericw.ca/notes/a-tiny-guide-to-gcc-inline-assembly.html https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ol start="0">
+<li><p>使用场景</p>
+<p>嵌入汇编一般用在c语言无法使用的地方，比如要操作系统寄存器了，比如要直接调用<br>汇编指令完成功能了(内存屏障，刷cache), 还有就是要优化性能。Linux内核里和硬件<br>直接接触的体系架构相关的代码有很多是直接用汇编写的。</p>
+</li>
+<li><p>嵌入汇编的语法</p>
+<p>asm volatile(code : output operand list : input operand list: clobber list);</p>
+<p>其中volatile告诉编译器不要去优化这里的汇编代码。防止你辛苦写的汇编代码一下被<br>编译器优化的面目全非。</p>
+<p>有时你会看到这样的嵌入汇编代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">asm(&quot;mov %[result], %[value], ror #1&quot; : [result] &quot;=r&quot; (y) : [value] &quot;r&quot; (x) :)</span><br></pre></td></tr></table></figure>
+<p>但是一般的，比如在linux内核里你看到的是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">asm(&quot;mov %0, %1, ror #1&quot; : &quot;=r&quot; (result) : &quot;r&quot; (value));</span><br></pre></td></tr></table></figure>
+<p>唯一不同的是，code里和operand里参数的对应关系的写法。我们这里用第二种方法，<br>它的对应关系是，从output operand list到input operand list, 参数的命名从0开始，<br>依次是%0，%1…</p>
+<p>operand list的一般格式是：”常量” (参数)。参数是和C语言里变量的接口，比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">static inline void __raw_writel(u32 val, volatile void __iomem *addr)</span><br><span class="line">&#123;</span><br><span class="line">	asm volatile(&quot;str %w0, [%1]&quot; : : &quot;rZ&quot; (val), &quot;r&quot; (addr));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这里的val和addr就是C代码里的变量。常量的意义可以参考:<br><span class="exturl" data-url="aHR0cHM6Ly9nY2MuZ251Lm9yZy9vbmxpbmVkb2NzL2djYy9Db25zdHJhaW50cy5odG1s">https://gcc.gnu.org/onlinedocs/gcc/Constraints.html<i class="fa fa-external-link-alt"></i></span>, 简单讲这个常量可以是r,<br>Q, m等，也可以再次被=，+， &amp;等修饰。r, m, Q讲的是这个变量可以被编译器编译在<br>寄存器里，内存里，或者是通过指针再间接寻址下，=标识这个变量只读，+表示这个<br>变量可读可写。这里code里的w表示这个变量的位宽，w表示是32bit的，x表示是64bit<br>的，这里再次注意，我们现在讨论的是aarch64下的汇编。</p>
+<p>可以随便写一个程序，aarch64-linux-gnu-gcc -S xx.c编译下，看看生成的汇编代码<br>是怎么样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">void test()</span><br><span class="line">&#123;</span><br><span class="line">        int y = 0;</span><br><span class="line">	int x = 1;</span><br><span class="line"></span><br><span class="line">	asm volatile(&quot;add %w0, %w1, 1&quot; : &quot;=r&quot; (y) : &quot;r&quot; (x) :);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>下面是编译成的汇编代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">	.arch armv8-a</span><br><span class="line">	.file	&quot;embedded_asm.c&quot;</span><br><span class="line">	.text</span><br><span class="line">	.align	2</span><br><span class="line">	.global	test</span><br><span class="line">	.type	test, %function</span><br><span class="line">test:</span><br><span class="line">	sub	sp, sp, #16</span><br><span class="line">	str	wzr, [sp, 12]</span><br><span class="line">	mov	w0, 1</span><br><span class="line">	str	w0, [sp, 8]</span><br><span class="line">	ldr	w0, [sp, 8]</span><br><span class="line">#APP</span><br><span class="line">// 6 &quot;embedded_asm.c&quot; 1</span><br><span class="line">	add w0, w0, 1</span><br><span class="line">// 0 &quot;&quot; 2</span><br><span class="line">#NO_APP</span><br><span class="line">	str	w0, [sp, 12]</span><br><span class="line">	nop</span><br><span class="line">	add	sp, sp, 16</span><br><span class="line">	ret</span><br><span class="line">	.size	test, .-test</span><br><span class="line">	.ident	&quot;GCC: (Linaro GCC 6.3-2017.05) 6.3.1 20170404&quot;</span><br><span class="line">	.section	.note.GNU-stack,&quot;&quot;,@progbits</span><br></pre></td></tr></table></figure>
+<p>把r改成m后是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">test:</span><br><span class="line">	sub	sp, sp, #16</span><br><span class="line">	str	wzr, [sp, 12]</span><br><span class="line">	mov	w0, 1</span><br><span class="line">	str	w0, [sp, 8]</span><br><span class="line">#APP</span><br><span class="line">// 6 &quot;embedded_asm.c&quot; 1</span><br><span class="line">	add [sp, 12], [sp, 8], 1</span><br><span class="line">// 0 &quot;&quot; 2</span><br><span class="line">#NO_APP</span><br><span class="line">	nop</span><br><span class="line">	add	sp, sp, 16</span><br><span class="line">	ret</span><br></pre></td></tr></table></figure>
+<p>把r改成Q后是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">   test:</span><br><span class="line">	sub	sp, sp, #16</span><br><span class="line">	str	wzr, [sp, 12]</span><br><span class="line">	mov	w0, 1</span><br><span class="line">	str	w0, [sp, 8]</span><br><span class="line">	add	x0, sp, 12</span><br><span class="line">	add	x1, sp, 8</span><br><span class="line">#APP</span><br><span class="line">// 6 &quot;embedded_asm.c&quot; 1</span><br><span class="line">	add [x0], [x1], 1</span><br><span class="line">// 0 &quot;&quot; 2</span><br><span class="line">#NO_APP</span><br><span class="line">	nop</span><br><span class="line">	add	sp, sp, 16</span><br><span class="line">	ret</span><br></pre></td></tr></table></figure>
+
+<p>clobber的解释gcc上说是：告知编译器嵌入的汇编代码除了影响output operand里的<br>变量外，还对哪些寄存器或者是对内存会产生影响。把他们可以列到clobber list里面<br>来。寄存器直接列名字，两个特殊的clobber参数是”memory”和”cc”, cc表示会影响到<br>flags register，memory就会影响到input operant参数指向的内存。</p>
+</li>
+<li><p>举例</p>
+<p>…</p>
+</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/ARM64/" rel="tag"># ARM64</a>
+              <a href="/tags/%E6%B1%87%E7%BC%96/" rel="tag"># 汇编</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/05/Linux%E5%86%85%E6%A0%B8scatterlist%E7%94%A8%E6%B3%95/" rel="prev" title="Linux内核scatterlist用法">
+      <i class="fa fa-chevron-left"></i> Linux内核scatterlist用法
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/05/git-am-%E5%86%B2%E7%AA%81%E8%A7%A3%E5%86%B3%E6%8A%80%E5%B7%A7/" rel="next" title="git am 冲突解决技巧">
+      git am 冲突解决技巧 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">91</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">56</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

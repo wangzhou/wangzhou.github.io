@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文讨论linux系统中pci设备直通给qemu中涉及的pci热插拔问题。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="qemu里pci设备的热插拔">
+<meta property="og:url" content="http://example.com/2021/06/28/qemu%E9%87%8Cpci%E8%AE%BE%E5%A4%87%E7%9A%84%E7%83%AD%E6%8F%92%E6%8B%94/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文讨论linux系统中pci设备直通给qemu中涉及的pci热插拔问题。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-28T15:56:18.000Z">
+<meta property="article:modified_time" content="2021-07-02T16:17:14.795Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="PCIe">
+<meta property="article:tag" content="QEMU">
+<meta property="article:tag" content="虚拟化">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/06/28/qemu%E9%87%8Cpci%E8%AE%BE%E5%A4%87%E7%9A%84%E7%83%AD%E6%8F%92%E6%8B%94/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>qemu里pci设备的热插拔 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/28/qemu%E9%87%8Cpci%E8%AE%BE%E5%A4%87%E7%9A%84%E7%83%AD%E6%8F%92%E6%8B%94/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          qemu里pci设备的热插拔
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-06-28 23:56:18" itemprop="dateCreated datePublished" datetime="2021-06-28T23:56:18+08:00">2021-06-28</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-03 00:17:14" itemprop="dateModified" datetime="2021-07-03T00:17:14+08:00">2021-07-03</time>
+              </span>
+
+          
+            <span id="/2021/06/28/qemu%E9%87%8Cpci%E8%AE%BE%E5%A4%87%E7%9A%84%E7%83%AD%E6%8F%92%E6%8B%94/" class="post-meta-item leancloud_visitors" data-flag-title="qemu里pci设备的热插拔" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/28/qemu%E9%87%8Cpci%E8%AE%BE%E5%A4%87%E7%9A%84%E7%83%AD%E6%8F%92%E6%8B%94/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/28/qemu%E9%87%8Cpci%E8%AE%BE%E5%A4%87%E7%9A%84%E7%83%AD%E6%8F%92%E6%8B%94/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文讨论linux系统中pci设备直通给qemu中涉及的pci热插拔问题。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>场景是一个pcie设备的vf通过vfio直通给qemu使用，这时如果我们在host上通过sysfs把<br>对应的vf disable掉。</p>
+<p>正常来讲，qemu里的vf pci设备会表现为一个pci设备热拔出的行为。与之相对应的设置为：</p>
+<ol>
+<li><p>guest kernel的配置里要打开pci hotplug: CONFIG_HOTPLUG_PCI_PCIE.</p>
+</li>
+<li><p>guest kernel的启动cmdline里要是能pci native hotplug, 加上pcie_port=native</p>
+</li>
+<li><p>启动qemu的时候，需要把直通上来的pci vf挂到一个支持pci热插拔的pci桥下面:<br>比如在qemu里挂接一个ioh3420的pci桥，然后再把直通的vf挂在这个桥下。</p>
+</li>
+<li><p>本文的测试是在主线linux v5.0-rc6上做的，这个版本有一个pci hotplug的bug，这个<br>bug会导致虚拟机里vf无法被热拔。相关的fix补丁已经被pci maintainer ack, 会合<br>入v5.1主线版本。如果是在v5.0, 以及之前的内核的版本上测试，需要确认这个补丁<br>是否合入:</p>
+<pre><code>[PATCH RESEND] PCI: pciehp: Assign ctrl-&gt;slot_ctrl before writing it to hardware
+</code></pre>
+</li>
+</ol>
+<p> 综合以上，如下的qemu启动命令，配合正确的kernel，可以支持qemu里直通vf的pci热拔<br> 操作:(这里已ARM64平台为例)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">qemu-system-aarch64 -machine virt,gic_version=3 -enable-kvm -cpu host \</span><br><span class="line">-m 1024 -kernel ./Image -initrd ./minifs.cpio.gz -nographic -append \</span><br><span class="line">&quot;rdinit=init console=ttyAMA0 earlycon=pl011,0x9000000 pcie_ports=native&quot; \</span><br><span class="line">-device ioh3420,id=root_port \</span><br><span class="line">-device vfio-pci,host=0000:75:00.1,bus=root_port</span><br></pre></td></tr></table></figure>
+
+<p>具体可以这样测试:(已HiSilicon D06 zip engine为例)</p>
+<ol>
+<li><p>在host上把vf和vfio驱动绑定:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">echo 1 &gt; /sys/devices/pci0000:74/0000:74:00.0/0000:75:00.0/sriov_numvfs</span><br><span class="line">echo 0000:75:00.1 &gt; /sys/bus/pci/drivers/hisi_zip/unbind</span><br><span class="line">echo vfio-pci &gt; /sys/devices/pci0000:74/0000:74:00.0/0000:75:00.1/driver_override</span><br><span class="line">echo 0000:75:00.1 &gt; /sys/bus/pci/drivers_probe</span><br></pre></td></tr></table></figure></li>
+<li><p>启动qemu: 同上面的命令</p>
+</li>
+<li><p>在host上disable vf:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo 0 &gt; /sys/devices/pci0000:74/0000:74:00.0/0000:75:00.0/sriov_numvfs</span><br></pre></td></tr></table></figure></li>
+</ol>
+<p> 可以看到在qemu里，vf表现为一个pci热拔的动作:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(fix me: add log, 目前看上面的命令会在host上挂住)</span><br></pre></td></tr></table></figure>
+
+<p>为了使得这篇介绍完整，对于qemu里pci设备的热插，可以这样来做:</p>
+<ol>
+<li><p>启动qemu后按ctrl a + c 进入qemu monitor(启动qemu的时候带ioh3420但是不带VF设备)</p>
+</li>
+<li><p>在qemu monitor里: device_add vfio-pci,host=0000:75:00.1,bus=root_port</p>
+</li>
+</ol>
+<p> 这样可以把已经和vfio驱动绑定的VF PCI热插到qemu<br> (fix me: lspci看不到新设备，但是在qemu monitor里info pci可以看到新插入的设备)</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/PCIe/" rel="tag"># PCIe</a>
+              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"># 虚拟化</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/28/Linux-kernel-kthread/" rel="prev" title="Linux kernel kthread">
+      <i class="fa fa-chevron-left"></i> Linux kernel kthread
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/28/pci%E8%AE%BE%E5%A4%87%E7%9B%B4%E9%80%9Aqemu%E7%9B%B8%E5%85%B3%E7%9A%84RAS%E5%A4%84%E7%90%86/" rel="next" title="pci设备直通qemu相关的RAS处理">
+      pci设备直通qemu相关的RAS处理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">91</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">56</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

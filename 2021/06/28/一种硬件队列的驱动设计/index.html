@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文是一个硬件队列的软件设计，从中可以看出我们的设计中到底应该写些什么。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一种硬件队列的驱动设计">
+<meta property="og:url" content="http://example.com/2021/06/28/%E4%B8%80%E7%A7%8D%E7%A1%AC%E4%BB%B6%E9%98%9F%E5%88%97%E7%9A%84%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文是一个硬件队列的软件设计，从中可以看出我们的设计中到底应该写些什么。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-28T14:51:41.000Z">
+<meta property="article:modified_time" content="2021-07-02T15:51:24.038Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="软件架构">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/06/28/%E4%B8%80%E7%A7%8D%E7%A1%AC%E4%BB%B6%E9%98%9F%E5%88%97%E7%9A%84%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>一种硬件队列的驱动设计 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/28/%E4%B8%80%E7%A7%8D%E7%A1%AC%E4%BB%B6%E9%98%9F%E5%88%97%E7%9A%84%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          一种硬件队列的驱动设计
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-06-28 22:51:41" itemprop="dateCreated datePublished" datetime="2021-06-28T22:51:41+08:00">2021-06-28</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-02 23:51:24" itemprop="dateModified" datetime="2021-07-02T23:51:24+08:00">2021-07-02</time>
+              </span>
+
+          
+            <span id="/2021/06/28/%E4%B8%80%E7%A7%8D%E7%A1%AC%E4%BB%B6%E9%98%9F%E5%88%97%E7%9A%84%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/" class="post-meta-item leancloud_visitors" data-flag-title="一种硬件队列的驱动设计" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/06/28/%E4%B8%80%E7%A7%8D%E7%A1%AC%E4%BB%B6%E9%98%9F%E5%88%97%E7%9A%84%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/28/%E4%B8%80%E7%A7%8D%E7%A1%AC%E4%BB%B6%E9%98%9F%E5%88%97%E7%9A%84%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文是一个硬件队列的软件设计，从中可以看出我们的设计中到底应该写些什么。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>首先描述这个硬件的队列模型：</p>
+<p>他有N个发送队列(sq)，N个完成队列(cq), 这N个sq和cq一一对应组成N个队列对(qp)。这<br>N个qp对应一个事件队列(eq)。</p>
+<p>用户可以依次在sq里填入请求，然后发通知(doorbell)给硬件，要求硬件执行这个请求。<br>可以执行请求的部件我们把他独立开来(core)。core执行完请求后会依次在cq里填入请求<br>完成(描述符)。为了异步的通知给用户，当cq里有请求完成描述符的时候，并且没有屏蔽<br>cq写eq的通道的时候，cq会依次在eq里填入一个事件完成描述符(eqe)。对于eq，在eq里有事件<br>完成描述符，并且没有屏蔽中断的时候，向CPU报一个中断。</p>
+<p>软件可以操作doorbell更新sq尾指针，更新cq头指针，更新eq头指针。其他硬件指针硬件<br>自己会更新(比如，core在取走一个sq请求的时候更新sq头指针，cq、eq在被写入的时候，<br>硬件更新cq tail和eq tail)。</p>
+<p>cq在满足条件向eq填一个eqe的同时自动屏蔽cq写eq的通道。软件可以再下发一个特定的<br>doorbell打开这个通道。</p>
+<p>eq满足条件上报中断的同时自动屏蔽中断上报。软件下发doorbell更新eq head时，除了<br>更新硬件eq head，还同时打开了中断屏蔽。</p>
+<p>整体的硬件框图类似是这样的:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">              cq/sq/eq doorbell</span><br><span class="line">          |       |                    |       ^ irq</span><br><span class="line">+---------+-------+--------------------+-------+----------------------+</span><br><span class="line">|         |       |                    |       |                      |</span><br><span class="line">|         |       v                    |       |            		|</span><br><span class="line">|   +---+-+-+---+---+----              |       |                      |</span><br><span class="line">|   |sqe|s|e|sqe|sqe|                  |       |                      |</span><br><span class="line">|   +---+-+-+---+---+----              |       |                      |</span><br><span class="line">|   +---+-v-+---+---+-\--              |       |                      |</span><br><span class="line">|   |cqe|cqe|cqe|cqe|  \  \            |       |                      |</span><br><span class="line">|   +---+---+---+---+---\  \           |       |                      |</span><br><span class="line">|         ^       ^ ^    \  \          |       |                      |</span><br><span class="line">|         |       |  \    \  \         |       |                      |</span><br><span class="line">|        head    tail \    \  \        |       |                      |</span><br><span class="line">|                      \    \  v       v       |                      |</span><br><span class="line">|                       \    \   +---+---+---+---+-----               |</span><br><span class="line">|   N个                  \    \  |eqe|eqe|eqe|eqe|...                 |</span><br><span class="line">|                         \    X +---+---+---+---+-----               |</span><br><span class="line">|                          \  / \      ^       ^                      |</span><br><span class="line">|   +---+---+---+---+----   \/   \     |       |                      |</span><br><span class="line">|   |sqe|sqe|sqe|sqe|       /\    \   head    tail                    |  </span><br><span class="line">|   +---+---+---+---+----  /  \    \                                  |</span><br><span class="line">|   +---+---+---+---+---- /    \    \                                 |</span><br><span class="line">|   |cqe|cqe|cqe|cqe|    /      \    \                                |</span><br><span class="line">|   +---+---+---+---+----        \    \                               |</span><br><span class="line">|                                 \    v                              |</span><br><span class="line">|                                  \+--------+                        |</span><br><span class="line">|                                   |        |                        |</span><br><span class="line">|                                   | core   |                        |</span><br><span class="line">|                                   |        |                        |</span><br><span class="line">|                                   +--------+                        |</span><br><span class="line">|  cq/sq depth = M   eq depth = K                                     |</span><br><span class="line">+---------------------------------------------------------------------+</span><br></pre></td></tr></table></figure>
+
+<p>对于sq，软件需要维护软件sq_head, sq_tail。保证发到sq的请求不会导致sq溢出。<br>对于cq，其input来自core, output来自中断处理程序中更新cq head。<br>对于eq，其input来自cq，output来自中断处理程序中更新eq head。</p>
+<p>软件设计的重点在于，在保证cq，eq不发生溢出的情况下，做到高性能。我们先找到保证<br>cq、eq不发生溢出的条件。然后，提高中断的汇聚程度提高性能(同时不破坏之前的约束<br>条件)。</p>
+<p>cq不溢出的条件是(考虑中断很久才到，这时候sq, cq已被填满, 注意因为上面我们已经<br>限制sq不溢出，所以这里即使没有中断更新cq head，cq也不会溢出)。中断中我们通过<br>eqe中的索引找到对应的cq进行处理，必须先跟新cq head，才能更新软件的sq head。否则，<br>如果先更新sq head，下发的新sq请求可能通过core产生cqe使得cq溢出。<br>(注意这里没有考虑cqe汇聚处理)</p>
+<p>eq不溢出的条件是，考虑所有cq并发向eq写eqe，中断到来在写满eq时刻之后的情况，得出<br>eq深度至少要等于并发cq数N。假设eq已被写满，现在在中断处理函数中遍历各个cq处理，<br>并且处理完后打开cq写eq通道，并且N个cq上都有排队cqe(意味着会写N个新eqe给eq)。如果<br>eq的队列深度不增加(依然是N)，那么保证eq不溢出的条件是，irq中断中处理一个eq head<br>(相当于在eq里留出一个空位)，才能在处理一个cq的时候放开放cq写eq的通路(放开通路就<br>意味着可能有cq向eq写入一个eqe)。当然也可以处理n个eqe，放开&lt;=n个cq到eq的通路。</p>
+<p>上面已经明确不溢出的条件，那么，下来就是看优化了。按照上面对eq的处理，需要在中断<br>中对每个eqe做eq head的更新，注意上面的硬件描述里提到，每次更新eq head都会打开<br>中断屏蔽，这样每个eq都会上报一个中断，性能会差。我们考虑把多个完成的eqe做一下汇聚，<br>然后更新eq head。注意, 在实际实现时，我们的处理大概是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">while (轮询已完成n个eqe) &#123;  /* 这里最大汇聚为n */</span><br><span class="line">	处理eqe对应的cqe;</span><br><span class="line">	打开cq到eq的通道；</span><br><span class="line">&#125;</span><br><span class="line">更新eq head到原来eq_head + n的位置;</span><br></pre></td></tr></table></figure>
+<p>可以看到实际处理的时候为了把处理cq和打开cq到eq的通道放在一起，会在eq head处理<br>之前打开cq到eq的通道，这样和上面的eq不溢出的条件是冲突的。这样做eq会溢出。<br>注意到上面的分析是假设eq深度等于并发cq个数N。要使得eq不溢出，我们这里还可以增加<br>eq的深度来解决，可以看到我们需要至少把eq的深度加到N+n。</p>
+<p>下面分析cqe汇聚处理的问题。一个eqe至少都对应着一个cqe，在cq写eq后，对应cq写eq的<br>通道被屏蔽，后续core处理完的请求将在cq上排队。在中断处理程序中，通过eq找到对应的<br>cq，然后处理cqe，如果只处理一个cqe后就打开cq到eq的通道，就会上报eq，eq可能会上报<br>中断(这个要看eq上的汇聚处理)。所以在处理cq的时候，我们可汇聚k个cq一起处理，然后<br>再打开cq到eq的通道。这个是一个和上面独立的逻辑。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/" rel="tag"># 软件架构</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/06/27/SMMU%E7%9A%84BBML%E8%AF%AD%E6%84%8F/" rel="prev" title="SMMU的BBML语意">
+      <i class="fa fa-chevron-left"></i> SMMU的BBML语意
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/06/28/%E5%9B%BE%E8%A7%A3%E5%AF%86%E7%A0%81%E6%8A%80%E6%9C%AF%E7%AC%94%E8%AE%B0/" rel="next" title="图解密码技术笔记">
+      图解密码技术笔记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">91</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">56</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

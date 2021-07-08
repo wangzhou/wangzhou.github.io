@@ -16,10 +16,11 @@
 
 <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
   <meta name="description" content="ARM的SMMU提供了性能相关的统计寄存器(Performance Monitor Counter Groups - PMCG)， 目前相关驱动已经合入Linux内核主线。我们可以配合用户态的perf工具使用。本文介绍具 体的使用方法。">
@@ -129,17 +130,22 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">35</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">53</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
 
     <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
 
   </li>
   </ul>
@@ -239,7 +245,7 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">Ubuntu:/ # dmesg | grep pmcg</span><br><span class="line">[ 1232.379951] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.8.auto: option mask 0x1</span><br><span class="line">[ 1232.380040] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.8.auto: Registered PMU @ 0x0000000148020000 using 8 counters with Individual filter settings</span><br><span class="line">[ 1232.380094] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.9.auto: option mask 0x1</span><br><span class="line">[ 1232.380142] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.9.auto: Registered PMU @ 0x0000000201020000 using 8 counters with Individual filter settings</span><br><span class="line">[ 1232.380190] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.10.auto: option mask 0x1</span><br><span class="line">[ 1232.380241] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.10.auto: Registered PMU @ 0x0000000100020000 using 8 counters with Individual filter settings</span><br><span class="line">[ 1232.380286] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.11.auto: option mask 0x1</span><br><span class="line">[ 1232.380337] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.11.auto: Registered PMU @ 0x0000000140020000 using 8 counters with Individual filter settings</span><br><span class="line">[ 1232.380397] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.12.auto: option mask 0x1</span><br><span class="line">[ 1232.380445] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.12.auto: Registered PMU @ 0x0000200148020000 using 8 counters with Individual filter settings</span><br><span class="line">[ 1232.380491] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.13.auto: option mask 0x1</span><br><span class="line">[ 1232.380542] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.13.auto: Registered PMU @ 0x0000200201020000 using 8 counters with Individual filter settings</span><br><span class="line">[ 1232.380601] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.14.auto: option mask 0x1</span><br><span class="line">[ 1232.380653] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.14.auto: Registered PMU @ 0x0000200100020000 using 8 counters with Individual filter settings</span><br><span class="line">[ 1232.380698] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.15.auto: option mask 0x1</span><br><span class="line">[ 1232.380770] arm-smmu-v3-pmcg arm-smmu-v3-pmcg.15.auto: Registered PMU @ 0x0000200140020000 using 8 counters with Individual filter settings</span><br></pre></td></tr></table></figure></li>
 <li><p>使用perf list | grep pmcg可以查看系统支持的pmcg相关的时间类型:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">Ubuntu:/ # perf list | grep pmcg</span><br><span class="line">  [...]</span><br><span class="line">  smmuv3_pmcg_140020/config_cache_miss/              [Kernel PMU event]</span><br><span class="line">  smmuv3_pmcg_140020/config_struct_access/           [Kernel PMU event]</span><br><span class="line">  smmuv3_pmcg_140020/cycles/                         [Kernel PMU event]</span><br><span class="line">  smmuv3_pmcg_140020/pcie_ats_trans_passed/          [Kernel PMU event]</span><br><span class="line">  smmuv3_pmcg_140020/pcie_ats_trans_rq/              [Kernel PMU event]</span><br><span class="line">  smmuv3_pmcg_140020/tlb_miss/                       [Kernel PMU event]</span><br><span class="line">  smmuv3_pmcg_140020/trans_table_walk_access/        [Kernel PMU event]</span><br><span class="line">  smmuv3_pmcg_140020/transaction/                    [Kernel PMU event]</span><br><span class="line">  [...]</span><br></pre></td></tr></table></figure></li>
-<li><p>使用pmcg之前需要先明确需要测试的设备是在哪个pmcg之下，pmcg的命名方式是:<br>smmuv3_pmcg_<phys_addr_page>, 这里的phys_addr_page是对应SMMU PMCG基地址去掉<br>低12bit。这里的设计有点不好，使用者很难找到对应的关系 :(</p>
+<li><p>使用pmcg之前需要先明确需要测试的设备是在哪个pmcg之下，pmcg的命名方式是:<br>smmuv3_pmcg_<phys_addr_page>, 这里的phys_addr_page是对应SMMU PMCG基地址去掉<br>低12bit。这里的设计有点不好，使用者很难找到对应的关系 :(</phys_addr_page></p>
 </li>
 <li><p>当想观测一个程序对应的SMMU上统计信息时我们可以, 比如这样:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">perf stat -e smmuv3_pmcg_&lt;phys_addr_page&gt;/tlb_miss/ &lt;your_program&gt;</span><br></pre></td></tr></table></figure>
@@ -367,14 +373,18 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">53</span>
+          <span class="site-state-item-count">91</span>
           <span class="site-state-item-name">日志</span>
         </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-count">56</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -431,6 +441,8 @@
 
   
   <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
 
 <script src="/js/utils.js"></script>
 

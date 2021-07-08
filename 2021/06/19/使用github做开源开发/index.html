@@ -16,10 +16,11 @@
 
 <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
   <meta name="description" content="对于一个使用github做开发的开源项目，本文梳理其中的基本逻辑。">
@@ -127,17 +128,22 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">35</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">53</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
 
     <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
 
   </li>
   </ul>
@@ -232,7 +238,7 @@
 <p>开发者在github上使用发git pull request的方法向维护者提交合入请求。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">                    repo fork</span><br><span class="line">+-----------------+ -------&gt; +-------------+</span><br><span class="line">| 主线repo master |          | 开发者 repo |</span><br><span class="line">+-----------------+ &lt;------- +-------------+</span><br><span class="line">         \      git pull request    ^</span><br><span class="line">          \                          \</span><br><span class="line">           \                          \ git push dev-branch到开发者github repo</span><br><span class="line">            \                          \</span><br><span class="line">             \                          \</span><br><span class="line">              \                          \</span><br><span class="line">               \             +----------------+</span><br><span class="line">                ----------&gt;  | 开发者本地repo |</span><br><span class="line">           跟踪主线master    +----------------+</span><br><span class="line">                         依据最新master分支创建开发分支: dev-branch</span><br></pre></td></tr></table></figure>
 <p>如上，开发者本地可以维护一个主线repo master的跟踪分支，开发一个新特性的时候，<br>开发者建立基于最新主线master的开发分支，开发完成后，把开发分支push到开发者github<br>repo上，然后再在github页面上发起git pull request。</p>
-<p>维护者在收到git pull request的时候，可以在线review，也可以把需要review的patch<br>拉到本地。维护者可以用 git pull origin pull/<pull_request_id>/head把对应patch拉到<br>本地的当前分支上。维护者直接在github页面就可以点击合入补丁，合入补丁的时候有几种<br>方式，”Create a merge commit”的方式会在合入的时候自动创建一个merge的commit，记录<br>整个merge的信息; “Rebase and merge”的方式会只合入pull request里的patch。</p>
+<p>维护者在收到git pull request的时候，可以在线review，也可以把需要review的patch<br>拉到本地。维护者可以用 git pull origin pull/<pull_request_id>/head把对应patch拉到<br>本地的当前分支上。维护者直接在github页面就可以点击合入补丁，合入补丁的时候有几种<br>方式，”Create a merge commit”的方式会在合入的时候自动创建一个merge的commit，记录<br>整个merge的信息; “Rebase and merge”的方式会只合入pull request里的patch。</pull_request_id></p>
 
     </div>
 
@@ -345,14 +351,18 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">53</span>
+          <span class="site-state-item-count">91</span>
           <span class="site-state-item-name">日志</span>
         </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-count">56</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -409,6 +419,8 @@
 
   
   <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
 
 <script src="/js/utils.js"></script>
 

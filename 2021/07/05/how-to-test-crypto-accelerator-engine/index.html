@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Linux内核crypto子系统带有自测试的功能，它可以对注册到crypto子系统上的各种算法 做测试。如果你自己写了一个驱动注册了一个算法到crypto子系统上可以使用crypto自带 的测试程序做一下快速的测试。本文大概介绍下crypto下的自测试相关的东西。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="how to test crypto accelerator engine">
+<meta property="og:url" content="http://example.com/2021/07/05/how-to-test-crypto-accelerator-engine/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="Linux内核crypto子系统带有自测试的功能，它可以对注册到crypto子系统上的各种算法 做测试。如果你自己写了一个驱动注册了一个算法到crypto子系统上可以使用crypto自带 的测试程序做一下快速的测试。本文大概介绍下crypto下的自测试相关的东西。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-05T14:26:58.000Z">
+<meta property="article:modified_time" content="2021-07-05T15:23:07.109Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="软件测试">
+<meta property="article:tag" content="Linux内核">
+<meta property="article:tag" content="crypto">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/05/how-to-test-crypto-accelerator-engine/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>how to test crypto accelerator engine | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/how-to-test-crypto-accelerator-engine/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          how to test crypto accelerator engine
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-07-05 22:26:58 / 修改时间：23:23:07" itemprop="dateCreated datePublished" datetime="2021-07-05T22:26:58+08:00">2021-07-05</time>
+            </span>
+
+          
+            <span id="/2021/07/05/how-to-test-crypto-accelerator-engine/" class="post-meta-item leancloud_visitors" data-flag-title="how to test crypto accelerator engine" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/05/how-to-test-crypto-accelerator-engine/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/how-to-test-crypto-accelerator-engine/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">Linux内核crypto子系统带有自测试的功能，它可以对注册到crypto子系统上的各种算法 做测试。如果你自己写了一个驱动注册了一个算法到crypto子系统上可以使用crypto自带 的测试程序做一下快速的测试。本文大概介绍下crypto下的自测试相关的东西。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>简单的讲，就是在你写的crypto驱动注册到crypto子系统的时候，注册函数会调用crypto_chain<br>注册链表上的回调函数。</p>
+<p>如果使能了crypto/algboss.c这个驱动，这个驱动初始化的时候会向crypto_chain里注册相关<br>的测试代码, 这些测试代码会启动一个内核线程去测试刚刚注册的crypto算法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">cryptomgr_schedule_test</span><br><span class="line">	--&gt; kthread_run(cryptomgr_test, param, &quot;cryptomgr_test&quot;)</span><br><span class="line"></span><br><span class="line">static int cryptomgr_test(void *data)</span><br><span class="line">&#123;</span><br><span class="line">	struct crypto_test_param *param = data;</span><br><span class="line">	u32 type = param-&gt;type;</span><br><span class="line">	int err = 0;</span><br><span class="line"></span><br><span class="line">#ifdef CONFIG_CRYPTO_MANAGER_DISABLE_TESTS</span><br><span class="line">	goto skiptest;</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">	if (type &amp; CRYPTO_ALG_TESTED)</span><br><span class="line">		goto skiptest;</span><br><span class="line"></span><br><span class="line">	err = alg_test(param-&gt;driver, param-&gt;alg, type, CRYPTO_ALG_TESTED);</span><br><span class="line"></span><br><span class="line">skiptest:</span><br><span class="line">	crypto_alg_tested(param-&gt;driver, err);</span><br><span class="line"></span><br><span class="line">	kfree(param);</span><br><span class="line">	module_put_and_exit(0);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到要想要执行到测试程序alg_test, 需要把CONFIG_CRYPTO_MANAGER_DISABLE_TESTS<br>设置成n.</p>
+<p>alg_test(crypto/testmgr.c)会根据算法的名字调用事先准备好的测试代码, 可以搜索<br>struct alg_test_desc alg_test_descs<a href="crypto/testmgr.c"></a>这个数组找到所有事先放好<br>的测试代码。</p>
+<p>比如，我们可以找到deflate压缩解压缩相关的测试代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">	.alg = &quot;deflate&quot;,</span><br><span class="line">	.test = alg_test_comp,</span><br><span class="line">	.fips_allowed = 1,</span><br><span class="line">	.suite = &#123;</span><br><span class="line">		.comp = &#123;</span><br><span class="line">			.comp = __VECS(deflate_comp_tv_template),</span><br><span class="line">			.decomp = __VECS(deflate_decomp_tv_template)</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>可以看到，alg_test_comp函数会调用crypto子系统提供的API做相应算法的测试，比如，<br>这里会用crypto_alloc_comp, crypto_comp_compress, crypto_free_comp(comp)<br>等crypto API对新注册的支持deflate算法的驱动做测试(假设你写的crypto算法的驱动支持<br>deflate算法), 当然测试使用的压缩解压缩的数据就是上面deflate_comp_tv_template,<br>deflate_decomp_tv_template中的数据。</p>
+<p>但是，这里对于压缩解压缩算法似乎存在一个问题, 那就硬件加速器压缩解压缩得到的<br>数据和软件压缩解压缩可能是不一样的。也就是说，你为硬件压缩解压缩写一个crypto的<br>驱动，注册在crypto系统上，然后上面crypto自带的测试程序测试，由于硬件压缩，软件<br>压缩出来的结果是不一样的，可能你的硬件压缩的结果是对的，但是上面的测试是失败的。</p>
+<p>对于压缩解压这个问题，可以通过用软件把硬件压缩完的数据解压一下，然后对比是否和<br>原来的压缩前的数据一致。具体实现的话，可以直接用crypto API申请一个基于软件的压缩<br>解压算法进行验证。也可以用内核lib/zlib_deflate, lib/zlib_inflate库来进行软件的<br>压缩和解压缩。对于第一种验证方法，我们可以修改内核的alg_test_comp函数来实现，<br>这个修改可以考虑upstream到内核主线。对于第二种验证方法，我们可以在硬件的crypto<br>驱动中直接调用zlib_deflate/zlib_inflate相关函数来做，基本的使用方法是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">struct z_stream_s stream;</span><br><span class="line">char decomp_result[COMP_BUF_SIZE];</span><br><span class="line"></span><br><span class="line">stream.workspace  = kmalloc(zlib_inflate_workspacesize(), GFP_KERNEL);</span><br><span class="line"></span><br><span class="line">ret = zlib_inflateInit2(&amp;stream, MAX_WINDOW_BIT);</span><br><span class="line"></span><br><span class="line">stream.next_in = dst;</span><br><span class="line">stream.avail_in = dlen;</span><br><span class="line">stream.total_in = 0;</span><br><span class="line">stream.next_out = decomp_result;</span><br><span class="line">stream.avail_out = COMP_BUF_SIZE;</span><br><span class="line">stream.total_out = 0;</span><br><span class="line"></span><br><span class="line">ret = zlib_inflate(&amp;stream, Z_FINISH);</span><br><span class="line"></span><br><span class="line">memcmp(decomp_result, src, slen);</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E6%B5%8B%E8%AF%95/" rel="tag"># 软件测试</a>
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+              <a href="/tags/crypto/" rel="tag"># crypto</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/05/linux-kernel-vfio-mdev-arch/" rel="prev" title="linux kernel vfio mdev arch">
+      <i class="fa fa-chevron-left"></i> linux kernel vfio mdev arch
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/05/ARM64%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C/" rel="next" title="ARM64内存屏障">
+      ARM64内存屏障 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">91</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">56</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

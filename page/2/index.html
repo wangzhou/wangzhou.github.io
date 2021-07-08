@@ -16,10 +16,11 @@
 
 <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
   </script>
 
   <meta name="description" content="Linux, kernel, 计算机体系结构">
@@ -125,17 +126,22 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">35</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">53</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
 
     <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
 
   </li>
   </ul>
@@ -165,7 +171,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -179,7 +185,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/" class="post-title-link" itemprop="url">使用ftrace跟踪函数</a>
+            <a href="/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/" class="post-title-link" itemprop="url">C语言嵌入ARM64汇编</a>
         </h2>
 
         <div class="post-meta">
@@ -188,13 +194,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:05:57 / 修改时间：22:22:27" itemprop="dateCreated datePublished" datetime="2021-06-27T18:05:57+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:34:15" itemprop="dateCreated datePublished" datetime="2021-07-05T22:34:15+08:00">2021-07-05</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-06 00:01:24" itemprop="dateModified" datetime="2021-07-06T00:01:24+08:00">2021-07-06</time>
+              </span>
 
           
-            <span id="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/" class="post-meta-item leancloud_visitors" data-flag-title="使用ftrace跟踪函数" title="阅读次数">
+            <span id="/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/" class="post-meta-item leancloud_visitors" data-flag-title="C语言嵌入ARM64汇编" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -209,8 +221,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -225,10 +237,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>有些时候在调试内核代码时，我们想跟踪下内核代码的执行流程，以及函数执行时间。 这个时候我们可以用Linux内核自带的ftrace来跟踪。本文简介具体的跟踪方法</p>
+          <p>本文介绍在C语言嵌入汇编语言的方法，linux kernel里有很多这样的例子。这里在aarch64 平台下介绍，所有例子都是这个平台下的。网上的这篇文章已经有很好的介绍，大家可以 参阅： http://www.ethernut.de/en/documents/arm-inline-asm.html, http://ericw.ca/notes/a-tiny-guide-to-gcc-inline-assembly.html https://gcc.gnu.org/onlinedocs/gcc/Extended-Asm.html</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/">
+              <a class="btn" href="/2021/07/05/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -252,7 +264,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-dma-map-sg-API/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/Linux%E5%86%85%E6%A0%B8scatterlist%E7%94%A8%E6%B3%95/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -266,7 +278,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Linux-dma-map-sg-API/" class="post-title-link" itemprop="url">Linux dma_map_sg API</a>
+            <a href="/2021/07/05/Linux%E5%86%85%E6%A0%B8scatterlist%E7%94%A8%E6%B3%95/" class="post-title-link" itemprop="url">Linux内核scatterlist用法</a>
         </h2>
 
         <div class="post-meta">
@@ -277,11 +289,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-27 18:05:15 / 修改时间：22:17:25" itemprop="dateCreated datePublished" datetime="2021-06-27T18:05:15+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:33:36 / 修改时间：23:58:35" itemprop="dateCreated datePublished" datetime="2021-07-05T22:33:36+08:00">2021-07-05</time>
             </span>
 
           
-            <span id="/2021/06/27/Linux-dma-map-sg-API/" class="post-meta-item leancloud_visitors" data-flag-title="Linux dma_map_sg API" title="阅读次数">
+            <span id="/2021/07/05/Linux%E5%86%85%E6%A0%B8scatterlist%E7%94%A8%E6%B3%95/" class="post-meta-item leancloud_visitors" data-flag-title="Linux内核scatterlist用法" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -296,8 +308,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Linux-dma-map-sg-API/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-dma-map-sg-API/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/Linux%E5%86%85%E6%A0%B8scatterlist%E7%94%A8%E6%B3%95/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/Linux%E5%86%85%E6%A0%B8scatterlist%E7%94%A8%E6%B3%95/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -312,10 +324,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文简介Linux内核DMA接口 dma_map_sg的语意</p>
+          <p>本文主要讲linux kernel里scatterlist的使用方法，有的设备驱动需要使用这个接口编程。 本文从设备的硬件结构，kernel scatterlist的原理，以及scatterlist API说明应该怎么 用这个接口, 很多是自己的初步理解。下面的两篇文章都是讲scatterlist的，可以参考看下: http://www.wowotech.net/memory_management/scatterlist.html https://lwn.net/Articles/234617/ lwn的文章讲的已经比较好了，wowo的文章讲了数据结构，但是基本上没有把逻辑讲完整。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Linux-dma-map-sg-API/">
+              <a class="btn" href="/2021/07/05/Linux%E5%86%85%E6%A0%B8scatterlist%E7%94%A8%E6%B3%95/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -339,7 +351,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Intel-QAT-ZIP%E5%88%9D%E6%AD%A5%E5%88%86%E6%9E%90/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/Linux%E5%86%85%E6%A0%B8crypto%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -353,7 +365,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Intel-QAT-ZIP%E5%88%9D%E6%AD%A5%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Intel QAT ZIP初步分析</a>
+            <a href="/2021/07/05/Linux%E5%86%85%E6%A0%B8crypto%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">Linux内核crypto子系统学习笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -364,11 +376,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-27 18:04:39 / 修改时间：22:12:13" itemprop="dateCreated datePublished" datetime="2021-06-27T18:04:39+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:33:10 / 修改时间：23:56:16" itemprop="dateCreated datePublished" datetime="2021-07-05T22:33:10+08:00">2021-07-05</time>
             </span>
 
           
-            <span id="/2021/06/27/Intel-QAT-ZIP%E5%88%9D%E6%AD%A5%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Intel QAT ZIP初步分析" title="阅读次数">
+            <span id="/2021/07/05/Linux%E5%86%85%E6%A0%B8crypto%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="Linux内核crypto子系统学习笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -383,8 +395,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Intel-QAT-ZIP%E5%88%9D%E6%AD%A5%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Intel-QAT-ZIP%E5%88%9D%E6%AD%A5%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/Linux%E5%86%85%E6%A0%B8crypto%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/Linux%E5%86%85%E6%A0%B8crypto%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -399,10 +411,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文分析Intel QAT技术对应软件栈的支持，主要的关注点在压缩解压缩的软件栈，本文只是寻找资料时候的一个笔记，还很粗糙。</p>
+          <p>本文分析Linux kernel里crypto子系统的大概实现，写crypto子系统下的加速器驱动的时候 可以参考下。crypto子系统支持加解密，压缩解压缩等功能。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Intel-QAT-ZIP%E5%88%9D%E6%AD%A5%E5%88%86%E6%9E%90/">
+              <a class="btn" href="/2021/07/05/Linux%E5%86%85%E6%A0%B8crypto%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -426,7 +438,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-kernel-PCI-is-physfn%E7%9A%84%E9%80%BB%E8%BE%91/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/Some-tips-to-help-to-boot-an-installed-Linux-distribution-manually/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -440,7 +452,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Linux-kernel-PCI-is-physfn%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-title-link" itemprop="url">Linux kernel PCI is_physfn的逻辑</a>
+            <a href="/2021/07/05/Some-tips-to-help-to-boot-an-installed-Linux-distribution-manually/" class="post-title-link" itemprop="url">Some tips to help to boot an installed Linux distribution manually</a>
         </h2>
 
         <div class="post-meta">
@@ -451,11 +463,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-27 18:04:07 / 修改时间：22:10:21" itemprop="dateCreated datePublished" datetime="2021-06-27T18:04:07+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:32:24 / 修改时间：23:52:34" itemprop="dateCreated datePublished" datetime="2021-07-05T22:32:24+08:00">2021-07-05</time>
             </span>
 
           
-            <span id="/2021/06/27/Linux-kernel-PCI-is-physfn%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-meta-item leancloud_visitors" data-flag-title="Linux kernel PCI is_physfn的逻辑" title="阅读次数">
+            <span id="/2021/07/05/Some-tips-to-help-to-boot-an-installed-Linux-distribution-manually/" class="post-meta-item leancloud_visitors" data-flag-title="Some tips to help to boot an installed Linux distribution manually" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -470,8 +482,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Linux-kernel-PCI-is-physfn%E7%9A%84%E9%80%BB%E8%BE%91/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-kernel-PCI-is-physfn%E7%9A%84%E9%80%BB%E8%BE%91/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/Some-tips-to-help-to-boot-an-installed-Linux-distribution-manually/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/Some-tips-to-help-to-boot-an-installed-Linux-distribution-manually/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -486,10 +498,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文梳理Linux PCI驱动里is_physfn的逻辑</p>
+          <p>If your Linux system fails to boot up normally, this may be a way to boot it up from UEFI command manually</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Linux-kernel-PCI-is-physfn%E7%9A%84%E9%80%BB%E8%BE%91/">
+              <a class="btn" href="/2021/07/05/Some-tips-to-help-to-boot-an-installed-Linux-distribution-manually/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -513,7 +525,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Dump-PCIe%E8%AE%BE%E5%A4%87BAR%E5%AF%84%E5%AD%98%E5%99%A8/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/Add-CentOS-yum-repo-in-Redhat-system/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -527,7 +539,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Dump-PCIe%E8%AE%BE%E5%A4%87BAR%E5%AF%84%E5%AD%98%E5%99%A8/" class="post-title-link" itemprop="url">Dump PCIe设备BAR寄存器</a>
+            <a href="/2021/07/05/Add-CentOS-yum-repo-in-Redhat-system/" class="post-title-link" itemprop="url">Add CentOS yum repo in Redhat system</a>
         </h2>
 
         <div class="post-meta">
@@ -538,11 +550,11 @@
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-27 18:03:34 / 修改时间：22:10:45" itemprop="dateCreated datePublished" datetime="2021-06-27T18:03:34+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:30:31 / 修改时间：23:48:20" itemprop="dateCreated datePublished" datetime="2021-07-05T22:30:31+08:00">2021-07-05</time>
             </span>
 
           
-            <span id="/2021/06/27/Dump-PCIe%E8%AE%BE%E5%A4%87BAR%E5%AF%84%E5%AD%98%E5%99%A8/" class="post-meta-item leancloud_visitors" data-flag-title="Dump PCIe设备BAR寄存器" title="阅读次数">
+            <span id="/2021/07/05/Add-CentOS-yum-repo-in-Redhat-system/" class="post-meta-item leancloud_visitors" data-flag-title="Add CentOS yum repo in Redhat system" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -557,8 +569,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Dump-PCIe%E8%AE%BE%E5%A4%87BAR%E5%AF%84%E5%AD%98%E5%99%A8/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Dump-PCIe%E8%AE%BE%E5%A4%87BAR%E5%AF%84%E5%AD%98%E5%99%A8/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/Add-CentOS-yum-repo-in-Redhat-system/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/Add-CentOS-yum-repo-in-Redhat-system/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -573,12 +585,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>调试的时候需要dump PCIe设备BAR里各个寄存器的内容，一般我们可以读 /sys/devices/<device_path>/resource[n]这个文件得到。
-Martoni写了一个小软件可以方便resource里内容的读取。这个软件在： https://github.com/Martoni/pcie_debug。
-本文介绍这个工具的使用。</p>
+          <p>This document shows how to add yum repo resource for a Redhat/CentOS system</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Dump-PCIe%E8%AE%BE%E5%A4%87BAR%E5%AF%84%E5%AD%98%E5%99%A8/">
+              <a class="btn" href="/2021/07/05/Add-CentOS-yum-repo-in-Redhat-system/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -602,7 +612,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/%E4%BD%BF%E7%94%A8linux-zswap/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/rpm-yum%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -616,7 +626,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/%E4%BD%BF%E7%94%A8linux-zswap/" class="post-title-link" itemprop="url">使用linux zswap</a>
+            <a href="/2021/07/05/rpm-yum%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">rpm yum使用笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -627,11 +637,11 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-27 18:02:47 / 修改时间：21:08:14" itemprop="dateCreated datePublished" datetime="2021-06-27T18:02:47+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:29:58 / 修改时间：23:46:35" itemprop="dateCreated datePublished" datetime="2021-07-05T22:29:58+08:00">2021-07-05</time>
             </span>
 
           
-            <span id="/2021/06/27/%E4%BD%BF%E7%94%A8linux-zswap/" class="post-meta-item leancloud_visitors" data-flag-title="使用linux zswap" title="阅读次数">
+            <span id="/2021/07/05/rpm-yum%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="rpm yum使用笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -646,8 +656,8 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/%E4%BD%BF%E7%94%A8linux-zswap/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/%E4%BD%BF%E7%94%A8linux-zswap/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/rpm-yum%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/rpm-yum%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -662,10 +672,10 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文简单介绍Linux zswap的使用方式</p>
+          <p>This document is used to collect and share rpm/yum related commands</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/%E4%BD%BF%E7%94%A8linux-zswap/">
+              <a class="btn" href="/2021/07/05/rpm-yum%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -689,7 +699,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-zswap%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/How-to-dump-acpi-tables-in-CentOS/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -703,7 +713,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Linux-zswap%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Linux zswap构架分析</a>
+            <a href="/2021/07/05/How-to-dump-acpi-tables-in-CentOS/" class="post-title-link" itemprop="url">How to dump acpi tables in CentOS</a>
         </h2>
 
         <div class="post-meta">
@@ -714,11 +724,11 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-27 18:02:12 / 修改时间：21:08:51" itemprop="dateCreated datePublished" datetime="2021-06-27T18:02:12+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:29:37 / 修改时间：23:41:19" itemprop="dateCreated datePublished" datetime="2021-07-05T22:29:37+08:00">2021-07-05</time>
             </span>
 
           
-            <span id="/2021/06/27/Linux-zswap%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Linux zswap构架分析" title="阅读次数">
+            <span id="/2021/07/05/How-to-dump-acpi-tables-in-CentOS/" class="post-meta-item leancloud_visitors" data-flag-title="How to dump acpi tables in CentOS" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -733,8 +743,8 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Linux-zswap%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-zswap%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/How-to-dump-acpi-tables-in-CentOS/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/How-to-dump-acpi-tables-in-CentOS/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -749,10 +759,10 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文简单分析zswap的软件构架，为在zswap框架中添加crypto acomp的支持做准备。 关于zswap的基本介绍和使用可以参考: https://blog.csdn.net/scarecrow_byr/article/details/103463101. 本文的分析基于Linux主线5.5-rc1. </p>
+          <p>This document shows how to dump ACPI table in a Linux system</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Linux-zswap%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/">
+              <a class="btn" href="/2021/07/05/How-to-dump-acpi-tables-in-CentOS/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -776,7 +786,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/Linux-UEFI-memory-block-note/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -790,7 +800,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Linux workqueue分析</a>
+            <a href="/2021/07/05/Linux-UEFI-memory-block-note/" class="post-title-link" itemprop="url">Linux/UEFI memory block note</a>
         </h2>
 
         <div class="post-meta">
@@ -801,11 +811,11 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-27 18:01:35 / 修改时间：21:01:21" itemprop="dateCreated datePublished" datetime="2021-06-27T18:01:35+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:29:05 / 修改时间：23:37:32" itemprop="dateCreated datePublished" datetime="2021-07-05T22:29:05+08:00">2021-07-05</time>
             </span>
 
           
-            <span id="/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Linux workqueue分析" title="阅读次数">
+            <span id="/2021/07/05/Linux-UEFI-memory-block-note/" class="post-meta-item leancloud_visitors" data-flag-title="Linux/UEFI memory block note" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -820,8 +830,8 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/Linux-UEFI-memory-block-note/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/Linux-UEFI-memory-block-note/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -836,10 +846,10 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文介绍Linux内核里workqueue的使用方法，分析workqueue具体的代码实现。 并且基于qemu虚拟机做简单的测试。本文的分析基于Linux主线代码v5.5, 分析参考了蜗窝科技的分析文章: http://www.wowotech.net/irq_subsystem/workqueue.html http://www.wowotech.net/irq_subsystem/cmwq-intro.html http://www.wowotech.net/irq_subsystem/alloc_workqueue.html http://www.wowotech.net/irq_subsystem/queue_and_handle_work.html</p>
+          <p>This doc shows how UEFI reports memory blocks to OS</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Linux-workqueue%E5%88%86%E6%9E%90/">
+              <a class="btn" href="/2021/07/05/Linux-UEFI-memory-block-note/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -863,7 +873,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Unix-Linux%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E7%A8%8B%E7%AC%94%E8%AE%B0-11-15/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/how-to-compile-perf-tool-statically/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -877,7 +887,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Unix-Linux%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E7%A8%8B%E7%AC%94%E8%AE%B0-11-15/" class="post-title-link" itemprop="url">Unix/Linux编程实践教程笔记(11-15)</a>
+            <a href="/2021/07/05/how-to-compile-perf-tool-statically/" class="post-title-link" itemprop="url">how to compile perf tool statically</a>
         </h2>
 
         <div class="post-meta">
@@ -888,11 +898,11 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-27 18:00:40 / 修改时间：20:55:09" itemprop="dateCreated datePublished" datetime="2021-06-27T18:00:40+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:28:32 / 修改时间：23:33:16" itemprop="dateCreated datePublished" datetime="2021-07-05T22:28:32+08:00">2021-07-05</time>
             </span>
 
           
-            <span id="/2021/06/27/Unix-Linux%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E7%A8%8B%E7%AC%94%E8%AE%B0-11-15/" class="post-meta-item leancloud_visitors" data-flag-title="Unix/Linux编程实践教程笔记(11-15)" title="阅读次数">
+            <span id="/2021/07/05/how-to-compile-perf-tool-statically/" class="post-meta-item leancloud_visitors" data-flag-title="how to compile perf tool statically" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -907,8 +917,8 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Unix-Linux%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E7%A8%8B%E7%AC%94%E8%AE%B0-11-15/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Unix-Linux%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E7%A8%8B%E7%AC%94%E8%AE%B0-11-15/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/how-to-compile-perf-tool-statically/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/how-to-compile-perf-tool-statically/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -923,10 +933,10 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文档是Unix/Linux编程实践教程最后五章的总结笔记，这五章主要围绕socket，讲了各种 进程、线程间通信的方法。大家可以从这个链接git clone该书对应的代码: https://github.com/yuzhidi/Understanding-UNIXLINUX-Programming.git 简单编译后就 可以运行。</p>
+          <p>一个静态编译perf的流水帐</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Unix-Linux%E7%BC%96%E7%A8%8B%E5%AE%9E%E8%B7%B5%E6%95%99%E7%A8%8B%E7%AC%94%E8%AE%B0-11-15/">
+              <a class="btn" href="/2021/07/05/how-to-compile-perf-tool-statically/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -950,7 +960,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/05/ARM64%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -964,7 +974,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/" class="post-title-link" itemprop="url">Linux thermal子系统和lm_sensors用户态工具</a>
+            <a href="/2021/07/05/ARM64%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C/" class="post-title-link" itemprop="url">ARM64内存屏障</a>
         </h2>
 
         <div class="post-meta">
@@ -975,11 +985,11 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
               <span class="post-meta-item-text">发表于</span>
               
 
-              <time title="创建时间：2021-06-27 17:59:41 / 修改时间：20:49:34" itemprop="dateCreated datePublished" datetime="2021-06-27T17:59:41+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-05 22:27:54 / 修改时间：23:28:49" itemprop="dateCreated datePublished" datetime="2021-07-05T22:27:54+08:00">2021-07-05</time>
             </span>
 
           
-            <span id="/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/" class="post-meta-item leancloud_visitors" data-flag-title="Linux thermal子系统和lm_sensors用户态工具" title="阅读次数">
+            <span id="/2021/07/05/ARM64%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C/" class="post-meta-item leancloud_visitors" data-flag-title="ARM64内存屏障" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -994,8 +1004,8 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/05/ARM64%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/05/ARM64%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -1010,10 +1020,10 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文分析Linux thermal子系统的现状，以及可能与之配套使用的lm_sensors用户态工具的软件构架。提供给写thermal驱动的同学可以参考。</p>
+          <p>本文试图梳理aarch64构架下的内存屏障的逻辑，细节的东西还要去看ARMv8的手册。其实， 《ARM Cortex-A Series Programmer’s Guide for ARMv8-A》这本书的第13章，memory order已经对内存屏障的内容做了比较入门的讲解。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Linux-thermal%E5%AD%90%E7%B3%BB%E7%BB%9F%E5%92%8Clm-sensors%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7/">
+              <a class="btn" href="/2021/07/05/ARM64%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -1036,7 +1046,7 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
 
   
   <nav class="pagination">
-    <a class="extend prev" rel="prev" href="/"><i class="fa fa-angle-left" aria-label="上一页"></i></a><a class="page-number" href="/">1</a><span class="page-number current">2</span><a class="page-number" href="/page/3/">3</a><span class="space">&hellip;</span><a class="page-number" href="/page/6/">6</a><a class="extend next" rel="next" href="/page/3/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
+    <a class="extend prev" rel="prev" href="/"><i class="fa fa-angle-left" aria-label="上一页"></i></a><a class="page-number" href="/">1</a><span class="page-number current">2</span><a class="page-number" href="/page/3/">3</a><span class="space">&hellip;</span><a class="page-number" href="/page/10/">10</a><a class="extend next" rel="next" href="/page/3/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
   </nav>
 
 
@@ -1102,14 +1112,18 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">53</span>
+          <span class="site-state-item-count">91</span>
           <span class="site-state-item-name">日志</span>
         </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
       </div>
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">35</span>
+        <span class="site-state-item-count">56</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
@@ -1166,6 +1180,8 @@ Martoni写了一个小软件可以方便resource里内容的读取。这个软�
 
   
   <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
 
 <script src="/js/utils.js"></script>
 
