@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="汇集了下N年前的python学习笔记，以后用这个文档继续记录">
+<meta property="og:type" content="article">
+<meta property="og:title" content="python学习笔记">
+<meta property="og:url" content="http://example.com/2021/07/17/python%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="汇集了下N年前的python学习笔记，以后用这个文档继续记录">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-17T02:32:51.000Z">
+<meta property="article:modified_time" content="2021-07-17T02:42:54.501Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="python">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/17/python%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>python学习笔记 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">67</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">146</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/python%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          python学习笔记
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-07-17 10:32:51 / 修改时间：10:42:54" itemprop="dateCreated datePublished" datetime="2021-07-17T10:32:51+08:00">2021-07-17</time>
+            </span>
+
+          
+            <span id="/2021/07/17/python%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="python学习笔记" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/17/python%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/python%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">汇集了下N年前的python学习笔记，以后用这个文档继续记录</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ol>
+<li>作用区域</li>
+</ol>
+<hr>
+<blockquote>
+<pre><code>#!/usr/bin/python
+
+global y
+y = 3
+
+def func(x):
+   x = 2
+   print &quot;x is&quot;, x
+
+def func_1():
+   global y # if delete this line, &#39;y&#39; below is a local one
+   y = 5
+   print &quot;y is&quot;, y
+
+x = 10
+func(x)
+print &quot;valuce of x is&quot;, x
+
+func_1()
+pRint &quot;valuce of y is&quot;, y
+</code></pre>
+</blockquote>
+<p>函数内的x是local的，不改变x=10的值。在函数func_1内指示y是global的，函数内改变<br>y的值，函数外y=3变成y=5。</p>
+<ol start="2">
+<li>数据存储方式 </li>
+</ol>
+<hr>
+<blockquote>
+<pre><code>#!/usr/bin/python
+
+x = 3
+y = x
+
+id_x = id(x)
+id_y = id(y)
+print &quot;x id is&quot;, id_x
+print &quot;y id is&quot;, id_y
+
+x = 5
+id_x_new = id(x)
+id_y_new = id(y)
+print &quot;x_new id is&quot;, id_x_new
+print &quot;y_new id is&quot;, id_y_new
+
+# will appear error, as x has been deleted
+#del(x)
+#id_x_del = id(x)
+#print &quot;x_del id is&quot;, id_x_del
+
+# will not appear error
+#del(x)
+#id(y)
+
+x_list = [&#39;a&#39;, &#39;b&#39;, &#39;c&#39;]
+y_list = x_list
+id_x_list = id(x_list)
+id_y_list = id(y_list)
+print &quot;x_list id is&quot;, id_x_list
+print &quot;y_list id is&quot;, id_y_list
+
+x_list.append(&quot;d_added&quot;)
+print &quot;new x_list is&quot;, x_list
+id_new_x_list = id(x_list)
+print &quot;new x_list id is&quot;, id_new_x_list
+
+y_list.append(&quot;y&quot;)
+print &quot;new y_list is&quot;, y_list
+id_new_y_list = id(y_list)
+print &quot;new y_list id is&quot;, id_new_y_list
+</code></pre>
+</blockquote>
+<p>python中的数据都是类。python中的数据分为不可变变量和可变变量，其中数字，字符串<br>是不可变变量，其他的是可变变量。id(x)显示的是x变量的存储’地址’，根据id()可以了解<br>可变变量和不可变变量的性质。x的值不一样，id(x)的结果是不一样的，x是一个数字，是<br>不可变的，所以为x赋新值本质上是重新创建了一个变量，x_list是一个列表，是可变的，<br>所以改变x_list的值，就是改变它本身的值。y = x并没有新建了一个变量，而是为x变量<br>增加了一个叫y的索引，本质上是一个存储结构，所以id(x) = id(y); 所以改变x_list,<br>y_list也跟着变了。</p>
+<ol start="3">
+<li>典型数据结构</li>
+</ol>
+<hr>
+<ul>
+<li>列表</li>
+</ul>
+<blockquote>
+<pre><code>#!/usr/bin/python
+
+global shoplist
+shoplist = [&#39;apple&#39;, &#39;mango&#39;, &#39;carrot&#39;, &#39;banana&#39;]
+
+def print_shoplist():
+   print shoplist
+
+
+lenth = shoplist.__len__()
+print &quot;len of shoplist is&quot;, lenth
+
+shoplist.sort()
+print_shoplist()
+
+shoplist.append(&#39;pear&#39;)
+print_shoplist()
+
+shoplist.__delitem__(0)
+print_shoplist()
+
+print shoplist[0]
+print shoplist[-1]
+
+# use help() to check functions which list offered
+#help(list)
+</code></pre>
+</blockquote>
+<p>列表是python的内置数据结构, 存放一组数据，列表里面的值是可以改变的。用help(list)<br>可以查看列表类中所包含的方法。上面列出几个方法：<strong>len__返回列表的长度，sort对<br>列表的数据排序，append在列表的最后加入一个数据，__delitem</strong>(x)删去索引是x的数据.<br>列表中数据的索引和c语言中数组的下标一样，但是可以逆向索引，如shoplist[-1]得到最<br>后一个元素的值。</p>
+<ul>
+<li>元组</li>
+</ul>
+<blockquote>
+<pre><code>#!/usr/bin/python
+
+zoo = (&#39;wolf&#39;, &#39;elephant&#39;, &#39;penguin&#39;)
+new_zoo = (&#39;monkey&#39;, &#39;dolphin&#39;, zoo)
+
+print &quot;len of zoo is&quot;, len(zoo)
+print &quot;len of new zoo is&quot;, len(new_zoo)
+print &quot;2 of new zoo is&quot;, new_zoo[2]
+print &quot;[2][2] of new zoo is&quot;, new_zoo[2][2]
+
+print &quot;%s is %d years old&quot; %(&#39;John&#39;, 12)
+
+def func_return_multi():
+   return &#39;John&#39;, 12
+
+print func_return_multi()
+</code></pre>
+</blockquote>
+<p>元组也是python的内置数据结构，但是元组里的值是不可变的，当然如果元组里的元素是<br>一个列表，列表里的值是可以变的。元组的用途有很多，比如上面的格式话输出，当有多<br>个输出值时，它们的真值要用一个元组包含起来; python中的函数可以一次返回多个值，<br>返回的多个值被包含在一个元组中。</p>
+<ul>
+<li>字符串</li>
+</ul>
+<blockquote>
+<pre><code>#!/usr/bin/python
+
+string = &quot;0123456789&quot;
+print &quot;string is&quot;, string
+
+new_string = string[0:5]
+print &quot;new_string is&quot;, new_string
+
+print &#39;string 2 to end is&#39;, string[2:]
+print &#39;string 1 to -1 is&#39;, string[1:-1]
+print &#39;string start to end is&#39;, string[:]
+print &#39;string start to end is&#39;, string[::4]
+
+# list and tuple also have those kinds of operations
+</code></pre>
+</blockquote>
+<p>上面是字符串的切片操作，列表和元组也有相同的操作。</p>
+<ul>
+<li>字典</li>
+</ul>
+<blockquote>
+<pre><code>#!/usr/bin/python
+
+b = &#123;
+   &#39;Swaroop&#39;: &#39;swaroopch@byteofpython.info&#39;,
+   &#39;Larry&#39;  : &#39;larry@wall.org&#39;,
+   &#39;Matsumoto&#39; : &#39;matz@ruby-lang.org&#39;,
+   &#39;Spammer&#39;   : &#39;spammer@hotmail.com&#39;
+    &#125;
+
+print b[&#39;Larry&#39;]
+
+# add a key-&gt;value in dictionary
+b[&#39;Sherlock&#39;] = &quot;Sherlock@gmail.com&quot;
+print b
+
+b.pop(&#39;Larry&#39;)
+print b
+
+if &#39;Larry&#39; in b:
+   print &quot;Larry is in b&quot;
+else:
+   print &quot;Larry is not in b&quot;
+</code></pre>
+</blockquote>
+<p>字典又一一对应的一组key-&gt;value组成，key需要是不可变变量。</p>
+<ul>
+<li>集合</li>
+</ul>
+<blockquote>
+<pre><code>#!/usr/bin/python
+
+s = set([1, 2, 3, 4])
+
+print s
+
+# add a key in set
+s.add(10)
+print s
+
+s.remove(1)
+print s
+
+if 2 in s:
+   print &quot;2 is in s&quot;
+else:
+   print &quot;2 is not in s&quot;
+</code></pre>
+</blockquote>
+<p>集合是一组值的集合，用一个列表初始化。集合中的元素也需要是不可变变量。</p>
+<ol start="4">
+<li>函数</li>
+</ol>
+<hr>
+<ul>
+<li>函数基础</li>
+</ul>
+<blockquote>
+<pre><code>#!/usr/bin/python
+
+def test_add(a, b):
+   return a + b
+
+print &quot;1 + 2 =&quot;, test_add(1, 2)
+
+add_test = test_add
+print &quot;1 + 2 =&quot;, add_test(1, 2)
+
+# need &quot;pass&quot; to fill this &quot;none content function&quot;
+def nop():
+   pass
+
+# default input
+def ball(r, color = &quot;red&quot;, vendor = &quot;A&quot;, llist = [1, 2, 3]):
+   llist.append(4)
+   print r
+   print color
+   print vendor
+   print llist
+
+print &quot;test_1&quot;
+ball(5)
+
+print &quot;test_2&quot;
+ball(5, &quot;blue&quot;)
+
+print &quot;test_3&quot;
+ball(5, vendor = &quot;B&quot;)
+
+print &quot;test_4&quot;
+ball(5, llist = [4, 5, 6])
+ball(5)
+
+# variable input
+print
+print &quot;variable input test&quot;
+def sum(*number):
+   sum = 0
+   for i in number:
+       sum = sum + i
+   return sum
+print &quot;sum is&quot;, sum(1, 2, 3)
+
+num = [1, 2, 3, 4]
+print &quot;sum is&quot;, sum(*num)
+
+# key word input
+print
+print &quot;key word input test&quot;
+def key_test(a, b, **c):
+   print a
+   print b
+   print c
+print  &quot;key is&quot;, key_test(1, 2)
+print
+print  &quot;key is&quot;, key_test(1, 2, name = &quot;Sherlock&quot;)
+print
+dict_test = &#123;&quot;name&quot; : &quot;John&quot;, &quot;age&quot; : 12&#125;
+print  &quot;key is&quot;, key_test(1, 2, **dict_test)
+</code></pre>
+</blockquote>
+<p> **函数名是一个指向函数对象的引用，所以可以把一个函数名赋值给一个变量<br> **函数的参数可以是默认参数，可变参数，关键字参数等。<br>   当函数带默认参数时，默认参数需要是不可变参数。不然就像上面代码中显示的那样，<br>   如果函数中改变这个参数的值，以后这个参数的值相应的也都改变了。函数可以带可变<br>   参数, 可变参数可以直接传入函数，也可以先把所有参数组成一个列表，再通过*list<br>   传入。通过**dictionary的方式可以传入一个字典。</p>
+<ol start="4">
+<li>面向对象</li>
+</ol>
+<hr>
+<blockquote>
+<pre><code>#!/usr/bin/python
+
+class ball(object):
+   def __init__(self, r, color = &quot;green&quot;, vendor = &quot;A&quot;):
+       # init r, but we need not to declare r
+       self.r = r
+       self.color = color
+       # private element
+       self.__vendor = vendor
+       
+   def run(self):
+       print &quot;ball is running&quot;
+   def show_color(self):
+       print &quot;color of ball is&quot;, self.color
+
+# init an instance
+ball_test_1 = ball(5)
+ball_test_1.show_color()
+
+print
+ball_test_2 = ball(5, &quot;red&quot;)
+ball_test_2.show_color()
+
+print
+ball_test_1.name = &quot;John&quot;
+print ball_test_1.name
+
+# test private element
+# will appear error when run below command
+#print ball_test_1.__vendor
+
+# ok when run below command, but could not write this code, we should write a
+# function to show ball&#39;s vendor
+print ball_test_1._ball__vendor
+
+# inherit test
+print
+class football(ball):
+   def run(self):
+       print &quot;football is running&quot;
+
+football_test_1 = football(10)
+football_test_1.run()
+
+# polymorphism test
+print
+def run(ball_t):
+   ball_t.run()
+   print &quot;**** ****&quot;
+run(ball_test_1)
+run(football_test_1)
+
+print
+print type(ball_test_1)
+print type(football_test_1)
+</code></pre>
+</blockquote>
+<ul>
+<li>python中不需要在变量使用前先定义。</li>
+<li>私有变量需要加__的前缀</li>
+<li>note: raw_input()输入的变量是字符串的，要输入数字需要：int(raw_input())</li>
+</ul>
+<p> todo: 异常/标准库/I/O/进程/图形/网络/数据库/web…</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/python/" rel="tag"># python</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/17/Linux-syscon-and-regmap/" rel="prev" title="Linux syscon and regmap">
+      <i class="fa fa-chevron-left"></i> Linux syscon and regmap
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/17/APUE%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%AC%AC%E5%9B%9B%E7%AB%A0/" rel="next" title="APUE学习笔记(第四章)">
+      APUE学习笔记(第四章) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">146</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">67</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

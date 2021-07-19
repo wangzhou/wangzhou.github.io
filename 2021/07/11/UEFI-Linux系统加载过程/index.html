@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文梳理一个UEFI加载linux启动的流程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="UEFI&#x2F;Linux系统加载过程">
+<meta property="og:url" content="http://example.com/2021/07/11/UEFI-Linux%E7%B3%BB%E7%BB%9F%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文梳理一个UEFI加载linux启动的流程">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-11T15:16:59.000Z">
+<meta property="article:modified_time" content="2021-07-11T16:10:28.144Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="UEFI">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/11/UEFI-Linux%E7%B3%BB%E7%BB%9F%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>UEFI/Linux系统加载过程 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">67</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">146</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/UEFI-Linux%E7%B3%BB%E7%BB%9F%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          UEFI/Linux系统加载过程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-11 23:16:59" itemprop="dateCreated datePublished" datetime="2021-07-11T23:16:59+08:00">2021-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-12 00:10:28" itemprop="dateModified" datetime="2021-07-12T00:10:28+08:00">2021-07-12</time>
+              </span>
+
+          
+            <span id="/2021/07/11/UEFI-Linux%E7%B3%BB%E7%BB%9F%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B/" class="post-meta-item leancloud_visitors" data-flag-title="UEFI/Linux系统加载过程" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/11/UEFI-Linux%E7%B3%BB%E7%BB%9F%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/UEFI-Linux%E7%B3%BB%E7%BB%9F%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文梳理一个UEFI加载linux启动的流程</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>一般一个从硬盘启动的linux系统的启动顺序是：UEFI-&gt;GRUB-&gt;Linux。其中，我们一般称<br>UEFI是固件，GRUB是bootloader. </p>
+<p>顾名思义，一般我们认为固件是固化在系统里的，启动会自动加载、执行的一段代码，这<br>里我们不关心固件的存储位置。一般，bootloader和linux kernel镜像都是放在磁盘上<br>(我们这里只看磁盘启动的情况，不关心网络启动，e.g. PXE)。</p>
+<p>UEFI在加载bootloader(e.g. grub)的时候会从EFI system分区寻找grub程序(e.g. grub.efi).<br>这个程序是一个UEFI环境中的可执行程序。一般，UEFI里会在EFI system分区上的一组路径<br>上搜索grub.efi，这组路径是提前在UEFI静态配置好的。EFI system分区必须被格式化成<br>FAT文件系统，这样UEFI才可以读取其中的文件。grub.efi加载后，会找见它对应的配置<br>文件grub.cfg. 在grub.cfg中，我们可以配置grub到哪里去加载kernel镜像, 以及到哪里去<br>加载根文件系统. 一个grub.cfg的配置类似:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"># Sample GRUB configuration file</span><br><span class="line">#</span><br><span class="line"># Boot automatically after 5 secs.</span><br><span class="line">set timeout=5</span><br><span class="line"># By default, boot the Estuary with Centos filesystem</span><br><span class="line">set default=d05_centos_sata_console</span><br><span class="line"># For booting GNU/Linux</span><br><span class="line"></span><br><span class="line">menuentry &quot;D05 Centos SATA(CONSOLE)&quot; --id d05_centos_sata_console &#123;</span><br><span class="line">        search --no-floppy --fs-uuid --set=root &lt;UUID&gt;</span><br><span class="line">                linux /Image pcie_aspm=off pci=pcie_bus_perf rootwait root=PARTUUID=&lt;PARTUUID&gt; rw</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>其中上面的UUID是存放Image的分区的UUID, PARTUUID是存放根文件系统的分区的PARTUUID.<br>UUID, PARTUUID可以事先用blkid得到，比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">[root@localhost ~]# blkid</span><br><span class="line">/dev/sdc4: UUID=&quot;87b76c0a-7c76-4d2a-9414-6b52e6a00b1c&quot; TYPE=&quot;xfs&quot; PARTUUID=&quot;511f3dc7-4b6b-4991-975e-1d60e5e3e616&quot; </span><br><span class="line">/dev/sdc2: UUID=&quot;2ee48246-43a2-4014-a176-5d723e6be5b4&quot; TYPE=&quot;xfs&quot; PARTUUID=&quot;c724693a-751a-40c7-a8bd-d3bdd56311e1&quot; </span><br><span class="line">/dev/sdc1: SEC_TYPE=&quot;msdos&quot; UUID=&quot;80A6-A4F2&quot; TYPE=&quot;vfat&quot; PARTLABEL=&quot;EFI System Partition&quot; PARTUUID=&quot;f768b945-a14d-47d0-a5c0-371d4a163316&quot; </span><br><span class="line">/dev/sdc3: UUID=&quot;417d3354-a5f8-4a2c-81e4-ef03b9d51e94&quot; TYPE=&quot;swap&quot; PARTUUID=&quot;d9ae07de-fdad-4fcc-8621-deeadace67c5&quot; </span><br><span class="line">/dev/sdc5: UUID=&quot;c03a5dee-f751-4ff5-bc7c-f6026388a676&quot; TYPE=&quot;xfs&quot; PARTUUID=&quot;29860a29-e084-4105-815b-1a94c296a473&quot; </span><br></pre></td></tr></table></figure>
+
+<p>按照上面的配置做的系统只是一个临时可用的系统，在系统启动之后，如果不加入其他的<br>操作，启动分区(上面存放Image, grub.efi, grub.cfg)是没有办法挂在到根文件系统上的。<br>这样，如果我们想把内核编译成一个RPM包，然后用rpm -i kernel-package安装到系统，<br>使得下次系统启动的时候可以用新安装的内核，这样是不可能的。</p>
+<p>rpm -i kernel-package的时候会把相关的配置加载grub.cfg里。to do…</p>
+<p>实际上一个标准的ISO安装是这样的, 安装过成应该会自动的分区和在启动分区里放置相应<br>的文件，并且更改/etc/fstab里的内容，实现开机自动挂在启动分区到/boot. to do…</p>
+<p>一个例子:</p>
+<ul>
+<li>磁盘分区: fdisk [4]</li>
+<li>拷贝grub.efi, grub.cfg, kernel Image到对应的EFI system分区</li>
+<li>更改grub.cfg里的参数, 主要是修改上面提到的UUID和PARTUUID</li>
+<li>拷贝文件系统到PARTUUID对应的分区里</li>
+</ul>
+<p>reference:</p>
+<p>[1] <span class="exturl" data-url="aHR0cDovL3d3dy5yb2RzYm9va3MuY29tL2xpbnV4LXVlZmkv">http://www.rodsbooks.com/linux-uefi/<i class="fa fa-external-link-alt"></i></span><br>[2] <span class="exturl" data-url="aHR0cHM6Ly9lbi53aWtpcGVkaWEub3JnL3dpa2kvRUZJX3N5c3RlbV9wYXJ0aXRpb24=">https://en.wikipedia.org/wiki/EFI_system_partition<i class="fa fa-external-link-alt"></i></span> (install bootloader)<br>[3] <span class="exturl" data-url="aHR0cDovL3d3dy5yb2RzYm9va3MuY29tL2VmaS1ib290bG9hZGVycy9pbnN0YWxsYXRpb24uaHRtbA==">http://www.rodsbooks.com/efi-bootloaders/installation.html<i class="fa fa-external-link-alt"></i></span><br>[4] <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL29wZW4tZXN0dWFyeS9lc3R1YXJ5L2Jsb2IvbWFzdGVyL2RvYy9EZXBsb3lfTWFudWFsLjREMDUubWQjMy4z">https://github.com/open-estuary/estuary/blob/master/doc/Deploy_Manual.4D05.md#3.3<i class="fa fa-external-link-alt"></i></span><br>[4] <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL29wZW4tZXN0dWFyeS9lc3R1YXJ5L2Jsb2IvbWFzdGVyL2RvYy9EZXBsb3lfTWFudWFsLjREMDUubWQjMy4z">https://github.com/open-estuary/estuary/blob/master/doc/Deploy_Manual.4D05.md#3.3<i class="fa fa-external-link-alt"></i></span></p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/UEFI/" rel="tag"># UEFI</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/11/Hixxxx-PCIe-SMMU-bad-performance-debug/" rel="prev" title="Hixxxx PCIe + SMMU bad performance debug">
+      <i class="fa fa-chevron-left"></i> Hixxxx PCIe + SMMU bad performance debug
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/11/PCIe-INTx-parse-in-ACPI/" rel="next" title="PCIe INTx parse in ACPI">
+      PCIe INTx parse in ACPI <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">146</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">67</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

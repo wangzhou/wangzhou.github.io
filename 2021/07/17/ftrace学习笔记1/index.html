@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="根据之前的学习笔记整理, 介绍ftrace的一些基本知识，以及几个基础的tracer。不过读者 要是有时间，建议可以浏览下kernel源码中有关ftrace的使用介绍：linux-src&#x2F;Documentation&#x2F;trace&#x2F;">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ftrace学习笔记1">
+<meta property="og:url" content="http://example.com/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="根据之前的学习笔记整理, 介绍ftrace的一些基本知识，以及几个基础的tracer。不过读者 要是有时间，建议可以浏览下kernel源码中有关ftrace的使用介绍：linux-src&#x2F;Documentation&#x2F;trace&#x2F;">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-17T03:16:48.000Z">
+<meta property="article:modified_time" content="2021-07-19T12:43:24.217Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="软件调试">
+<meta property="article:tag" content="ftrace">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ftrace学习笔记1 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">67</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">146</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ftrace学习笔记1
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-17 11:16:48" itemprop="dateCreated datePublished" datetime="2021-07-17T11:16:48+08:00">2021-07-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-19 20:43:24" itemprop="dateModified" datetime="2021-07-19T20:43:24+08:00">2021-07-19</time>
+              </span>
+
+          
+            <span id="/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-meta-item leancloud_visitors" data-flag-title="ftrace学习笔记1" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">根据之前的学习笔记整理, 介绍ftrace的一些基本知识，以及几个基础的tracer。不过读者 要是有时间，建议可以浏览下kernel源码中有关ftrace的使用介绍：linux-src/Documentation/trace/</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><ol>
+<li><p>ftrace是一个内核调试工具，调试内核运行，是一个trace工具。它可以查看函数的<br>  调用关系、函数的执行时间、系统中断的最大关闭时间等等</p>
+</li>
+<li><p>需编译内核时进行配置，使用时挂载虚拟文件系统debugfs：<br>  mount -t debugfs nodev /sys/kernel/debug</p>
+</li>
+<li><p>通过对该文件系统中文件的读写完成所用功能</p>
+</li>
+</ol>
+<h2 id="配置与编译"><a href="#配置与编译" class="headerlink" title="配置与编译"></a>配置与编译</h2><p>Kernel hacking  —&gt;<br>[<em>] Tracers —&gt;<br>-</em>- Tracers<br>…(配置相应的跟踪器)</p>
+<h2 id="具体使用"><a href="#具体使用" class="headerlink" title="具体使用"></a>具体使用</h2><p>下面显示的就是ftrace使用时的目录了(pc ubuntu12.04)，所有的操作都可以通过读写这些<br>文件完成，读写的时候用到的命令多为echo, cat之类进入/sys/kernel/debug/tracing,<br>ubuntu12.04默认已经把ftrace编译入了内核, ls /sys/kernel/debug/tracing得到:</p>
+<p>vailable_events            kprobe_profile      stack_trace<br>available_filter_functions  options             trace<br>available_tracers           per_cpu             trace_clock<br>buffer_size_kb              printk_formats      trace_marker<br>buffer_total_size_kb        README              trace_options<br>current_tracer              saved_cmdlines      trace_pipe<br>dyn_ftrace_total_info       set_event           trace_stat<br>enabled_functions           set_ftrace_filter   tracing_cpumask<br>events                      set_ftrace_notrace  tracing_enabled<br>free_buffer                 set_ftrace_pid      tracing_max_latency<br>function_profile_enabled    set_graph_function  tracing_on<br>kprobe_events               stack_max_size      tracing_thresh</p>
+<p>可以 cat vailable_tracers 查看现在支持的tracer, 一般的tracer有：</p>
+<p>function, 可以打印出内核函数的调用过程<br>function_graph, 以函数调用的格式打印函数调用过程，看起来要方便很多<br>irqsoff, 打印出禁止中断的时间，对于系统响应不及时的问题，可以用这个查看<br>wakeup，这个可以打印进程从ready到run的latency<br>sched_swich，显示的是关于调度的信息</p>
+<p>cat current_tracer 查看当前的tracer是什么，所以要用一个tracer的时候，首先要<br>把它写到这个文件中，比如要用function，就写 echo function &gt; current_tracer</p>
+<p>下面具体看一个一个tracer的用法和由此引出来的东西:</p>
+<ul>
+<li>function:</li>
+</ul>
+<p>因为测试的时候常常挂死（cat trace）, 这里就把function的使用写成了一个脚<br>本，我们一行一行看下，echo 0 &gt; tracing_on， 暂停跟踪器，参考网上的资料，<br>一般会有一个tracing_enabled的文件(但是有些系统上可能没有),关于tracing_on<br>和tracing_enabled的区别，现在的理解是，tracing_on是暂停跟踪器，此时跟踪<br>器还在跟踪内核的运行，只是不再向文件 trace 中写入跟踪信息，<br>echo 1 &gt; tracing_on 是可以继续当前的跟踪的，而tracing_enabled用来开关<br>ftrace。另外，ftrace提供了内核函数tracing_on()，这个东西可以直接写在内<br>核里，放在你想要停起的地方，当tracing_on()执行的时候，你在外面cat trace，<br>显示的就是附近的信息，如果你在用户态暂停，trace中的内容会离你想要定位的<br>地方远</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">#! /system/bin/sh </span><br><span class="line"># change to /sys/kernel/debug/tracing </span><br><span class="line"></span><br><span class="line">dir=&quot;/sys/kernel/debug/tracing/&quot; </span><br><span class="line">echo 0 &gt; $&#123;dir&#125;tracing_on </span><br><span class="line">echo function &gt; $&#123;dir&#125;current_tracer          # 写入function</span><br><span class="line">echo 1 &gt; $&#123;dir&#125;tracing_on                     # 运行tracer</span><br><span class="line">sleep 5                                       # 叫tracer运行一段时间</span><br><span class="line">echo 0 &gt; $&#123;dir&#125;tracing_on                     # 暂停tracer</span><br><span class="line">cat $&#123;dir&#125;trace | head -10                    # 显示跟踪的函数内容</span><br></pre></td></tr></table></figure>
+<p>截取了一段现实的结果放在这里</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"># tracer: function </span><br><span class="line">#                       </span><br><span class="line"># entries-in-buffer/entries-written: 222082/295723   #P:4 </span><br><span class="line">#                                               （online cpu number: 4）</span><br><span class="line">#                              _-----=&gt; irqs-off </span><br><span class="line">#                             / _----=&gt; need-resched </span><br><span class="line">#                            | / _---=&gt; hardirq/softirq </span><br><span class="line">#                            || / _--=&gt; preempt-depth </span><br><span class="line">#                            ||| /     delay </span><br><span class="line">#           TASK-PID   CPU#  ||||    TIMESTAMP  FUNCTION </span><br><span class="line">#              | |       |   ||||       |         | </span><br><span class="line"> SurfaceFlinger-255   [001] d... 14810.259416: gic_handle_irq &lt;-__irq_usr </span><br><span class="line"> SurfaceFlinger-255   [001] d... 14810.259483: irq_find_mapping &lt;-gic_handle_irq </span><br></pre></td></tr></table></figure>
+<ul>
+<li> function_graph:</li>
+</ul>
+<p>同样的操作，看看function_graph的输出</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">  # tracer: function_graph </span><br><span class="line">  # </span><br><span class="line">  # CPU  DURATION                  FUNCTION CALLS </span><br><span class="line">  # |     |   |                     |   |   |   | </span><br><span class="line">   3)               |  __do_fault() &#123; </span><br><span class="line">3)               |    i915_gem_fault() &#123; </span><br><span class="line">3)               |      i915_mutex_lock_interruptible() &#123; </span><br><span class="line">3)               |        mutex_lock_interruptible() &#123; </span><br><span class="line">3)   0.339 us    |          _cond_resched(); </span><br><span class="line">3)   1.212 us    |        &#125; </span><br><span class="line">3)   1.887 us    |      &#125; 3)               |      i915_gem_object_unbind() &#123; </span><br><span class="line">3)   0.114 us    |        i915_gem_object_finish_gpu(); </span><br><span class="line">3)   0.120 us    |        i915_gem_release_mmap();</span><br></pre></td></tr></table></figure>
+<p>这里 echo __do_fault &gt; set_graph_function了一下，所以输出是针对<br>_do_fault()的检测</p>
+<ul>
+<li>irqsoff:</li>
+</ul>
+<p>下面截取一段irqsoff的输出信息</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"># tracer: irqsoff </span><br><span class="line"># </span><br><span class="line"># irqsoff latency trace v1.1.5 on 3.9.0-rc7-00004-g70df926-dirty </span><br><span class="line"># -------------------------------------------------------------------- </span><br><span class="line"># latency: 17790 us, #323/323, CPU#1 | (M:server VP:0, KP:0, SP:0 HP:0 #P:4) </span><br><span class="line">#    ----------------- </span><br><span class="line">#    | task: ProcessStats-502 (uid:1000 nice:0 policy:0 rt_prio:0) </span><br><span class="line">#    ----------------- </span><br><span class="line">#  =&gt; started at: __lock_task_sighand </span><br><span class="line">#  =&gt; ended at:   _raw_spin_unlock_irqrestore </span><br><span class="line"># </span><br><span class="line"># </span><br><span class="line">                  _------=&gt; CPU#            </span><br><span class="line"> / _-----=&gt; irqs-off        </span><br><span class="line"> | / _----=&gt; need-resched    </span><br><span class="line"> || / _---=&gt; hardirq/softirq </span><br><span class="line"> ||| / _--=&gt; preempt-depth   </span><br><span class="line"> |||| /     delay             </span><br><span class="line">        # cmd     pid      ||||| time  |   caller      </span><br><span class="line">      \   /          |||||  \       |   /           </span><br><span class="line">ProcessS-502     1d...   49us!: __lock_task_sighand </span><br><span class="line">ProcessS-502     1d...  154us!: _raw_spin_lock &lt;-__lock_task_sighand </span><br><span class="line">ProcessS-502     1d...  933us+: thread_group_cputime_adjusted &lt;-do_task_stat </span><br><span class="line">ProcessS-502     1d... 1016us+: thread_group_cputime &lt;-thread_group_cputime_adjusted </span><br><span class="line">ProcessS-502     1d... 1106us+: task_sched_runtime &lt;-thread_group_cputime </span><br><span class="line">ProcessS-502     1d... 1195us+: task_rq_lock &lt;-task_sched_runtime </span><br><span class="line">        ProcessS-502     1d... 1286us!: _raw_spin_lock_irqsave &lt;-task_rq_lock</span><br></pre></td></tr></table></figure>
+<p>上面找到的是中断关闭时间最长的进程（ProcessStats-502），具体显示出关闭<br>和开中断的函数，CPU# 进程运行在哪个CPU上，irqs-off ‘d’表示中断关闭<br>(上半部)，need-resched设置时中断出来之后，执行一次调度，hardirq/softirq<br>表示硬中断/软中断正在运行。latency: 17790us表示的是关中断最长的时间</p>
+<ul>
+<li>Wakeup_rt:<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">  # tracer: wakeup_rt </span><br><span class="line">  # </span><br><span class="line">  # wakeup_rt latency trace v1.1.5 on 3.9.0-rc7-00004-g70df926-dirty </span><br><span class="line">  # -------------------------------------------------------------------- </span><br><span class="line">  # latency: 4155 us, #269/269, CPU#0 | (M:server VP:0, KP:0, SP:0 HP:0 #P:4) </span><br><span class="line">  #    ----------------- </span><br><span class="line">  #    | task: watchdog/0-11 (uid:0 nice:0 policy:1 rt_prio:99) </span><br><span class="line">  #    ----------------- </span><br><span class="line">  # </span><br><span class="line">  #                  _------=&gt; CPU#            </span><br><span class="line">  #                 / _-----=&gt; irqs-off        </span><br><span class="line">  #                | / _----=&gt; need-resched    </span><br><span class="line">  #                || / _---=&gt; hardirq/softirq </span><br><span class="line">  #                ||| / _--=&gt; preempt-depth   </span><br><span class="line">  #                |||| /     delay             </span><br><span class="line">  #  cmd     pid   ||||| time  |   caller      </span><br><span class="line">  #     \   /      |||||  \    |   /           </span><br><span class="line">    &lt;idle&gt;-0       0d.h.   32us+:      0:120:R   + [000]    11:  0:R watchdog/0 </span><br><span class="line">&lt;idle&gt;-0       0d.h.   99us+: 0 </span><br><span class="line">&lt;idle&gt;-0       0d.h.  114us+: check_preempt_curr &lt;-ttwu_do_wakeup </span><br><span class="line">&lt;idle&gt;-0       0d.h.  126us+: resched_task &lt;-check_preempt_curr </span><br><span class="line">&lt;idle&gt;-0       0dNh.  141us+: task_woken_rt &lt;-ttwu_do_wakeup </span><br><span class="line">&lt;idle&gt;-0       0dNh.  157us+: _raw_spin_unlock_irqrestore &lt;-try_to_wake_up </span><br><span class="line">&lt;idle&gt;-0       0dNh.  172us+: ktime_get &lt;-watchdog_timer_fn </span><br><span class="line">…</span><br><span class="line">&lt;idle&gt;-0       0dN.. 4064us+: put_prev_task_idle &lt;-__schedule &lt;idle&gt;-0       0dN.. 4077us+: pick_next_task_stop &lt;-__schedule </span><br><span class="line">&lt;idle&gt;-0       0dN.. 4090us+: pick_next_task_rt &lt;-__schedule </span><br><span class="line">&lt;idle&gt;-0       0dN.. 4103us+: dequeue_pushable_task &lt;-pick_next_task_rt </span><br><span class="line">&lt;idle&gt;-0       0d... 4126us+: __schedule </span><br><span class="line">&lt;idle&gt;-0       0d... 4138us :      0:120:R ==&gt; [000]    11:  0:R watchdog/0</span><br></pre></td></tr></table></figure>
+可以看到最长实时进程的latency是4155us, 其中很多时间是消耗在过程函数的统<br>计上，echo 0 &gt; /sys/kernel/debug/tracing/options/function-trace <br>可以关闭对过程函数的统计, 有些系统上没有上面的目录或文件</li>
+</ul>
+<p>设定<br>sysctl  kernel.ftrace_enabled=1   或者 <br>echo 1 &gt; /proc/sys/kernel/ftrace_enabled<br>也可以关掉对过程函数的跟踪, 下面是使用wakeup tracer时，不记录过程函数时<br>的测试结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"># tracer: wakeup </span><br><span class="line"># </span><br><span class="line"># wakeup latency trace v1.1.5 on 3.2.0-41-generic </span><br><span class="line"># -------------------------------------------------------------------- </span><br><span class="line"># latency: 8307 us, #4/4, CPU#2 | (M:desktop VP:0, KP:0, SP:0 HP:0 #P:4) </span><br><span class="line">#    ----------------- </span><br><span class="line">#    | task: alsa-sink-22445 (uid:1002 nice:-11 policy:2 rt_prio:5) </span><br><span class="line">#    ----------------- </span><br><span class="line"># </span><br><span class="line">#                  _------=&gt; CPU#            </span><br><span class="line">#                 / _-----=&gt; irqs-off        </span><br><span class="line">#                | / _----=&gt; need-resched    </span><br><span class="line">#                || / _---=&gt; hardirq/softirq </span><br><span class="line">#                ||| / _--=&gt; preempt-depth   </span><br><span class="line">#                |||| /     delay             </span><br><span class="line">#  cmd     pid   ||||| time  |   caller      </span><br><span class="line">#     \   /      |||||  \    |   /           </span><br><span class="line">   Xorg-22173   2d.h1    0us :  22173:120:R   + [002] 22445: 94:R alsa-sink </span><br><span class="line">Xorg-22173   2d.h1    1us!: ttwu_do_activate.constprop.179 &lt;-sched_ttwu_pending </span><br><span class="line">Xorg-22173   2d... 8306us : probe_wakeup_sched_switch &lt;-__schedule </span><br><span class="line">Xorg-22173   2d... 8307us :  22173:120:R ==&gt; [002] 22445: 94:R alsa-sink </span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E8%B0%83%E8%AF%95/" rel="tag"># 软件调试</a>
+              <a href="/tags/ftrace/" rel="tag"># ftrace</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" rel="prev" title="一个服务器的配置过程">
+      <i class="fa fa-chevron-left"></i> 一个服务器的配置过程
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/17/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/" rel="next" title="qemu虚拟机通过tun/tap上网">
+      qemu虚拟机通过tun/tap上网 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8E%9F%E7%90%86"><span class="nav-number">1.</span> <span class="nav-text">原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE%E4%B8%8E%E7%BC%96%E8%AF%91"><span class="nav-number">2.</span> <span class="nav-text">配置与编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B7%E4%BD%93%E4%BD%BF%E7%94%A8"><span class="nav-number">3.</span> <span class="nav-text">具体使用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">146</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">67</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

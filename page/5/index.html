@@ -126,12 +126,12 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">56</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">67</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">91</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">146</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -171,7 +171,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/Linux-PCIe-hotplug-arch-analysis/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -185,7 +185,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/" class="post-title-link" itemprop="url">用mprotect定位踩内存问题</a>
+            <a href="/2021/07/11/Linux-PCIe-hotplug-arch-analysis/" class="post-title-link" itemprop="url">Linux PCIe hotplug arch analysis</a>
         </h2>
 
         <div class="post-meta">
@@ -194,13 +194,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:13:40 / 修改时间：22:41:15" itemprop="dateCreated datePublished" datetime="2021-06-27T18:13:40+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:37:56" itemprop="dateCreated datePublished" datetime="2021-07-11T23:37:56+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-15 00:06:50" itemprop="dateModified" datetime="2021-07-15T00:06:50+08:00">2021-07-15</time>
+              </span>
 
           
-            <span id="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/" class="post-meta-item leancloud_visitors" data-flag-title="用mprotect定位踩内存问题" title="阅读次数">
+            <span id="/2021/07/11/Linux-PCIe-hotplug-arch-analysis/" class="post-meta-item leancloud_visitors" data-flag-title="Linux PCIe hotplug arch analysis" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -215,8 +221,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/Linux-PCIe-hotplug-arch-analysis/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/Linux-PCIe-hotplug-arch-analysis/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -231,10 +237,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文以一个实际的例子介绍如何使用mprotect定位踩内存的问题</p>
+          <p>本文分析Linux内核里PCIe热插拔的代码架构</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/%E7%94%A8mprotect%E5%AE%9A%E4%BD%8D%E8%B8%A9%E5%86%85%E5%AD%98%E9%97%AE%E9%A2%98/">
+              <a class="btn" href="/2021/07/11/Linux-PCIe-hotplug-arch-analysis/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -258,7 +264,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/cpio-compress-and-extract/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -272,7 +278,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">linux O_CLOEXEC标志位笔记</a>
+            <a href="/2021/07/11/cpio-compress-and-extract/" class="post-title-link" itemprop="url">cpio compress and extract</a>
         </h2>
 
         <div class="post-meta">
@@ -281,13 +287,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:12:49 / 修改时间：22:39:09" itemprop="dateCreated datePublished" datetime="2021-06-27T18:12:49+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:37:35" itemprop="dateCreated datePublished" datetime="2021-07-11T23:37:35+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-15 00:03:55" itemprop="dateModified" datetime="2021-07-15T00:03:55+08:00">2021-07-15</time>
+              </span>
 
           
-            <span id="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="linux O_CLOEXEC标志位笔记" title="阅读次数">
+            <span id="/2021/07/11/cpio-compress-and-extract/" class="post-meta-item leancloud_visitors" data-flag-title="cpio compress and extract" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -302,8 +314,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/cpio-compress-and-extract/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/cpio-compress-and-extract/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -318,10 +330,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文介绍Linux O_CLOEXEC标志位的语意</p>
+          <p>本文简单记录cpio.gz格式的压缩和解压缩命令</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/linux-O-CLOEXEC%E6%A0%87%E5%BF%97%E4%BD%8D%E7%AC%94%E8%AE%B0/">
+              <a class="btn" href="/2021/07/11/cpio-compress-and-extract/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -345,7 +357,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/PCI-MSI-parse-in-ACPI/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -359,7 +371,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">Linux信号笔记</a>
+            <a href="/2021/07/11/PCI-MSI-parse-in-ACPI/" class="post-title-link" itemprop="url">PCI MSI parse in ACPI</a>
         </h2>
 
         <div class="post-meta">
@@ -368,13 +380,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:10:30 / 修改时间：22:35:18" itemprop="dateCreated datePublished" datetime="2021-06-27T18:10:30+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:36:48" itemprop="dateCreated datePublished" datetime="2021-07-11T23:36:48+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-17 09:55:16" itemprop="dateModified" datetime="2021-07-17T09:55:16+08:00">2021-07-17</time>
+              </span>
 
           
-            <span id="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="Linux信号笔记" title="阅读次数">
+            <span id="/2021/07/11/PCI-MSI-parse-in-ACPI/" class="post-meta-item leancloud_visitors" data-flag-title="PCI MSI parse in ACPI" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -389,8 +407,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/PCI-MSI-parse-in-ACPI/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/PCI-MSI-parse-in-ACPI/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -405,10 +423,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>Linux中可以用信号来做通信，本文是对linux信号的一个使用总结。也会总结下APUE第10 章中关于信号的内容。</p>
+          <p>In server system, we often use ACPI table in UEFI to stort parametres of system. For a PCIe subsystem, IORT table will be used to store configurations of ITS, SMMU and RC. This document analyzes how to parse ITS configuration in kernel.</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/">
+              <a class="btn" href="/2021/07/11/PCI-MSI-parse-in-ACPI/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -432,7 +450,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/PCI-SMMU-parse-in-ACPI/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -446,7 +464,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">perf flame graph笔记</a>
+            <a href="/2021/07/11/PCI-SMMU-parse-in-ACPI/" class="post-title-link" itemprop="url">PCI SMMU parse in ACPI</a>
         </h2>
 
         <div class="post-meta">
@@ -455,13 +473,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:09:46 / 修改时间：22:33:31" itemprop="dateCreated datePublished" datetime="2021-06-27T18:09:46+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:36:35" itemprop="dateCreated datePublished" datetime="2021-07-11T23:36:35+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-15 00:00:50" itemprop="dateModified" datetime="2021-07-15T00:00:50+08:00">2021-07-15</time>
+              </span>
 
           
-            <span id="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="perf flame graph笔记" title="阅读次数">
+            <span id="/2021/07/11/PCI-SMMU-parse-in-ACPI/" class="post-meta-item leancloud_visitors" data-flag-title="PCI SMMU parse in ACPI" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -476,8 +500,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/PCI-SMMU-parse-in-ACPI/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/PCI-SMMU-parse-in-ACPI/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -492,10 +516,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文记录使用Linux下使用perf生成火焰图的方法</p>
+          <p>This document shares a code analysis based on Linux-v4.9 about how to parse SMMU information in ACPI IORT table, and how does a PCIe device get its SMMUv3 device.</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/perf-flame-graph%E7%AC%94%E8%AE%B0/">
+              <a class="btn" href="/2021/07/11/PCI-SMMU-parse-in-ACPI/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -519,7 +543,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/PCI-parse-MEM-IO-range-in-CRS-in-ACPI-table/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -533,7 +557,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">锁使用的一些笔记</a>
+            <a href="/2021/07/11/PCI-parse-MEM-IO-range-in-CRS-in-ACPI-table/" class="post-title-link" itemprop="url">PCI parse MEM/IO range in _CRS in ACPI table</a>
         </h2>
 
         <div class="post-meta">
@@ -542,13 +566,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:09:08 / 修改时间：22:31:06" itemprop="dateCreated datePublished" datetime="2021-06-27T18:09:08+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:36:08" itemprop="dateCreated datePublished" datetime="2021-07-11T23:36:08+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-15 00:22:53" itemprop="dateModified" datetime="2021-07-15T00:22:53+08:00">2021-07-15</time>
+              </span>
 
           
-            <span id="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="锁使用的一些笔记" title="阅读次数">
+            <span id="/2021/07/11/PCI-parse-MEM-IO-range-in-CRS-in-ACPI-table/" class="post-meta-item leancloud_visitors" data-flag-title="PCI parse MEM/IO range in _CRS in ACPI table" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -563,8 +593,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/PCI-parse-MEM-IO-range-in-CRS-in-ACPI-table/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/PCI-parse-MEM-IO-range-in-CRS-in-ACPI-table/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -579,10 +609,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>在Linux系统下编程的时候，当需要保护特性数据结构的时候会用到各种锁。本文记录作者在实际使用时候的一些心得。</p>
+          <p>Linux PCI code parses MEM/IO range, which are described in _CRS method in ACPI DSDT table. This document tries to share an analysis about this part of code.</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/">
+              <a class="btn" href="/2021/07/11/PCI-parse-MEM-IO-range-in-CRS-in-ACPI-table/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -606,7 +636,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/PCIe-enumeration-for-SR-IOV-PCIe-device/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -620,7 +650,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Linux SVA特性分析</a>
+            <a href="/2021/07/11/PCIe-enumeration-for-SR-IOV-PCIe-device/" class="post-title-link" itemprop="url">PCIe enumeration for SR-IOV PCIe device</a>
         </h2>
 
         <div class="post-meta">
@@ -629,13 +659,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:08:06 / 修改时间：22:45:26" itemprop="dateCreated datePublished" datetime="2021-06-27T18:08:06+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:35:34" itemprop="dateCreated datePublished" datetime="2021-07-11T23:35:34+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-12 09:13:30" itemprop="dateModified" datetime="2021-07-12T09:13:30+08:00">2021-07-12</time>
+              </span>
 
           
-            <span id="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Linux SVA特性分析" title="阅读次数">
+            <span id="/2021/07/11/PCIe-enumeration-for-SR-IOV-PCIe-device/" class="post-meta-item leancloud_visitors" data-flag-title="PCIe enumeration for SR-IOV PCIe device" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -650,8 +686,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/PCIe-enumeration-for-SR-IOV-PCIe-device/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/PCIe-enumeration-for-SR-IOV-PCIe-device/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -666,10 +702,12 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>最近Linux社区在上传SVA特性(share virtual memory), 简单讲这个特性可以达到 这样的功能，就是可以是设备直接使用进程里的虚拟地址。如果把设备操作映射到用户态， 就可以在用户态叫设备直接使用进程虚拟地址。设备可以使用进程虚拟地址做DMA，如果 设备功能强大，比如可以执行一段指令，设备甚至可以直接执行相应进程虚拟地址上的 指令。目前SVA特性正处于上传阶段，这个特性的补丁涉及到IOMMU, PCI, 内存管理(MM), SMMU, VFIO, 虚拟化，DT, ACPI等方面的修改，所以补丁比较分散，不过好在这个特性的 上传者把相关补丁收集在了一个分支上，即https://jpbrucker.net/sva/ 的sva/current 分支上。想要了解SVA的整体，可以直接查看这个分支上的各个提交。需要说明是，这个 分支的base是5.2-rc7, 在5.3中这个分支上的少量补丁已经合入Linux主线，如果想用最 新内核测试SVA需要做一定的适配工作。本文的分析以base是5.2-rc7的sva/current分支 上的补丁为基础。</p>
+          <p>There are a lot things should be done in software to support PCIe SR-IOV. Using qemu(for example) to use a VF, at least, we should:
+1. host PCI subsystem finds VF and allocate resources for VF. 2. vfio driver exports VF's configure space, MEM/IO range to user space. 3. vfio driver allocate DMA for VF by IOMMU. 4. vfio driver builds the interrupt flow for VF. 5. qemu vfio driver simulates PCIe device for guest kernel.
+This document just tries to share an outline about point 1.</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/">
+              <a class="btn" href="/2021/07/11/PCIe-enumeration-for-SR-IOV-PCIe-device/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -693,7 +731,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/ssh%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -707,7 +745,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-title-link" itemprop="url">Linux文件引用计数的逻辑</a>
+            <a href="/2021/07/11/ssh%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">ssh笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -716,13 +754,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:07:01 / 修改时间：22:26:04" itemprop="dateCreated datePublished" datetime="2021-06-27T18:07:01+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:34:41" itemprop="dateCreated datePublished" datetime="2021-07-11T23:34:41+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-12 09:07:19" itemprop="dateModified" datetime="2021-07-12T09:07:19+08:00">2021-07-12</time>
+              </span>
 
           
-            <span id="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-meta-item leancloud_visitors" data-flag-title="Linux文件引用计数的逻辑" title="阅读次数">
+            <span id="/2021/07/11/ssh%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="ssh笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -737,8 +781,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/ssh%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/ssh%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -753,10 +797,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文分析现在Linux内核中对打开文件引用计数的处理逻辑，目的是解答一个问题，即对设备文件的操作会不会引用到已经释放的文件上。</p>
+          <p>本文用来收集ssh使用的一些技巧</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Linux%E6%96%87%E4%BB%B6%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91/">
+              <a class="btn" href="/2021/07/11/ssh%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -780,7 +824,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/How-to-test-PCIe-SR-IOV-in-D0x/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -794,7 +838,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-title-link" itemprop="url">SMMU SSV的逻辑</a>
+            <a href="/2021/07/11/How-to-test-PCIe-SR-IOV-in-D0x/" class="post-title-link" itemprop="url">How to test PCIe SR-IOV in D0x</a>
         </h2>
 
         <div class="post-meta">
@@ -803,13 +847,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:06:35 / 修改时间：23:29:57" itemprop="dateCreated datePublished" datetime="2021-06-27T18:06:35+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:34:19" itemprop="dateCreated datePublished" datetime="2021-07-11T23:34:19+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-12 09:03:21" itemprop="dateModified" datetime="2021-07-12T09:03:21+08:00">2021-07-12</time>
+              </span>
 
           
-            <span id="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/" class="post-meta-item leancloud_visitors" data-flag-title="SMMU SSV的逻辑" title="阅读次数">
+            <span id="/2021/07/11/How-to-test-PCIe-SR-IOV-in-D0x/" class="post-meta-item leancloud_visitors" data-flag-title="How to test PCIe SR-IOV in D0x" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -824,8 +874,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/How-to-test-PCIe-SR-IOV-in-D0x/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/How-to-test-PCIe-SR-IOV-in-D0x/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -840,10 +890,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文描述SMMU协议中SSV的基本逻辑</p>
+          <p>This doc helps to introduce how to test PCIe SR-IOV in HiSilicon D05 board. We can use same way to test SR-IOV in Hi1620.</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/SMMU-SSV%E7%9A%84%E9%80%BB%E8%BE%91/">
+              <a class="btn" href="/2021/07/11/How-to-test-PCIe-SR-IOV-in-D0x/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -867,7 +917,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/sed%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -881,7 +931,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/" class="post-title-link" itemprop="url">使用ftrace跟踪函数</a>
+            <a href="/2021/07/11/sed%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">sed笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -890,13 +940,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:05:57 / 修改时间：22:22:27" itemprop="dateCreated datePublished" datetime="2021-06-27T18:05:57+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:33:46" itemprop="dateCreated datePublished" datetime="2021-07-11T23:33:46+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-12 00:33:58" itemprop="dateModified" datetime="2021-07-12T00:33:58+08:00">2021-07-12</time>
+              </span>
 
           
-            <span id="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/" class="post-meta-item leancloud_visitors" data-flag-title="使用ftrace跟踪函数" title="阅读次数">
+            <span id="/2021/07/11/sed%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="sed笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -911,8 +967,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/sed%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/sed%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -927,10 +983,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>有些时候在调试内核代码时，我们想跟踪下内核代码的执行流程，以及函数执行时间。 这个时候我们可以用Linux内核自带的ftrace来跟踪。本文简介具体的跟踪方法</p>
+          <p>本文是Linux sed命令的一个学习笔记</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/%E4%BD%BF%E7%94%A8ftrace%E8%B7%9F%E8%B8%AA%E5%87%BD%E6%95%B0/">
+              <a class="btn" href="/2021/07/11/sed%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -954,7 +1010,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/06/27/Linux-dma-map-sg-API/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/docker%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -968,7 +1024,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/06/27/Linux-dma-map-sg-API/" class="post-title-link" itemprop="url">Linux dma_map_sg API</a>
+            <a href="/2021/07/11/docker%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">docker笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -977,13 +1033,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-06-27 18:05:15 / 修改时间：22:17:25" itemprop="dateCreated datePublished" datetime="2021-06-27T18:05:15+08:00">2021-06-27</time>
+              <time title="创建时间：2021-07-11 23:33:02" itemprop="dateCreated datePublished" datetime="2021-07-11T23:33:02+08:00">2021-07-11</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-12 00:29:49" itemprop="dateModified" datetime="2021-07-12T00:29:49+08:00">2021-07-12</time>
+              </span>
 
           
-            <span id="/2021/06/27/Linux-dma-map-sg-API/" class="post-meta-item leancloud_visitors" data-flag-title="Linux dma_map_sg API" title="阅读次数">
+            <span id="/2021/07/11/docker%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="docker笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -998,8 +1060,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/06/27/Linux-dma-map-sg-API/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/06/27/Linux-dma-map-sg-API/" itemprop="commentCount"></span>
+    <a title="valine" href="/2021/07/11/docker%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/docker%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -1014,10 +1076,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文简介Linux内核DMA接口 dma_map_sg的语意</p>
+          <p>docker的三个最基本的概念是镜像(Image)，容器(Container)和仓库(Repository)。本文简单介绍有关他们的基础操作。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/06/27/Linux-dma-map-sg-API/">
+              <a class="btn" href="/2021/07/11/docker%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -1040,7 +1102,7 @@
 
   
   <nav class="pagination">
-    <a class="extend prev" rel="prev" href="/page/4/"><i class="fa fa-angle-left" aria-label="上一页"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/4/">4</a><span class="page-number current">5</span><a class="page-number" href="/page/6/">6</a><span class="space">&hellip;</span><a class="page-number" href="/page/10/">10</a><a class="extend next" rel="next" href="/page/6/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
+    <a class="extend prev" rel="prev" href="/page/4/"><i class="fa fa-angle-left" aria-label="上一页"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/4/">4</a><span class="page-number current">5</span><a class="page-number" href="/page/6/">6</a><span class="space">&hellip;</span><a class="page-number" href="/page/15/">15</a><a class="extend next" rel="next" href="/page/6/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
   </nav>
 
 
@@ -1106,7 +1168,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">91</span>
+          <span class="site-state-item-count">146</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1117,7 +1179,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">56</span>
+        <span class="site-state-item-count">67</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

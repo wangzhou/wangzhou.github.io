@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文继续pci note 3, 介绍PCI枚举中资源分配相关的函数, 内核版本为3.18-rc1">
+<meta property="og:type" content="article">
+<meta property="og:title" content="PCIe学习笔记(四)">
+<meta property="og:url" content="http://example.com/2021/07/11/PCIe%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%9B%9B/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文继续pci note 3, 介绍PCI枚举中资源分配相关的函数, 内核版本为3.18-rc1">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-11T15:49:52.000Z">
+<meta property="article:modified_time" content="2021-07-16T15:22:39.971Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="PCIe">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/11/PCIe%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%9B%9B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>PCIe学习笔记(四) | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">67</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">146</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/PCIe%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%9B%9B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          PCIe学习笔记(四)
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-11 23:49:52" itemprop="dateCreated datePublished" datetime="2021-07-11T23:49:52+08:00">2021-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-16 23:22:39" itemprop="dateModified" datetime="2021-07-16T23:22:39+08:00">2021-07-16</time>
+              </span>
+
+          
+            <span id="/2021/07/11/PCIe%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%9B%9B/" class="post-meta-item leancloud_visitors" data-flag-title="PCIe学习笔记(四)" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/11/PCIe%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%9B%9B/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/PCIe%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E5%9B%9B/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文继续pci note 3, 介绍PCI枚举中资源分配相关的函数, 内核版本为3.18-rc1</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>pci_assign_unassigned_bus_resources(b)<br>void pci_assign_unassigned_bus_resources(struct pci_bus *bus)<br>{<br>    struct pci_dev <em>dev;<br>    LIST_HEAD(add_list); /</em> list of resources that<br>                    want additional resources */</p>
+<pre><code>down_read(&amp;pci_bus_sem);
+list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list)
+    if (pci_is_bridge(dev) &amp;&amp; pci_has_subordinate(dev))
+                /* 这里传入的参数是bus 1对应的pci_bus */
+            __pci_bus_size_bridges(dev-&gt;subordinate,
+                         &amp;add_list);
+up_read(&amp;pci_bus_sem);
+/* 配置各个桥和设备的BAR，配置桥的MEM，I/O，prefetch MEM base/limit */
+__pci_bus_assign_resources(bus, &amp;add_list, NULL);
+BUG_ON(!list_empty(&amp;add_list));
+</code></pre>
+<p>}</p>
+<p>__pci_bus_size_bridges(struct pci_bus *bus, struct list_head <em>realloc_head)<br>    …<br>       /</em> 在当前的连接状态下，list中的代码不会执行。下面的代码层层递归，直到<br>        * 最底层设备的上的pci_bus，这时最底层设备是没有下一级的pci_bus的。<br>        * 所以，继续执行后面的代码。<br>        <em>/<br>    –&gt;list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list) {<br>        …<br>    case PCI_CLASS_BRIDGE_PCI:<br>    default:<br>        __pci_bus_size_bridges(b, realloc_head);<br>        break;<br>       }<br>    …<br>       /</em> 当前pci_bus的桥对应的pci_dev, 这里应该是host <em>/<br>    –&gt;switch (bus-&gt;self-&gt;class &gt;&gt; 8) {<br>        …<br>        case PCI_CLASS_BRIDGE_PCI:<br>            /</em> 会执行这里 <em>/<br>            pci_bridge_check_ranges(bus);<br>        …<br>    default:<br>        /</em> 这个函数改变了pci_bus-&gt;resource[]中的值。start对齐4K，size是该bus下<br>         * 所有I/O空间的总和。但是似乎realloc_head<br>         * list似乎没有node添加上去<br>         */<br>        pbus_size_io(bus, realloc_head ? 0 : additional_io_size,<br>                 additional_io_size, realloc_head);</p>
+<pre><code>    /*
+     * If there&#39;s a 64-bit prefetchable MMIO window, compute
+     * the size required to put all 64-bit prefetchable
+     * resources in it.
+     */
+    b_res = &amp;bus-&gt;self-&gt;resource[PCI_BRIDGE_RESOURCES];
+    mask = IORESOURCE_MEM;
+    prefmask = IORESOURCE_MEM | IORESOURCE_PREFETCH;
+    if (b_res[2].flags &amp; IORESOURCE_MEM_64) &#123;
+        prefmask |= IORESOURCE_MEM_64;
+        ret = pbus_size_mem(bus, prefmask, prefmask,
+              prefmask, prefmask,
+              realloc_head ? 0 : additional_mem_size,
+              additional_mem_size, realloc_head);
+
+        /*
+         * If successful, all non-prefetchable resources
+         * and any 32-bit prefetchable resources will go in
+         * the non-prefetchable window.
+         */
+        if (ret == 0) &#123;
+            mask = prefmask;
+            type2 = prefmask &amp; ~IORESOURCE_MEM_64;
+            type3 = prefmask &amp; ~IORESOURCE_PREFETCH;
+        &#125;
+    &#125;
+
+    /*
+     * If there is no 64-bit prefetchable window, compute the
+     * size required to put all prefetchable resources in the
+     * 32-bit prefetchable window (if there is one).
+     */
+    if (!type2) &#123;
+        prefmask &amp;= ~IORESOURCE_MEM_64;
+        ret = pbus_size_mem(bus, prefmask, prefmask,
+                 prefmask, prefmask,
+                 realloc_head ? 0 : additional_mem_size,
+                 additional_mem_size, realloc_head);
+
+        /*
+         * If successful, only non-prefetchable resources
+         * will go in the non-prefetchable window.
+         */
+        if (ret == 0)
+            mask = prefmask;
+        else
+            additional_mem_size += additional_mem_size;
+
+        type2 = type3 = IORESOURCE_MEM;
+    &#125;
+
+    /*
+     * Compute the size required to put everything else in the
+     * non-prefetchable window.  This includes:
+     *
+     *   - all non-prefetchable resources
+     *   - 32-bit prefetchable resources if there&#39;s a 64-bit
+     *     prefetchable window or no prefetchable window at all
+     *   - 64-bit prefetchable resources if there&#39;s no
+     *     prefetchable window at all
+     *
+     * Note that the strategy in __pci_assign_resource() must
+     * match that used here.  Specifically, we cannot put a
+     * 32-bit prefetchable resource in a 64-bit prefetchable
+     * window.
+     */
+    pbus_size_mem(bus, mask, IORESOURCE_MEM, type2, type3,
+            realloc_head ? 0 : additional_mem_size,
+            additional_mem_size, realloc_head);
+    break;
+&#125;
+</code></pre>
+<p>}</p>
+<p>__pci_bus_assign_resources(bus, &amp;add_list, NULL)<br>        /* bus:0, 会对该bus上的所有device分别调用__dev_sort_resource<br>     * 然后统一调用一个__assign_resources_sorted()。之后程序进入<br>     * 下面的list中，又会嵌套进入__pci_bus_assign_resources, 这时<br>     * bus:1。重复上面的过程。在bus:1是__pci_bus_assign_resources<br>     * 在处理处理完pbus_assign_resources_sorted后不回往下执行,返回<br>     * 上层。这时bus:0, 进入pci_setup_bridge执行。<br>     * 其中，会在pbus_assign_resources_sorted中配置BAR，在<br>     * __pci_setup_bridge中配mem, I/O, prefetch mem的base/limit<br>     */<br>    –&gt; pbus_assign_resources_sorted(bus, realloc_head, fail_head);<br>    –&gt; list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list)<br>        –&gt; __pci_bus_assign_resources(b, realloc_head, fail_head);<br>    –&gt; switch (dev-&gt;class &gt;&gt; 8)<br>        case PCI_CLASS_BRIDGE_PCI:<br>            –&gt; pci_setup_bridge(b);</p>
+<p>static void pbus_assign_resources_sorted()<br>    –&gt; LIST_HEAD(head);<br>    –&gt; list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list)<br>        __dev_sort_resources(dev, &amp;head);<br>                    /* 把pci_dev中的resource[]从大到小排序, 存入链表head中 <em>/<br>            –&gt; pdev_sort_resources(dev, head);<br>    –&gt; __assign_resources_sorted(&amp;head, realloc_head, fail_head);<br>            /</em> 因为realloc_head为空链表，所以直接到requested_and_reassign <em>/<br>    –&gt; if (!realloc_head || list_empty(realloc_head))<br>        goto requested_and_reassign;<br>    …<br>        requested_and_reassign:<br>    –&gt; assign_requested_resources_sorted(head, fail_head);<br>            /</em> dev_res(pci_dev_resource)存储一个device中一个配置空间<br>         * 的资源(一个设备可有多个mem或I/O配置空间)<br>         */<br>        –&gt; list_for_each_entry(dev_res, head, list)<br>        –&gt; resource_size(res) &amp;&amp;<br>        pci_assign_resource(dev_res-&gt;dev, idx)<br>               –&gt; _pci_assign_resource(dev, resno, size, align);<br>           –&gt; pci_update_resource(dev, resno);</p>
+<pre><code>    --&gt; reassign_resources_sorted(realloc_head, head);
+</code></pre>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/PCIe/" rel="tag"># PCIe</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/11/PCIe%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E4%BA%8C/" rel="prev" title="PCIe学习笔记(二)">
+      <i class="fa fa-chevron-left"></i> PCIe学习笔记(二)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/11/ubuntu%E4%BD%BF%E7%94%A8LDAP%E5%81%9A%E7%94%A8%E6%88%B7%E7%AE%A1%E7%90%86/" rel="next" title="ubuntu使用LDAP做用户管理">
+      ubuntu使用LDAP做用户管理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">146</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">67</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="本文记录一次配置服务器的过程，如果你手上有一台服务器，要自己安装Linux 操作系统给同组的几个开发人员用, 就可以参考本文。本文介绍一些要考虑的基本内容">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一个服务器的配置过程">
+<meta property="og:url" content="http://example.com/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文记录一次配置服务器的过程，如果你手上有一台服务器，要自己安装Linux 操作系统给同组的几个开发人员用, 就可以参考本文。本文介绍一些要考虑的基本内容">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-17T03:13:49.000Z">
+<meta property="article:modified_time" content="2021-07-17T06:40:31.561Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="运维">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>一个服务器的配置过程 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">67</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">146</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          一个服务器的配置过程
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-07-17 11:13:49 / 修改时间：14:40:31" itemprop="dateCreated datePublished" datetime="2021-07-17T11:13:49+08:00">2021-07-17</time>
+            </span>
+
+          
+            <span id="/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" class="post-meta-item leancloud_visitors" data-flag-title="一个服务器的配置过程" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文记录一次配置服务器的过程，如果你手上有一台服务器，要自己安装Linux 操作系统给同组的几个开发人员用, 就可以参考本文。本文介绍一些要考虑的基本内容</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本配置"><a href="#基本配置" class="headerlink" title="基本配置"></a>基本配置</h2><p>服务器相关参数：HUAWEI RH2285 server, 300G x 12, memory:4G x 12,<br>LSI SAS 1068E, ip: ***, gateway: ***, netmask: ***,<br>DNS1: ***, DNS2: ***</p>
+<p>配置一个开发用的服务器需要考虑的有：</p>
+<ol>
+<li>硬盘怎么分区, 2) RAID怎么设置，3) 网络怎么配置，4) 装什么软件, 5) 每个用<br>户的磁盘容量限制. 下面逐个说明</li>
+</ol>
+<h2 id="配置步骤"><a href="#配置步骤" class="headerlink" title="配置步骤"></a>配置步骤</h2><p>(1) 磁盘分区：</p>
+<p>服务器原有12块硬盘，每个300G。一般安装系统的分区要做RAID1，故用硬盘0，1<br>做一个RAID1, 容量300G, 作系统分区等；硬盘2-11做一个RAID1E, 容量1.5T,<br>挂载在/home上。在安装操作系统的时候看到的是sda和sdb两个硬盘，这里把300G<br>的划分成和系统相关的分区，把1.5T独立作为一个分区挂载在/home上。具体分区如下：</p>
+<p>|—&gt;/home 1.5T<br>|<br>|—&gt;/usr 40G<br>|<br>|—&gt;/var 40G<br>|<br>|—&gt;/ 10G<br>|<br>|—&gt;/tmp 5G<br>|<br>|—&gt;/boot 1G<br>|<br>|—&gt;none 200G</p>
+<p>分区的思路为：/boot存放系统启动的内容，包括内核压缩文件和grub; /usr为系统<br>以后安装软件的目录，所以可分的大些； /var为系统存放日志文件<br>的目录且重启之后不会删除，所以也要大点；/tmp为系统存放临时<br>文件的地方并且要是挂载tmpfs文件系统后，/tmp的内容会存放在<br>内存中，所以不需要太大；根文件系统的其他部分以后不会有大的<br>变动，所以都放在/下</p>
+<p>(2) RAID设置</p>
+<p>本服务器支持了硬RAID，采用的是LSI的RAID卡1068E, 配置过程如下:</p>
+<ol>
+<li><p>开机, 一直等到initial界面，按contrl+c进入硬RAID配置界面。<br>华为RH2285服务器采用的是LSI 1068ＥRAID卡，可以配置1-2个RAID0，1-2个<br>RAID1，1-2个RAID1E</p>
+</li>
+<li><p>RAID设置是：硬盘0，1做一个RAID1，容量300G，用于除了home的分区；<br>硬盘2-11做一个RAID1E，容量1.5T，只用于home分区。</p>
+</li>
+<li><p>做RAID之前首先要删除之前的RAID:<br>C1068E—&gt;RAID Properties—&gt;Manage Array—&gt;Delete Array</p>
+</li>
+<li><p>做RAID1：<br>C1068E—&gt;RAID Properties—&gt;Create IM Volume—&gt;选择硬盘0、1，按c创<br>建RAID1</p>
+</li>
+<li><p>做RAID1E：<br>C1068E—&gt;RAID Properties—&gt;Create IME Volume—&gt;选择硬盘2-11，按c创<br>建RAID1E。系统的12块硬盘做成的一个RAID1和一个RAID1E，安装操作系统时将<br>只会看到sda和sdb两个硬盘</p>
+</li>
+</ol>
+<p>(3) 网络配置</p>
+<p>服务器的ip要配置成静态ip, 需要了解配置的有：ip, DNS, 网关, 一般在文件<br>/etc/network/interfaces, /etc/resolv.conf中配置</p>
+<p>(4) 软件安装</p>
+<p>配置好网络后，使用sudo apt-get install安装(这里安装的系统是ubuntu)需要的<br>软件。这里安装gcc, qemu, make, git, vim, gdb, ctags, cscope, openjdk, ftp,<br>tftp, scp, perf用户态程序等开发工具</p>
+<p>windows和linux通信需要samba服务器, 其配置过程如下:</p>
+<p>samba服务器要配置成为：<br>a. 用户名和大服务器用户名相同<br>b. 各用户分别共享自己的home目录，用户之间互不可见<br>c. /home/share向每个团队成员共享，对非团队成员不可见</p>
+<ol>
+<li><p>samba服务器的配置文件在/etc/samba/下，有smb.conf, smbpasswd等。<br>samba服务器可以设定不同的安全等级，如share级别无需密码就可以访问，这<br>里采用user级别，访问时需要用户名和密码。samba服务器的可用三种方式鉴<br>权：smbpasswd, tdbsam, ldapsam, 这里采用smbpasswd</p>
+</li>
+<li><p>sudo vi /etc/samba/smb.conf<br>设定安全级别：security = user<br>设定鉴权方式：passdb backend = smbpasswd<br>设定存放密码的文件：<br>smb passwd file = /etc/samba/smbpasswd<br>若是没有smbpasswd, 手动建一个, 以后创建的samba用户的密码会保存在其中<br>添加用户并设定初始密码：sudo smbpasswd -a username</p>
+</li>
+<li><p>建立共享的share目录：mkdir /home/share<br>在smb.conf中增加配置：<br>[share]<br>path = /home/share<br>writable = yes<br>broweable = yes<br>available = yes<br>valid users = @user<br>这里之前把需要有共享权限的用户加入了新建的用户组user, 也可以把用户名<br>用逗号隔开加入。加入组中的用户在windows—&gt;“运行”中输入//server-ip/<br>然后输入用户名和密码即可登陆共享目录</p>
+</li>
+<li><p>建立自己共享的目录：<br>在smb.conf的[global]段中加入：config file = /etc/samba/smb.conf.%U<br>这表示到对应的子配置文件去找配置项。<br>拷贝一份配置文件：cp smb.conf smb.conf.username1, 在其中加入：<br>[username1]<br>path = /home/username1<br>writable = yes<br>broweable = no<br>valid users = username1<br>其他用用户都这样配置。username1用户在windows—&gt;“运行”中输入//server-<br>ip/username1, 然后输入用户名和密码即可登陆/home/username1</p>
+</li>
+<li><p>重启samba服务器:<br>sudo service smbd restart<br>sudo service nmbd restart</p>
+</li>
+</ol>
+<p>注：连接samba服务器，第一次输入密码后，再次连接不需要输入密码。这是因为<br>关闭窗口后连接并没有真正断开，可以在dos命令行下用net use查看相应的<br>连接，再用net usr *** /del 关闭该连接</p>
+<p>参考：<br><span class="exturl" data-url="aHR0cDovL2Jsb2cuY2hpbmF1bml4Lm5ldC91aWQtMjA1MzcwODQtaWQtMjk3Nzg1MC5odG1s">http://blog.chinaunix.net/uid-20537084-id-2977850.html<i class="fa fa-external-link-alt"></i></span><br><span class="exturl" data-url="aHR0cDovL2Jicy5jaGluYXVuaXgubmV0L3RocmVhZC05MjIwMjktMS0xLmh0bWw=">http://bbs.chinaunix.net/thread-922029-1-1.html<i class="fa fa-external-link-alt"></i></span></p>
+<p>(5) quota配置</p>
+<p>quota可以限制每个用户磁盘的使用量。这里总磁盘可用容量为1.3T，设计使用人<br>数为20，每个用户的home目录的限额为: 60G(soft), 65G(hard), 宽限时间为14天。<br>具体注意见:</p>
+<p>配置参照<span class="exturl" data-url="aHR0cDovL2xpbnV4LnZiaXJkLm9yZy9saW51eF9iYXNpYy8wNDIwcXVvdGEucGhw">http://linux.vbird.org/linux_basic/0420quota.php<i class="fa fa-external-link-alt"></i></span> 即可。需注意：</p>
+<ol>
+<li><p>查看内核是否支持quota:<br>CONFIG_QUOTA = y<br>CONFIG_XFS_QUOTA = y</p>
+</li>
+<li><p>umount /home的时候可能出现device busy的情况。解决办法是:<br>以root进入系统，使用lsof | grep /home 找到相应的进程，杀死相应的进程<br>再执行 umoung /home</p>
+</li>
+<li><p>可能系统中没有quotacheck命令，sudo apt-get install quota 安装即可</p>
+</li>
+</ol>
+<p>(6) 安装系统中需注意：</p>
+<ol>
+<li><p>安装系统前查一下服务器的系统兼容性，ubuntu-server-12.04在RH2285上会<br>安装出错，上面安装的是untuntu-server-10.04</p>
+</li>
+<li><p>安装grub的时候应该选择RAID1(300G)中对应的分区，这里选择/dev/sdb1，挂<br>载的目录是/boot</p>
+</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%BF%90%E7%BB%B4/" rel="tag"># 运维</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/17/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" rel="prev" title="Linux中断学习笔记1">
+      <i class="fa fa-chevron-left"></i> Linux中断学习笔记1
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" rel="next" title="ftrace学习笔记1">
+      ftrace学习笔记1 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%85%8D%E7%BD%AE"><span class="nav-number">1.</span> <span class="nav-text">基本配置</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%85%8D%E7%BD%AE%E6%AD%A5%E9%AA%A4"><span class="nav-number">2.</span> <span class="nav-text">配置步骤</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">146</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">67</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

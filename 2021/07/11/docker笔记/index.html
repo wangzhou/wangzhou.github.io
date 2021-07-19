@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="docker的三个最基本的概念是镜像(Image)，容器(Container)和仓库(Repository)。本文简单介绍有关他们的基础操作。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="docker笔记">
+<meta property="og:url" content="http://example.com/2021/07/11/docker%E7%AC%94%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="docker的三个最基本的概念是镜像(Image)，容器(Container)和仓库(Repository)。本文简单介绍有关他们的基础操作。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-11T15:33:02.000Z">
+<meta property="article:modified_time" content="2021-07-11T16:29:49.578Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="虚拟化">
+<meta property="article:tag" content="容器">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/11/docker%E7%AC%94%E8%AE%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>docker笔记 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">67</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">146</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/docker%E7%AC%94%E8%AE%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          docker笔记
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-11 23:33:02" itemprop="dateCreated datePublished" datetime="2021-07-11T23:33:02+08:00">2021-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-12 00:29:49" itemprop="dateModified" datetime="2021-07-12T00:29:49+08:00">2021-07-12</time>
+              </span>
+
+          
+            <span id="/2021/07/11/docker%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="docker笔记" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/11/docker%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/docker%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">docker的三个最基本的概念是镜像(Image)，容器(Container)和仓库(Repository)。本文简单介绍有关他们的基础操作。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>docker的三个最基本的概念是镜像(Image)，容器(Container)和仓库(Repository)。本文<br>简单介绍有关他们的基础操作。</p>
+<ol>
+<li>Image</li>
+</ol>
+<hr>
+<p>Image可以看成是一个配置过的发行版(e.g. 带apach配置的ubuntu发行版)。我们可以自己<br>生成一个镜像，或者是直接下载已有的镜像使用。比如下载最新的ubuntu docker iamge:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">wangzhou@EstBuildSvr1:~$ docker pull ubuntu</span><br><span class="line">Using default tag: latest</span><br><span class="line">latest: Pulling from library/ubuntu</span><br><span class="line">8aec416115fd: Pull complete </span><br><span class="line">695f074e24e3: Pull complete </span><br><span class="line">946d6c48c2a7: Pull complete </span><br><span class="line">bc7277e579f0: Pull complete </span><br><span class="line">2508cbcde94b: Pull complete </span><br><span class="line">Digest: sha256:71cd81252a3563a03ad8daee81047b62ab5d892ebbfbf71cf53415f29c130950</span><br><span class="line">Status: Downloaded newer image for ubuntu:latest</span><br></pre></td></tr></table></figure>
+<p>注意上面下载的Image和ubuntu官方发行版还是有一定的不同的, 希望一直用docker image<br>的同学要对这个问题有准备。</p>
+<p>查看系统中已有的docker image可以使用docker images, 比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">wangzhou@EstBuildSvr1:~$ docker images</span><br><span class="line">REPOSITORY              TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">ubuntu                  latest              f49eec89601e        3 weeks ago         129.5 MB</span><br><span class="line">ubuntu                  14.04.1             4bf30b29cec4        4 weeks ago         284.6 MB</span><br><span class="line">ubuntu                  14.04               3f755ca42730        8 weeks ago         188 MB</span><br><span class="line">compile/ubuntu/server   14.04               09637d6f7c6f        3 months ago        540.2 MB</span><br><span class="line">&lt;none&gt;                  &lt;none&gt;              bd3d4369aebc        5 months ago        126.6 MB</span><br><span class="line">build/ubuntu/server     14.04               ab01bc6b6a57        7 months ago        1.663 GB</span><br></pre></td></tr></table></figure>
+
+<ol start="2">
+<li>container</li>
+</ol>
+<hr>
+<p>假设我们现在已经有了ubuntu的image，可以运行以下的命令在容器中运行这个镜像。</p>
+<p>sudo docker run -t -i ubuntu:latest /bin/bash</p>
+<p>在容器中:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">root@518aa47b44c4:~#   /* here 518aa47b44c4 is the ID of this container */</span><br></pre></td></tr></table></figure>
+<p>ubuntu的环境下可以用apt-get安装相应的软件：<br>apt-get update<br>then install basic programs: ping, vim, mutt, fetchmail, msmtp, procmail</p>
+<p>但是，上面的改动只是在容器中的，容器退出我们的改动就不存在了，所以，容器退出后<br>要把相关的改动提交，从而形成一个新的docker image, 下次我们在容器里运行这个image,<br>就包含了这次提交的信息。具体如下节。</p>
+<ol start="3">
+<li>build a docker image</li>
+</ol>
+<hr>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">wangzhou@EstBuildSvr1:~$ docker commit -m &quot;Add: basic tools: vim, mutt, fetchmail, procmail, msmtp&quot; -a &quot;Docker basic&quot; 518aa47b44c4 ubuntu/latest</span><br><span class="line">sha256:c8ea18e453cf756dcbb5acaa21a96e78baf18f7b7fbdd5cf8b44edd606702bf0</span><br><span class="line">wangzhou@EstBuildSvr1:~$ docker images</span><br><span class="line">REPOSITORY              TAG                 IMAGE ID            CREATED             SIZE</span><br><span class="line">ubuntu/latest           latest              c8ea18e453cf        14 seconds ago      301.3 MB</span><br><span class="line">ubuntu                  latest              f49eec89601e        3 weeks ago         129.5 MB</span><br><span class="line">ubuntu                  14.04.1             4bf30b29cec4        4 weeks ago         284.6 MB</span><br><span class="line">ubuntu                  14.04               3f755ca42730        8 weeks ago         188 MB</span><br><span class="line">compile/ubuntu/server   14.04               09637d6f7c6f        3 months ago        540.2 MB</span><br><span class="line">&lt;none&gt;                  &lt;none&gt;              bd3d4369aebc        5 months ago        126.6 MB</span><br><span class="line">build/ubuntu/server     14.04               ab01bc6b6a57        7 months ago        1.663 GB</span><br></pre></td></tr></table></figure>
+<p>下次再运行image的时候，可以指定image的ID运行，可以用repo:tag的方式运行, 比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">sudo docker run -t -i c8ea18e453cf7</span><br><span class="line">sudo docker run -t -i ubuntu/latest</span><br><span class="line">sudo docker run -t -i ubuntu/latest:latest</span><br></pre></td></tr></table></figure>
+<p>更改docker image的tag:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">sudo docker tag 6b46dcca842d docker_test/with_net_tools:add_ping_change_tag</span><br><span class="line">sherlock@T440:~/notes$ sudo docker images</span><br><span class="line">REPOSITORY                   TAG                   IMAGE ID            CREATED             SIZE</span><br><span class="line">docker_test/with_net_tools   add_ping              6b46dcca842d        4 hours ago         170.9 MB</span><br><span class="line">docker_test/with_net_tools   add_ping_change_tag   6b46dcca842d        4 hours ago         170.9 MB</span><br><span class="line">docker_test/with_net_tools   latest                4b48ccb6135c        4 hours ago         167.2 MB</span><br><span class="line">ubuntu                       latest                f753707788c5        2 weeks ago         127.2 MB</span><br><span class="line">ubuntu                       12.04                 6e0ef8cc1b8a        12 months ago       136 MB</span><br></pre></td></tr></table></figure>
+
+<p>从一个容器退出后，容器还没有彻底消亡。用sudo docker ps -a 可以查看现在系统里的容器,<br>STATUS一栏显示容器的状态，’Up XXX days’表示这个容器已经运行XXX天了，现在还在运行，<br>Exited (0) XXX days ago表示这个容器现在是退出状态。对于退出状态的容器，可以<br>docker start -i 容器id重新启动这个容器。对于运行状态的容器，可以docker attach 容器id<br>继续接入这个容器, 这时接入这个容器的所有终端将同步显示容器中运行的程序。</p>
+<p>/* remove a contrainor <em>/<br>sudo docker rm<br>/</em></p>
+<ul>
+<li>remove a image, if a image was used by a stopped container, should firstly</li>
+<li>remove related stopped container</li>
+<li>/<br>sudo docker rmi</li>
+</ul>
+<ol start="4">
+<li>upload a docker image</li>
+</ol>
+<hr>
+<p>为了保存，传播image，我们可以把一个docker image上传到DockerHub的仓库。当然首先<br>要在DockerHub上注册有账户。在上传之前，先在本机上用docker login登录下DockerHub<br>账户, 用户名、密码用对答的方式输入。然后就是运行：docker push repo_name[:tag]<br>的方式上传了。值得注意的是，repo_name要用DockerHub_account/XXX的形式, 不然可能<br>无法上传。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"># 虚拟化</a>
+              <a href="/tags/%E5%AE%B9%E5%99%A8/" rel="tag"># 容器</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/11/wireshark-and-tcpdump/" rel="prev" title="wireshark and tcpdump">
+      <i class="fa fa-chevron-left"></i> wireshark and tcpdump
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/11/sed%E7%AC%94%E8%AE%B0/" rel="next" title="sed笔记">
+      sed笔记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">146</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">67</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

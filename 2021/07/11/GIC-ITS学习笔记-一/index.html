@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="N年前分析ARM GIC代码的一个笔记">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GIC ITS学习笔记(一)">
+<meta property="og:url" content="http://example.com/2021/07/11/GIC-ITS%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E4%B8%80/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="N年前分析ARM GIC代码的一个笔记">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-11T15:43:41.000Z">
+<meta property="article:modified_time" content="2021-07-16T16:06:03.997Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="GIC">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/11/GIC-ITS%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E4%B8%80/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>GIC ITS学习笔记(一) | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">67</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">146</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/11/GIC-ITS%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E4%B8%80/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          GIC ITS学习笔记(一)
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-11 23:43:41" itemprop="dateCreated datePublished" datetime="2021-07-11T23:43:41+08:00">2021-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-07-17 00:06:03" itemprop="dateModified" datetime="2021-07-17T00:06:03+08:00">2021-07-17</time>
+              </span>
+
+          
+            <span id="/2021/07/11/GIC-ITS%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E4%B8%80/" class="post-meta-item leancloud_visitors" data-flag-title="GIC ITS学习笔记(一)" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/11/GIC-ITS%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E4%B8%80/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/11/GIC-ITS%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E4%B8%80/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">N年前分析ARM GIC代码的一个笔记</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="current-GIC-ITS-code-in-v4-2-v4-3"><a href="#current-GIC-ITS-code-in-v4-2-v4-3" class="headerlink" title="current GIC ITS code in v4.2/v4.3"></a>current GIC ITS code in v4.2/v4.3</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">/* this is the arch of interrupt sub-system */</span><br><span class="line">struct irq_desc</span><br><span class="line">    --&gt; struct irq_data</span><br><span class="line">        --&gt; struct irq_chip</span><br><span class="line">        --&gt; struct irq_domain</span><br><span class="line">            --&gt; struct irq_domain_ops</span><br><span class="line"></span><br><span class="line">/* this is the arch of ITS sub-system, for v4.1, for v4.2, kernel changed a lot */</span><br><span class="line">struct its_node</span><br><span class="line">    --&gt; struct irq_domain</span><br><span class="line">        --&gt; struct irq_domain_ops (its_domain_ops)</span><br><span class="line">	        /* alloc put struct irq_chip (its_irq_chip) to related</span><br><span class="line">		 * struct irq_data</span><br><span class="line">		 *</span><br><span class="line">		 * Fix me for other work alloc does</span><br><span class="line">		 */</span><br><span class="line">	    --&gt; .alloc (its_irq_domain_alloc)</span><br><span class="line">	    --&gt; .activate (its_irq_domain_activate)</span><br><span class="line">	    --&gt; ...</span><br><span class="line">    --&gt; struct msi_controller</span><br><span class="line">            /* father irq_domain is irq_domain above */</span><br><span class="line">        --&gt; struct irq_domain</span><br><span class="line">	        /* msi_domain_ops defined in kernel/irq/msi.c */</span><br><span class="line">	    --&gt; struct irq_domain_ops (struct irq_domain_ops msi_domain_ops)</span><br><span class="line">	    --&gt; void *host_data (struct msi_domain_info its_pci_msi_domain_info)</span><br><span class="line">                --&gt; struct msi_domain_ops (its_pci_msi_ops)</span><br><span class="line">                    --&gt; .msi_prepare (its_msi_prepare)</span><br><span class="line">                    --&gt; ...</span><br><span class="line">                --&gt; struct irq_chip (its_msi_irq_chip)</span><br></pre></td></tr></table></figure>
+<p>/* this is the arch of ITS sub-system for v4.2, ITS driver changed a lot in v4.2 */<br>there is no irq_domain in struct its_node. In drivers/irqchip/irq-gic-v3-its.c,<br>just build up below irq_domain.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">gic irq_domain --&gt; irq_domain_ops(gic_irq_domain_ops)</span><br><span class="line">      ^                --&gt; .alloc(gic_irq_domain_alloc)</span><br><span class="line">      |</span><br><span class="line">its irq_domain --&gt; irq_domain_ops(its_domain_ops)</span><br><span class="line">      ^                --&gt; .alloc(its_irq_domain_alloc)</span><br><span class="line">      |                --&gt; ...</span><br><span class="line">      |        --&gt; host_data(struct msi_domain_info)</span><br><span class="line">      |            --&gt; msi_domain_ops(its_msi_domain_ops)</span><br><span class="line">      |                --&gt; .msi_prepare(its_msi_prepare)</span><br><span class="line">      |            --&gt; irq_chip, chip_data, handler...</span><br><span class="line">      |            --&gt; void *data(struct its_node)</span><br></pre></td></tr></table></figure>
+<p>In drvers/irqchip/irq-gic-v3-its-pci-msi.c,<br>   drvers/irqchip/irq-gic-v3-its-platform-msi.c, it seems that we create two<br>other irq_domain:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">pci_its irq_domain                      platform_its irq_domain</span><br><span class="line">        /* kernel/irq/msi.c */                  /* kernel/irq/msi.c */</span><br><span class="line">    --&gt; irq_domain_ops(msi_domain_ops)      --&gt; irq_domain_ops(msi_domain_op)</span><br><span class="line">        /* irq-gic-v3-its-pci-msi.c             /* irq-gic-v3-its-platform-msi.c</span><br><span class="line">	 * (its_pci_msi_domain_info)             * (its_pmsi_domain_info)</span><br><span class="line">	 */                                      */</span><br><span class="line">    --&gt; void *host_data                     --&gt; void *host_data</span><br><span class="line">        --&gt; .ops(its_pci_msi_ops)               --&gt; .ops(its_pmsi_ops)</span><br><span class="line">	        /* its_pci_msi_prepare */   	    /* its_pmsi_prepare */</span><br><span class="line">	    --&gt; .msi_prepare                    --&gt; .msi_prepare</span><br><span class="line">	--&gt; .chip(its_msi_irq_chip)             --&gt; .chip(its_pmsi_irq_chip)</span><br></pre></td></tr></table></figure>
+<h2 id="msi-domain-struct"><a href="#msi-domain-struct" class="headerlink" title="msi domain struct"></a>msi domain struct</h2><p>basic struct:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">struct msi_domain_info</span><br><span class="line">    --&gt; struct msi_domain_ops</span><br><span class="line">        --&gt; .msi_prepare</span><br><span class="line">    --&gt; struct irq_chip</span><br><span class="line">        --&gt; .irq_write_msi_msg</span><br></pre></td></tr></table></figure>
+<p>msi related struct should be part of interrupt sub-system as showed in part 1.<br>struct msi_domain_info will be stored in void *host_data of a irq_domain.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">/* will find below funtion in drvers/irqchip/irq-gic-v3-its-pci-msi.c */</span><br><span class="line">pci_msi_create_irq_domain(device_node, msi_domain_info, parent)</span><br><span class="line">        /* core function */</span><br><span class="line">    --&gt; msi_create_irq_domain(node, info, parent);</span><br><span class="line">            /* msi_domain_ops is irq_domain_ops in kernel/irq/msi.c</span><br><span class="line">             * info below will be stored in host_data of irq_domain</span><br><span class="line">             *</span><br><span class="line">             * both pci_its irq_domain and platform_its irq_domain use</span><br><span class="line">             * same msi_domain_ops, but different msi_domain_info.</span><br><span class="line">             * above msi_domain_ops is a struct irq_domain_ops.</span><br><span class="line">             */</span><br><span class="line">        --&gt; irq_domain_add_hierarchy(parent, 0, 0, node, &amp;msi_domain_ops, info)</span><br></pre></td></tr></table></figure>
+<h2 id="pci-msi-struct"><a href="#pci-msi-struct" class="headerlink" title="pci msi struct "></a>pci msi struct </h2><p>in part 2, it creats related domain, then we will see how to use callbacks<br>in above domain. This part shows how to allocate irqs in a msi domain.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">/* this is the work flow of PCI MSI */</span><br><span class="line">/* kernel/drivers/pci/msi.c */</span><br><span class="line">pci_msi_setup_msi_irqs(struct pci_dev *dev, int nvec, int type)</span><br><span class="line">        /* so this irq_domain is pci_its irq_domain ? */</span><br><span class="line">    --&gt; pci_msi_domain_alloc_irqs(domain, dev, nvec, type);</span><br><span class="line">        --&gt; msi_domain_alloc_irqs(domain, &amp;dev-&gt;dev, nvec);</span><br><span class="line">	        /* should be its_pci_msi_prepare ?</span><br><span class="line">                 * if below function, first get dev_id, then call parent domain</span><br><span class="line">                 * msi_prepare which is its domain msi_prepare and will build</span><br><span class="line">                 * up device table of ITS.</span><br><span class="line">                 */</span><br><span class="line">	    --&gt; ps-&gt;msi_prepare(domain, dev, nvec, &amp;arg);</span><br><span class="line">	       /* domain, virq, desc-&gt;nvec_used, dev_to_node(dev), &amp;arg, false */</span><br><span class="line">	    --&gt; __irq_domain_alloc_irqs()</span><br><span class="line"></span><br><span class="line">/* details of how ITS work, this prepare function just allocat device table and</span><br><span class="line"> * related structure in ITS</span><br><span class="line"> */</span><br><span class="line">/* in pci_msi irq_domain */</span><br><span class="line">its_pci_msi_prepare</span><br><span class="line">    --&gt; ... (get dev_ip)</span><br><span class="line">        /* in its irq_domain */</span><br><span class="line">    --&gt; its_msi_prepare</span><br><span class="line">        --&gt; its_create_device(its, dev_id, nvec);</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">/* there is an important point: how to configure MSI capability registers of one</span><br><span class="line"> * PCI device, this action takes place in irq_write_msi_msg mentioned in part 2&#x27;s</span><br><span class="line"> * &quot;basic struct&quot;. how to call this function ? obviouly, this function is stored</span><br><span class="line"> * in msi_domain_info, so we must use some msi layer function to access this</span><br><span class="line"> * function to interrup sub-system, in fact, it uses msi_domain_ops to do this.</span><br><span class="line"> */</span><br><span class="line">/* it stored irq_chip in msi_domain_info to interrupt sub-system in </span><br><span class="line"> * pci_msi_create_irq_domain, details as below:</span><br><span class="line"> */</span><br><span class="line">pci_msi_create_irq_domain</span><br><span class="line">    --&gt; msi_create_irq_domain</span><br><span class="line">        --&gt;  msi_domain_update_dom_ops</span><br><span class="line">                 /* (struct msi_domain_ops msi_domain_ops_default --&gt;</span><br><span class="line">                  * msi_domain_ops_init</span><br><span class="line">                  */</span><br><span class="line">             --&gt; ops-&gt;msi_init = msi_domain_ops_default.msi_init;</span><br><span class="line">                     /* para: domain, virq, hwirq, info-&gt;chip, info-&gt;chip_data */</span><br><span class="line">                 --&gt; irq_domain_set_hwirq_and_chip</span><br></pre></td></tr></table></figure>
+<p>in function request_irq, it will call .active in irq_domain struct, here is will<br>call function msi_domain_activate in struct irq_domain_ops msi_domain_ops.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">request_irq</span><br><span class="line">    ...</span><br><span class="line">    --&gt; msi_domain_activate</span><br><span class="line">        --&gt; irq_chip_write_msi_msg</span><br><span class="line">                /* here is irq_write_msi_msg in struct msi_domain_info */</span><br><span class="line">            --&gt; data-&gt;chip-&gt;irq_write_msi_msg(data, msg);</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/GIC/" rel="tag"># GIC</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/11/APUE%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%AC%AC%E4%B9%9D%E7%AB%A0/" rel="prev" title="APUE学习笔记(第九章)">
+      <i class="fa fa-chevron-left"></i> APUE学习笔记(第九章)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/07/11/%E6%90%AD%E5%BB%BA%E9%82%AE%E4%BB%B6%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BF%9B%E8%A1%8CLinux-kernel%E5%BC%80%E5%8F%91/" rel="next" title="搭建邮件客户端进行Linux kernel开发">
+      搭建邮件客户端进行Linux kernel开发 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#current-GIC-ITS-code-in-v4-2-v4-3"><span class="nav-number">1.</span> <span class="nav-text">current GIC ITS code in v4.2&#x2F;v4.3</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#msi-domain-struct"><span class="nav-number">2.</span> <span class="nav-text">msi domain struct</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pci-msi-struct"><span class="nav-number">3.</span> <span class="nav-text">pci msi struct </span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">146</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">67</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
