@@ -130,12 +130,12 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">67</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">69</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">146</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">150</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -247,7 +247,7 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">struct test_dev &#123;</span><br><span class="line">	int state;</span><br><span class="line">	int a;</span><br><span class="line">	int b;</span><br><span class="line">	int c;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
 <p>这个设备需要初始化，然后配置下才能正常工作，这个设备出错的情况下需要复位这个设备。<br>所以我们给出的test_dev这个设备的状态有：初始化状态，正常工作状态，复位状态。在<br>判断可能的状态的时候，如果没有必要就不要新增加状态进来，一个状态机里每新增加一个<br>状态以后都会成为负担。</p>
 <p>有了第一个状态，就可以找可以进入这个状态的激励(event), 比如，这里可能是:设备初始化。<br>基于第一个状态，分析在这个状态可能接收到的所有激励, 看看在这个状态的test_dev接收<br>到某个激励后对test_dev采取的动作(action)应该是怎么样的。比如这里对于初始化状态，<br>可能接收到的event可能有，1. 对test_dev配置，这个动作会使其进入正常工作状态；2.<br>用户还可以做初始化的逆操作，把这个设备释放掉。</p>
-<p>重复对每一个状态做上面的分析。我们可以大概得到一个这样的状态机:<br><img src="/2021/06/28/%E8%BD%AF%E4%BB%B6%E5%AE%9E%E7%8E%B0%E7%8A%B6%E6%80%81%E6%9C%BA%E8%A6%81%E7%82%B9/test_dev_state.svg" alt="一个状态机示例"></p>
+<p>重复对每一个状态做上面的分析。我们可以大概得到一个这样的状态机:<br><img src="test_dev_state.svg" alt="一个状态机示例"></p>
 <p>接下来我们要针对每一个状态分析是否还有其他的event会发生，比如，我们有可能发现<br>这个设备驱动对应的fd文件上有ioctl，那就需要分析在每一种状态上，这个ioctl进来的<br>时候，test_dev是怎么变化的。当然，在某种状态的时候，我们是可以拒绝执行某种event<br>的。注意这里分析的中心还是test_dev的变化，因为我们这里要建立的是test_dev的状态机，<br>我们不能脱离test_dev而去分析比如fd的变化。再比如，我们这个设备驱动还mmap了一段<br>mmio空间到用户态去，用户态程序可以直接读写硬件寄存器，在test_dev的状态机中也不应<br>该去考虑用户态程序读写硬件寄存器这样的event，因为test_dev的状态机根本处理不了<br>这样的情况。针对用户态程序读写硬件寄存器这样的event，我们要单独分析。test_dev<br>状态机需要考虑的是test_dev结构里各个成员的变化。</p>
 <p>完成对所有状态在全部event下的分析，我们的状态机就基本上建完了。剩下就是具体实现<br>的问题。实现中，要求所有对test_dev的action是原子的，也就是说状态变迁的过程是不能<br>被打断的，不然，可以看到我们会陷入各种各样同步带来的问题中。</p>
 <p>还是看上面的图，从初始状态到正常工作状态的切换如果不是原子的，那么在这个过程中，<br>如果reset event来了，整个系统的状态将如何切换？如果，configure action里包括很多<br>步骤，而reset event可以在任何步骤到来，那么这个切换的分析工作将变得非常复杂。<br>状态切换变成原子操作将避免这样的情况发生，使得整个系统的状态变得可控。状态切换<br>是原子行为时，如果test_dev正从初始状态切换到工作状态，那么中间到来的reset event<br>将不得不排队，之后再在一个明确的状态响应reset event。</p>
@@ -364,7 +364,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">146</span>
+          <span class="site-state-item-count">150</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -375,7 +375,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">67</span>
+        <span class="site-state-item-count">69</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

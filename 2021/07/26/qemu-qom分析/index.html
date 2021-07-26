@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="qemu里使用面向对象的模型来模拟相关的元素，可以想象这样的模拟是很合理的，比如， 用device描述一个设备的基类，pci_device可以继承device，然后vfio的pci设备又可以 继承pci_device，同时一个用纯用软件模拟的pci网络设备也可以继承pci_device。 本文描述这个基于面向对象的思路构建起来的qemux模型。分析基于qemu 5.2.92版本。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="qemu qom分析">
+<meta property="og:url" content="http://example.com/2021/07/26/qemu-qom%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="qemu里使用面向对象的模型来模拟相关的元素，可以想象这样的模拟是很合理的，比如， 用device描述一个设备的基类，pci_device可以继承device，然后vfio的pci设备又可以 继承pci_device，同时一个用纯用软件模拟的pci网络设备也可以继承pci_device。 本文描述这个基于面向对象的思路构建起来的qemux模型。分析基于qemu 5.2.92版本。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-26T06:12:03.000Z">
+<meta property="article:modified_time" content="2021-07-26T06:30:32.336Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="QEMU">
+<meta property="article:tag" content="面向对象">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/2021/07/26/qemu-qom%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>qemu qom分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">69</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">150</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/26/qemu-qom%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          qemu qom分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2021-07-26 14:12:03 / 修改时间：14:30:32" itemprop="dateCreated datePublished" datetime="2021-07-26T14:12:03+08:00">2021-07-26</time>
+            </span>
+
+          
+            <span id="/2021/07/26/qemu-qom%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="qemu qom分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/2021/07/26/qemu-qom%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/26/qemu-qom%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">qemu里使用面向对象的模型来模拟相关的元素，可以想象这样的模拟是很合理的，比如， 用device描述一个设备的基类，pci_device可以继承device，然后vfio的pci设备又可以 继承pci_device，同时一个用纯用软件模拟的pci网络设备也可以继承pci_device。 本文描述这个基于面向对象的思路构建起来的qemux模型。分析基于qemu 5.2.92版本。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="用c语言实现面向对象的模型"><a href="#用c语言实现面向对象的模型" class="headerlink" title="用c语言实现面向对象的模型"></a>用c语言实现面向对象的模型</h2><p> qemu里用c语言实现了面向对象的模型。我们先梳理用c实现面向对应的基本逻辑。面向对象<br> 的三个特征是：封装、继承和多态。</p>
+<p> 封装可以用struct实现。</p>
+<p> 继承可以用struct包含的方式实现，把父类的struct放到子类struct的最开始的位置，这样<br> 子类的指针可以直接强制转换成父类的指针，在子类的函数，比如子类的初始化函数里可以<br> 直接得到父类的指针，然后调用父类的初始化函数。但是继承层级大于两级的时候似乎是有<br> 问题的(fixme)</p>
+<p> 多态可以用函数指针的方式实现。</p>
+<p> qemu里的实现，多了TypeInfo这个概念，它是class的描述。</p>
+<h2 id="类的定义"><a href="#类的定义" class="headerlink" title="类的定义"></a>类的定义</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">type_init(fn)</span><br><span class="line">      /* 用宏定义了一个动态库的初始化函数, qemu编译出的库有？*/</span><br><span class="line">  +-&gt; module_init</span><br><span class="line">   +-&gt; register_module_init</span><br><span class="line">         /* 如下都用edu设备举例(hw/misc/edu.c)，这里的fn就是pci_edu_register_types */</span><br><span class="line">     +-&gt; e-&gt;init = fn</span><br></pre></td></tr></table></figure>
+<p> fn这个函数一般是TypeInfo的注册函数, 把TypeInfo挂到系统的链表里。class是随后解析<br> Typeinfo的内容动态生成的。</p>
+<h2 id="对象的生成"><a href="#对象的生成" class="headerlink" title="对象的生成"></a>对象的生成</h2><p> 顺着qemu的main函数，看看class和对象是怎么生成的：qemu/softmmu/main.c</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">main</span><br><span class="line">  +-&gt; qemu_init</span><br><span class="line">    +-&gt; qemu_init_subsystems</span><br><span class="line">          /* 根据TypeInfo创建class */</span><br><span class="line">      +-&gt; module_call_init(MODULE_INIT_QOM)</span><br><span class="line">            /*</span><br><span class="line">             * init即为如上的fn, 这里的init只是把TypeInfo向qemu注册，类的</span><br><span class="line">             * 初始化还在后面。具体拿edu里的pci_edu_register_types函数看下。</span><br><span class="line">             */     </span><br><span class="line">        +-&gt; ModuleEntry-&gt;init</span><br></pre></td></tr></table></figure>
+<p>  可以看见这个函数拿自己的初始化函数定义了TypeInfo数据结构，然后把他注册到系统<br>  TypeInfo的链表。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">static void pci_edu_register_types(void)</span><br><span class="line">&#123;</span><br><span class="line">    static InterfaceInfo interfaces[] = &#123;</span><br><span class="line">        &#123; INTERFACE_CONVENTIONAL_PCI_DEVICE &#125;,</span><br><span class="line">        &#123; &#125;,</span><br><span class="line">    &#125;;</span><br><span class="line">    static const TypeInfo edu_info = &#123;</span><br><span class="line">        .name          = TYPE_PCI_EDU_DEVICE,</span><br><span class="line">        .parent        = TYPE_PCI_DEVICE,</span><br><span class="line">        .instance_size = sizeof(EduState),</span><br><span class="line">        .instance_init = edu_instance_init,</span><br><span class="line">        .class_init    = edu_class_init,</span><br><span class="line">        .interfaces = interfaces,</span><br><span class="line">    &#125;;</span><br><span class="line"></span><br><span class="line">    type_register_static(&amp;edu_info);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>  顺着qemu_init函数继续往下看，找下class以及具体的设备是在哪里创建的。还是以edu<br>  这个设备为例。这个设备使用-device edu的qemu命令行参数启动，所有它创建的位置应该<br>  在：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">qemu_opts_foreach(qemu_find_opts(&quot;device&quot;),</span><br><span class="line">                  device_init_func, NULL, &amp;error_fatal);</span><br></pre></td></tr></table></figure>
+<p>   下面具体分析其中的qdev_device_add:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">qdev_device_add</span><br><span class="line">      /* driver就是模块里的device name, edu的driver就是edu */</span><br><span class="line">  +-&gt; driver = qemu_opt_get(opts, &quot;driver&quot;)</span><br><span class="line">    +-&gt; module_object_class_by_name(*driver)</span><br><span class="line">      +-&gt; oc = object_class_by_name(typename)</span><br><span class="line">            /*</span><br><span class="line">             * type_initialize是根据注册的Type创建class的函数。创建class的具体</span><br><span class="line">             * 实例的时候，如果class没有创建，就会创建class，被创建的class的指针</span><br><span class="line">             * 会放到注册Type的class域段。</span><br><span class="line">             *</span><br><span class="line">             * 可以看到这个函数为class分配了空间，递归初始化了父类，把父类空间</span><br><span class="line">             * 中的内容copy到了当前类最开始的空间。初始化class的interface和</span><br><span class="line">             * property，并在最后调用了class的init函数，把class的数据和操作函数</span><br><span class="line">             * 都添加上。</span><br><span class="line">             *</span><br><span class="line">             * 创建的interface class会挂到对应device class的链表上。</span><br><span class="line">             */</span><br><span class="line">        +-&gt; type_initialize(type)</span><br><span class="line">      /* 注意，这里返回的是DeviceClass */</span><br><span class="line">  +-&gt; dc = qdev_get_device_class(&amp;driver, errp)</span><br><span class="line">      /* 找见设备对应的bus */</span><br><span class="line">  +-&gt; bus = qbus_find(path, errp)</span><br><span class="line">      /* 创建设备, 可以看到如果没有class的话，在如下函数里会先创建class */</span><br><span class="line">  +-&gt; dev = qdev_new(driver)</span><br><span class="line">    +-&gt; object_new(typename)</span><br><span class="line">          /*</span><br><span class="line">           * 为设备对象分配了内存空间, 把设备里的class指针指向class，为设备</span><br><span class="line">           * 初始化class里定义的各个property。调用instance_init初始化设备。</span><br><span class="line">           * 注意这个时候设备还不是在可用的状态。</span><br><span class="line">           */</span><br><span class="line">      +-&gt; object_new_with_type(ti)</span><br><span class="line">  +-&gt; qdev_realize(DEVICE(dev))</span><br><span class="line">        /* 调用到class里的realize函数激活设备, 具体的分析在下面一节 */</span><br><span class="line">    +-&gt; object_property_set_bool(OBJECT(dev), &quot;realized&quot;, true, errp)</span><br></pre></td></tr></table></figure>
+
+<h2 id="properties是什么"><a href="#properties是什么" class="headerlink" title="properties是什么"></a>properties是什么</h2><p> 所谓属性，就是在一个对象里定义的一些功能，这些功能有名字，有对应的执行函数，还有<br> 添加和删除函数。当添加一个属性的时候，就是把这个属性已经对应的执行函数保存到对象<br> 专门用来存各种属性的一个hash table。当执行属性的操作时，就是执行对应属性附带的<br> 执行函数。</p>
+<p> 我们还是拿edu这个设备为例。edu在实例初始化的时候挂给PCIDeviceClass的realize一个<br> 回调函数pci_edu_realize，这个函数就是PCI设备里realize属性的执行函数。我们需要明确<br> 这个realize属性在哪里添加和在哪里调用。</p>
+<p> device class的初始化函数里增加了realized属性：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">/* hw/core/qdev.c */</span><br><span class="line">device_class_init</span><br><span class="line">     /*</span><br><span class="line">      * 把realized属性加到ObjectClass里。device_set_realized里会调用DeviceClass里的</span><br><span class="line">      * realize回调函数。DeviceClass里的realize回调在pci_device_class_init里挂成</span><br><span class="line">      * pci_qdev_realize。pci_qdev_realize调用PCIDeviceClass里的realize函数，这个</span><br><span class="line">      * 函数又是由具体设备的class init函数添加，比如edu的edu_class_init。</span><br><span class="line">      */</span><br><span class="line">  -&gt; object_class_property_add_bool(ObjectClass, &quot;realized&quot;, device_get_realized, device_set_realized)</span><br></pre></td></tr></table></figure>
+
+<p> 在如上的qdev_device_add里，在创建了设备的实例后，后调用qdev_realize把设备realize，<br> 这个函数会从Device这一层，层层的调用realize函数:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">/* hw/core/qdev.c */</span><br><span class="line">qdev_realize</span><br><span class="line">  -&gt; object_property_set_bool(OBJECT(dev), &quot;realized&quot;, true, errp)</span><br><span class="line">    [...]</span><br><span class="line">    -&gt; object_property_set</span><br><span class="line">         /* 可以看到realized相关的add和find都是发生在Object、ObjectClass这个层次 */</span><br><span class="line">      -&gt; ObjectProperty *prop = object_property_find(obj, name, errp)</span><br><span class="line">           /* 先用obj找到ObjectClass，再在ObjectClass找property */</span><br><span class="line">        -&gt; object_class_property_find(klass, name, NULL)</span><br><span class="line">           /* 在Object里找property */</span><br><span class="line">        -&gt; g_hash_table_lookup(obj-&gt;properties, name)</span><br><span class="line"></span><br><span class="line">      -&gt; prop-&gt;set(obj, v, name, prop-&gt;opaque, &amp;err)</span><br></pre></td></tr></table></figure>
+<p> 如上，分析qemu的qom重点关注如下的文件: hw/misc/edu.c, hw/pci/pci.c, hw/core/qdev.c,<br> qom/object.c。各个层级的Type定义分别对应的文件里(这里用pci设备为例)</p>
+<p> link属性</p>
+<p> child属性</p>
+<h2 id="interface"><a href="#interface" class="headerlink" title="interface"></a>interface</h2><p> 目前只看了PCI/PCIe设备里使用了interface这个东西，PCIe设备用INTERFACE_PCIE_DEVICE<br> PCI设备用INTERFACE_CONVENTIONAL_PCI_DEVICE。pci设备的realize函数里根据interface<br> 的情况决定是否要使能PCI_CAP_EXPRESS，这个只在PCIe的时候使能。</p>
+<p> 注意，PCI设备只有0x0~0xff的配置空间。</p>
+<h2 id="一个例子"><a href="#一个例子" class="headerlink" title="一个例子"></a>一个例子</h2><p> 这里写一个dma engine的qemu设备。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
+              <a href="/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1/" rel="tag"># 面向对象</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/07/26/qemu-PCIe%E8%AE%BE%E5%A4%87%E5%A2%9E%E5%8A%A0pasid-capability/" rel="prev" title="qemu PCIe设备增加pasid capability">
+      <i class="fa fa-chevron-left"></i> qemu PCIe设备增加pasid capability
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%94%A8c%E8%AF%AD%E8%A8%80%E5%AE%9E%E7%8E%B0%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1%E7%9A%84%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.</span> <span class="nav-text">用c语言实现面向对象的模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%B1%BB%E7%9A%84%E5%AE%9A%E4%B9%89"><span class="nav-number">2.</span> <span class="nav-text">类的定义</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%B9%E8%B1%A1%E7%9A%84%E7%94%9F%E6%88%90"><span class="nav-number">3.</span> <span class="nav-text">对象的生成</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#properties%E6%98%AF%E4%BB%80%E4%B9%88"><span class="nav-number">4.</span> <span class="nav-text">properties是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#interface"><span class="nav-number">5.</span> <span class="nav-text">interface</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E4%B8%AA%E4%BE%8B%E5%AD%90"><span class="nav-number">6.</span> <span class="nav-text">一个例子</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">150</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">69</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
