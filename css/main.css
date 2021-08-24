@@ -1165,7 +1165,7 @@ pre .javascript .function {
 }
 .links-of-author a::before,
 .links-of-author span.exturl::before {
-  background: #94ffe8;
+  background: #fffff9;
   border-radius: 50%;
   content: ' ';
   display: inline-block;
@@ -2643,24 +2643,4 @@ ul.breadcrumb li + li:last-child {
   .pagination {
     margin: 8px 0 0;
   }
-}
-body {
-  background: url("/images/xiaozhen.jpeg");
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  background-size: cover;
-  color: var(--text-color);
-  font-family: 'Lato', "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 1em;
-  line-height: 2;
-}
-.header-inner {
-  opacity: 0.85;
-}
-.sidebar {
-  opacity: 0.85;
-}
-.content {
-  padding-top: 15px;
-  opacity: 0.9;
 }
