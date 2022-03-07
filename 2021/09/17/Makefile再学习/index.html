@@ -129,7 +129,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">76</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">75</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
@@ -285,7 +285,7 @@
 <h2 id="流程控制"><a href="#流程控制" class="headerlink" title="流程控制"></a>流程控制</h2><p> makefile可以把另一个makefile include进来。比如下面pciutils makefile中的<br> -include lib/config.mk</p>
 <p> make可以进入另外的目录执行。比如pciutils makefile中的$(MAKE) -C lib all<br> 这个会进入lib目录，运行lib里的Makefile，进入退出lib目录的时候会有log提示。</p>
 <p> make中有分支语句。一般是，判断变量的值，然后根据判断结果决定是否执行命令，或者<br> 有相关的依赖条件。</p>
-<p> make中有支持循环的函数。其语法是：$(foreach <var>,<list>,<text>)，其中list是变量<br> list，text是执行的表达式，var是每次取出的变量。比如：</p>
+<p> make中有支持循环的函数。其语法是：$(foreach <var>,<list>,<text>)，其中list是变量<br> list，text是执行的表达式，var是每次取出的变量。比如：</text></list></var></p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">names := a b c d</span><br><span class="line">files := $(foreach n,$(names),$(n).o)</span><br></pre></td></tr></table></figure>
 <p> $(files)的值是 a.o b.o c.o d.o</p>
 <h2 id="函数"><a href="#函数" class="headerlink" title="函数"></a>函数</h2><p> 这里列出下面pciutils makefile里用的函数。</p>
@@ -418,7 +418,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">76</span>
+        <span class="site-state-item-count">75</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

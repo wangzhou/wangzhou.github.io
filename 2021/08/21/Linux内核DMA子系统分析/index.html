@@ -130,7 +130,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">76</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">75</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
@@ -284,7 +284,7 @@
 </li>
 </ul>
 <h2 id="DMA子系统分析"><a href="#DMA子系统分析" class="headerlink" title="DMA子系统分析"></a>DMA子系统分析</h2><p> 分析一个现有的dmaengine驱动可以看到，dmaengine驱动需要使用dmaenginem_async_device_register<br> 向dma子系统注册驱动自己的struct dma_device结构。在注册之前，设备驱动要先填充<br> 这个结构里的一些域段。cap_mask是设备驱动支持的特性，还有dma子系统需要的各种<br> 回调函数。</p>
-<p> DMA子系统用一个全局链表记录系统里的dma engine设备。对于dma engine设备上的各个<br> channel，DMA子系统为每个channel创建一个struct device设备，这个设备的class是dma_dev<br> class, DMA子系统把创建的device用device_register向系统注册，这样在用户态sysfs<br> 的/sys/class/dma下面就会出现dma<xx>chan<xx>的dma channel描述文件。每个dma<xx>chan<xx><br> 下有对应的属性描述文件。</p>
+<p> DMA子系统用一个全局链表记录系统里的dma engine设备。对于dma engine设备上的各个<br> channel，DMA子系统为每个channel创建一个struct device设备，这个设备的class是dma_dev<br> class, DMA子系统把创建的device用device_register向系统注册，这样在用户态sysfs<br> 的/sys/class/dma下面就会出现dma<xx>chan<xx>的dma channel描述文件。每个dma<xx>chan<xx><br> 下有对应的属性描述文件。</xx></xx></xx></xx></p>
 <p> DMA子系统还对外提供一套第一节中所描述的API。</p>
 <h2 id="DMA-engine驱动分析"><a href="#DMA-engine驱动分析" class="headerlink" title="DMA engine驱动分析"></a>DMA engine驱动分析</h2><p> 可以看到，DMA系统在dma engine注册的时候需要设备驱动提供的一套回调函数来支持<br> 第一小节里的各个API，这些回调函数操作具体硬件，完成相关硬件的配置。我们这里可以<br> 以MEMCPY要提供的回调函数示例说明回调函数的意义。</p>
 <ul>
@@ -427,7 +427,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">76</span>
+        <span class="site-state-item-count">75</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

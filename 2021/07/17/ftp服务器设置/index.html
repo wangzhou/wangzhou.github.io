@@ -130,7 +130,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">76</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">75</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
@@ -278,7 +278,7 @@
 <li><p>在google中搜vsftpd的信息，输入ubuntu vsftpd，第一条就得到下面的信息：<br>   <span class="exturl" data-url="aHR0cHM6Ly9oZWxwLnVidW50dS5jb20vMTAuMDQvc2VydmVyZ3VpZGUvZnRwLXNlcnZlci5odG1s">https://help.ubuntu.com/10.04/serverguide/ftp-server.html<i class="fa fa-external-link-alt"></i></span></p>
 </li>
 </ol>
-<p>   文件的头几行就得到这样的信息：<br>   …<br>   Access to an FTP server can be managed in two ways:<br>   Anonymous<br>   Authenticated<br>   …<br>   上面告诉我们FTP服务器分为两大类：匿名的(就是直接ftp <ip>就可以登陆的)，需要<br>                                    输入用户名、密码的<br>   结合我们的需要，我们的搜索词变成了ftp，authenticated，但是这篇文档已经介绍<br>   了需要怎么设置，我们就不需要去别的地方搜了。下面的”User Authenticated FTP <br>   Configuration”说明要设置/etc/vsftpd.conf中的：<br>          local_enable=YES<br>          write_enable=YES<br>   然后在重启vsftpd:<br>          sudo /etc/init.d/vsftpd restart<br>   <br>3. 说到这里我们的pc(ubuntu系统)上还没有vsftpd啊，试试ubuntu的软件下载管理工具<br>   sudo apt-get install vsftpd(可以自动补全)，果然可以。</p>
+<p>   文件的头几行就得到这样的信息：<br>   …<br>   Access to an FTP server can be managed in two ways:<br>   Anonymous<br>   Authenticated<br>   …<br>   上面告诉我们FTP服务器分为两大类：匿名的(就是直接ftp <ip>就可以登陆的)，需要<br>                                    输入用户名、密码的<br>   结合我们的需要，我们的搜索词变成了ftp，authenticated，但是这篇文档已经介绍<br>   了需要怎么设置，我们就不需要去别的地方搜了。下面的”User Authenticated FTP <br>   Configuration”说明要设置/etc/vsftpd.conf中的：<br>          local_enable=YES<br>          write_enable=YES<br>   然后在重启vsftpd:<br>          sudo /etc/init.d/vsftpd restart<br>   <br>3. 说到这里我们的pc(ubuntu系统)上还没有vsftpd啊，试试ubuntu的软件下载管理工具<br>   sudo apt-get install vsftpd(可以自动补全)，果然可以。</ip></p>
 <ol start="4">
 <li><p>vsftpd服务器有了，开始配置/etc/vsftpd.conf。我们打开对应的文件<br>   sudo vi /etc/vsftpd.conf<br>   仔细看，发现文档已经是充满注释了。找个和我们目的相关的：<br>   …<br>   # Allow anonymous FTP? (Beware - allowed by default if you comment this out).<br>   anonymous_enable=NO<br>   … <br>   后面的注释说，这个是默认带开的，我们用的是authenticate，所以这里选NO</p>
 </li>
@@ -412,7 +412,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">76</span>
+        <span class="site-state-item-count">75</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

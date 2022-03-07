@@ -130,7 +130,7 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">76</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">75</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
@@ -266,7 +266,7 @@
         <p>你可以使用 perf list来列出系统支持的perf事件，有一类perf事件可以用来统计CPU的<br>L3 cache, HHA和DDRC的事件，他们统一叫uncore事件。他们对应的内核驱动是在<br>linux/drivers/perf/hisilicon/*。这些uncore event的命名是这样的：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">hisi_sccl1_ddrc0/act_cmd/                          [Kernel PMU event]</span><br><span class="line">hisi_sccl1_ddrc0/flux_rcmd/                        [Kernel PMU event]</span><br><span class="line">[...]</span><br><span class="line">hisi_sccl1_ddrc1/act_cmd/                          [Kernel PMU event]</span><br><span class="line">hisi_sccl1_ddrc1/flux_rcmd/                        [Kernel PMU event]</span><br><span class="line">[...]</span><br><span class="line">hisi_sccl1_ddrc2/act_cmd/                          [Kernel PMU event]</span><br><span class="line">hisi_sccl1_ddrc2/flux_rcmd/                        [Kernel PMU event]</span><br><span class="line">[...]</span><br><span class="line">hisi_sccl1_ddrc3/act_cmd/                          [Kernel PMU event]</span><br><span class="line">hisi_sccl1_ddrc3/flux_rcmd/                        [Kernel PMU event]</span><br><span class="line">[...]</span><br><span class="line">hisi_sccl1_hha2/bi_num/                            [Kernel PMU event]</span><br><span class="line">hisi_sccl1_hha2/edir-hit/                          [Kernel PMU event]</span><br><span class="line">[...]</span><br><span class="line">hisi_sccl1_hha3/bi_num/                            [Kernel PMU event]</span><br><span class="line">hisi_sccl1_hha3/edir-hit/                          [Kernel PMU event]</span><br><span class="line">[...]</span><br><span class="line">hisi_sccl1_l3c10/back_invalid/                     [Kernel PMU event]</span><br><span class="line">hisi_sccl1_l3c10/prefetch_drop/                    [Kernel PMU event]</span><br><span class="line">[...]</span><br><span class="line">hisi_sccl1_l3c11/back_invalid/                     [Kernel PMU event]</span><br><span class="line">hisi_sccl1_l3c11/prefetch_drop/                    [Kernel PMU event]</span><br><span class="line">[...]</span><br></pre></td></tr></table></figure>
 
-<p>我们在做性能分析的时候，首先要看懂这些统计，把这些项目和程序运行的CPU对应上。<br>现在依次介绍相关的概念。一个完整的服务器CPU系统(我们这里不看IO)，是由物理CPU，<br>物理CPU中的CPU die, CPU die上的一个个CPU core组成的。一般，物理CPU支持多个互联<br>在一起，我们下面用chip表示一个物理CPU, 一个物理CPU里可以有多个CPU die, 在uncore<br>event里CPU die我们叫做sccl<n>, 这里的n是sccl的编号，其中chip0(主片)上的CPU die<br>分别叫sccl1和sccl3, chip1(从片)上的叫sccl5、sccl7，注意我们这里举例的系统一个<br>物理CPU里有两个CPU die。</p>
+<p>我们在做性能分析的时候，首先要看懂这些统计，把这些项目和程序运行的CPU对应上。<br>现在依次介绍相关的概念。一个完整的服务器CPU系统(我们这里不看IO)，是由物理CPU，<br>物理CPU中的CPU die, CPU die上的一个个CPU core组成的。一般，物理CPU支持多个互联<br>在一起，我们下面用chip表示一个物理CPU, 一个物理CPU里可以有多个CPU die, 在uncore<br>event里CPU die我们叫做sccl<n>, 这里的n是sccl的编号，其中chip0(主片)上的CPU die<br>分别叫sccl1和sccl3, chip1(从片)上的叫sccl5、sccl7，注意我们这里举例的系统一个<br>物理CPU里有两个CPU die。</n></p>
 <p>一个sccl中的CPU core是四个聚集在一起成一个cluster，一般一个sccl里有6个cluster,<br>那么一个sccl就有24个core，一个物理CPU有48个core, 一个2P系统就有96个core。这些core<br>和DDR的连接如下图, 他们通过HHA和DDRC连接，DDRC和DIM条连接。sccl之间通过HHA相连。<br>这些core和L3 cache的连接关系(这里先不考虑L1, L2 cache)是一个sccl和一大块L3相连，<br>在使用上，把这一大块L3 cache分成几个partition, 一般是有几个cluster就分几个partion,<br>一个cluster里的core优先使用自己cluster对应的L3 partition，当然也可以使用其他的<br>L3 partion。</p>
 <p>这样，我们很好看懂上面的event，比如:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">hisi_sccl1_l3c11/back_invalid/                     [Kernel PMU event]</span><br></pre></td></tr></table></figure>
@@ -402,7 +402,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">76</span>
+        <span class="site-state-item-count">75</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
