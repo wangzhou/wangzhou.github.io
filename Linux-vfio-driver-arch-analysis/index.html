@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析Linux内核里vfio驱动的架构">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux vfio driver arch analysis">
+<meta property="og:url" content="http://example.com/Linux-vfio-driver-arch-analysis/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析Linux内核里vfio驱动的架构">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-11T15:40:18.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.814Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="虚拟化">
+<meta property="article:tag" content="vfio">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/Linux-vfio-driver-arch-analysis/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux vfio driver arch analysis | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/Linux-vfio-driver-arch-analysis/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux vfio driver arch analysis
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-11 23:40:18" itemprop="dateCreated datePublished" datetime="2021-07-11T23:40:18+08:00">2021-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+            <span id="/Linux-vfio-driver-arch-analysis/" class="post-meta-item leancloud_visitors" data-flag-title="Linux vfio driver arch analysis" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/Linux-vfio-driver-arch-analysis/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/Linux-vfio-driver-arch-analysis/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析Linux内核里vfio驱动的架构</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>The whole vfio subsystem should support 3 sub-features:</p>
+<ol>
+<li>cfg/mem/io support: user space can access cfg/mem/io of vf.</li>
+<li>dma support: data in vf can be translated to user space dma memory range.</li>
+<li>interrupt from vf can be routed to VM OS.</li>
+</ol>
+<p>From view of code, we can see whole vfio driver as:</p>
+<ol>
+<li>init base vfio arch in drivers/vfio/vfio.c</li>
+<li>init pci/platform vfio device driver in drivers/vfio/pci/vfio_pci.c, drivers/vfio/platform/vfio_platform.c</li>
+<li>init vfio iommu driver and register to vfio system in drivers/vfio/vfio_iommu*</li>
+</ol>
+<p>This vfio system will create /dev/vfio/vfio as a vfio container, which indicates<br>an address space share by multiple devices. It will also create /dev/vfio/<group_number><br>as a vfio group, which indicates a group shared by multiple devices using a iommu<br>or smmu unit. when we open a /dev/vfio/<group_number>, we will get a fd, which<br>indicates a device handled by vfio system. Device can be controlled by this fd.</group_number></group_number></p>
+<p>vfio system does not create new bus, however, we should unbind original device<br>driver, and bind device with vfio device driver. So for a PCI device, we need<br>vfio pci driver to handle this device. This vfio pci driver becomes the agent of<br>this device and export all its resource to user space.</p>
+<p>The interfaces for userspace:</p>
+<h2 id="vfio-init-in-vfio-c"><a href="#vfio-init-in-vfio-c" class="headerlink" title="vfio init in vfio.c"></a>vfio init in vfio.c</h2><p>vfio registers a misc device in /dev/vfio/vfio.</p>
+<p>initialize items in vfio: </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">register vfio_dev(miscdevice) in misc sub-system, file: /dev/vfio/vfio</span><br><span class="line">              |</span><br><span class="line">              |--&gt; fops(vfio_fops(file_operations))</span><br><span class="line">                             |</span><br><span class="line">                             |--&gt; open: create vfio_container and</span><br><span class="line">                                        set this as file&#x27;s private data</span><br><span class="line">                                  unlocked_ioctl:</span><br><span class="line">                                          /* bind vfio_container and</span><br><span class="line">                                           * vfio_iommu_driver which had been</span><br><span class="line">                                           * registered in vfio.iommu_driver_list</span><br><span class="line">                                           * in specific iommu file, like:</span><br><span class="line">                                           * vfio_iommu_type1.c</span><br><span class="line">                                           */</span><br><span class="line">                                      --&gt; vfio_ioctl_set_iommu</span><br><span class="line">                                   read/write/mmap: will call functions in vfio_iommu_driver</span><br></pre></td></tr></table></figure>
+
+<p>vfio.c creat a vfio class, this will work together with device_create in<br>vfio_create_group. vfio creates a vfio group indeed is creating a device in this<br>vfio class, vfio group file will be /dev/vfio/<group_number>.</group_number></p>
+<p>vfio_create_group is called in vfio_pci_probe and vfio_platform_probe. In the probe,<br>we get the devices which we want to handle by vfio system, then find which iommu group<br>these devices belong to, then create the related vfio_group to help to store related<br>iommu group. Here just use device_creat to create a file under /dev/vfio/ to refer to<br>the vfio_group. At last, we creat vfio_pci/vfio_platform_device for the devices<br>which we want vfio system to take care of. For details, please refer to part2.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vfio.class = class_create(THIS_MODULE, &quot;vfio&quot;)</span><br></pre></td></tr></table></figure>
+<p>when we operate /dev/vfio/<group_number>, indeed we will call<br>functions in vfio_group_fops.</group_number></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">register chr device: vfio.group_cdev(struct cdev)</span><br><span class="line">                              |</span><br><span class="line">                              |--&gt; file_operations(vfio_group_fops)</span><br><span class="line">                                               |</span><br><span class="line">                                               |--&gt; open</span><br><span class="line">                                                    unlocked_ioctl</span><br><span class="line">                                                            /* register ops of</span><br><span class="line">                                                             * vfio_device</span><br><span class="line">                                                             */</span><br><span class="line">                                                        --&gt; vfio_group_get_device_fd</span><br></pre></td></tr></table></figure>
+<p>so what happen if we call above callback:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">open: find vfio_group --&gt; share vfio_group to private_data of related struct file.</span><br><span class="line">      above vfio_group was created and added in vfio_pci_probe.</span><br><span class="line">unlocked_ioctl: </span><br><span class="line">    VFIO_GROUP_GET_DEVICE_FD:</span><br><span class="line">	--&gt;vfio_group_get_device_fd</span><br><span class="line">    VFIO_GROUP_SET_CONTAINER: </span><br><span class="line">        --&gt; vfio_group_set_container</span><br></pre></td></tr></table></figure>
+<p>An ioctl of vfio_group can get a fd for the device.</p>
+<p>We already get the iommu_group of a device, why do we use vfio_group_set_container<br>to add this vfio_group to a vfio container?</p>
+<p>The concept of vfio container is to build an address space shared by multiple<br>devices.</p>
+<pre><code>  vfio container
+
+
+          ------+--------------+--------------+-------
+                |              |              |
+              +-+--+         +-+--+         +-+--+
+              |smmu|         |smmu|         |smmu|
+              +-+--+         +-+--+         +-+--+
+                |              |              |
+              +-+--+         +-+--+         +-+--+
+              |dev |         |dev |         |dev |
+              +----+         +----+         +----+
+</code></pre>
+<p>When vfio_group is added to vfio container, mappings in this vfio_group will be<br>added to other smmus physically. So all smmus above have same mapping if vfio_groups<br>have been added into same vfio container. All mappings are maintained in vfio<br>container. </p>
+<p>how to add vfio_group to vfio_container:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vfio_ioctl_set_iommu</span><br><span class="line">    --&gt; __vfio_container_attach_groups(container, driver, data)</span><br><span class="line">            --&gt; driver-&gt;ops-attach_group(vfio_iommu, group-&gt;iommu_group)</span><br></pre></td></tr></table></figure>
+
+<h2 id="probe-of-vfio-pci-c-vfio-platform-c"><a href="#probe-of-vfio-pci-c-vfio-platform-c" class="headerlink" title="probe of vfio_pci.c/vfio_platform.c"></a>probe of vfio_pci.c/vfio_platform.c</h2><p>All working in vfio system will help build below vfio struct:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">global: vfio</span><br><span class="line">            --&gt; group_list(vfio_group)</span><br><span class="line">                               |</span><br><span class="line">                               |--&gt; iommu_group</span><br><span class="line">                                    device_list(vfio_device)</span><br><span class="line">                                                     |--&gt;group(vfio_group)</span><br><span class="line">                                                         ops(vfio_device_ops)</span><br><span class="line">                                                                   |--&gt; open</span><br><span class="line">                                                                        ...</span><br><span class="line">            --&gt; device_list(vfio_device)</span><br><span class="line">                               |</span><br><span class="line">                               |--&gt; ops(vfio_device_ops)</span><br><span class="line">                                    group(vfio_group)</span><br><span class="line">         </span><br><span class="line">            --&gt; iommu_drivers_list(vfio_iommu_driver)</span><br><span class="line">                                          |</span><br><span class="line">                                          |--&gt; ops(vfio_iommu_driver_ops)</span><br></pre></td></tr></table></figure>
+<p>Here we analyze the flows in vfio_pci.</p>
+<p>in vfio_pci_init, use pci_register_driver(&amp;vfio_pci_driver) to probe the PCIe<br>devices in the whole PCIe domain, which devices we had already build up in<br>standard PCIe enumeration process.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">vfio_pci_probe</span><br><span class="line">        /* get iommu_group from device, iommu_group had been added to device&#x27;s</span><br><span class="line">         * iommu_group during the init of iommu(smmu)</span><br><span class="line">         */</span><br><span class="line">    --&gt; vfio_iommu_group_get</span><br><span class="line">    --&gt; allocate memory for vfio_pci_device, which in vfio system refers to above device</span><br><span class="line">        /* this will be called in pci or platform device file to create vfio_group,</span><br><span class="line">         * vfio_device. ops for specific kind of vfio_device is different.</span><br><span class="line">         */</span><br><span class="line">    --&gt; vfio_add_group_dev</span><br><span class="line">            /* create vfio_group, and add it to vfio.group_idr and vfio.group_list.</span><br><span class="line">             * and add iommu_group to this vfio_group.</span><br><span class="line">             */</span><br><span class="line">        --&gt; vfio_create_group</span><br><span class="line">                /* create vfio_group file as /dev/vfio/&lt;group number&gt; */</span><br><span class="line">            --&gt; device_create</span><br><span class="line">            /* create vfio_device and add it to vfio_group.device_list, ops will be</span><br><span class="line">             * called at:</span><br><span class="line">             *</span><br><span class="line">             * vfio_group_fops_unl_ioctl can get a fd which refers to related</span><br><span class="line">             * devcie&#x27;s fd. the operations to this fd will route to the operations</span><br><span class="line">             * in vfio_device_fops(struct file_operations) which will call the</span><br><span class="line">             * callbacks in vfio_device.</span><br><span class="line">             *</span><br><span class="line">             * vfio_pci_device is vfio_device&#x27;s private data.</span><br><span class="line">             */</span><br><span class="line">        --&gt; vfio_group_create_device</span><br></pre></td></tr></table></figure>
+
+<h2 id="vfio-register-iommu-driver-in-specific-iommu-file"><a href="#vfio-register-iommu-driver-in-specific-iommu-file" class="headerlink" title="vfio_register_iommu_driver in specific iommu file"></a>vfio_register_iommu_driver in specific iommu file</h2><p>Physically we can use different iommu implementation, e.g. SMMU in ARM, IOMMU for<br>Intel. This vfio iommu driver is used to control this.</p>
+<p>register vfio_iommu_driver to vfio:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">vfio</span><br><span class="line">    --&gt; iommu_drivers_list(vfio_iommu_driver)</span><br><span class="line">                                   |</span><br><span class="line">                                   |--&gt; ops(vfio_iommu_driver_ops)</span><br><span class="line">                                                   |--&gt; open: create vfio_iommu.</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>This ops is called by vfio_container-&gt;vfio_smmu_driver-&gt;ops, we bind<br>vfio_container and vfio_smmu_driver together in unlocked_ioctl(using VFIO_SET_IOMMU)<br>of /dev/vfio/vfio. Here we can register specific iommu driver to vfio, now there are<br>vfio iommu driver from X86(vfio_iommu_type1.c) and POWER(vfio_iommu_spapr_tce.c).</p>
+<p>how to bind vfio_container and vfio_smmu_driver:<br>for a /dev/vfio/vfio container fd, its ioctl VFIO_SET_IOMMU will set specific<br>IOMMU for the container:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">vfio_fops_unl_ioctl</span><br><span class="line">    --&gt; VFIO_SET_IOMMU</span><br><span class="line">        --&gt; vfio_ioctl_set_iommu(container, arg)</span><br></pre></td></tr></table></figure>
+
+<p>how to call the ops in vfio_smmu_driver:<br>vfio_container-&gt;ops will call the ops in vfio_smmu_driver.</p>
+<h2 id="how-to-access-cfg-mem-io-of-VFs"><a href="#how-to-access-cfg-mem-io-of-VFs" class="headerlink" title="how to access cfg/mem/io of VFs"></a>how to access cfg/mem/io of VFs</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">/* ioctl of vfio_group to get a fd of device */</span><br><span class="line">vfio_group_get_device_fd</span><br><span class="line"></span><br><span class="line">/* open in vfio_pci_device */</span><br><span class="line">--&gt; device-&gt;ops-&gt;open</span><br><span class="line">    --&gt; anon_inode_getfile(&quot;[vfio-device]&quot;, &amp;vfio_device_fops, device, O_RDWR);</span><br><span class="line"></span><br><span class="line">/* to do: So it seems we can use both ways to access vf cfg/mem/io range */</span><br><span class="line">read/write: use fd&#x27;s read/write to access vf cfg/mem/io.</span><br><span class="line">mmap: map cfg/mem/io range in pci_dev to user space.</span><br></pre></td></tr></table></figure>
+
+<h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference:"></a>Reference:</h2><p>[1] <span class="exturl" data-url="aHR0cHM6Ly93d3cuaWJtLmNvbS9kZXZlbG9wZXJ3b3Jrcy9jb21tdW5pdHkvYmxvZ3MvNTE0NDkwNGQtNWQ3NS00NWVkLTlkMmItY2YxNzU0ZWU5MzZhL2VudHJ5LzIwMTYwNjA1P2xhbmc9ZW4=">https://www.ibm.com/developerworks/community/blogs/5144904d-5d75-45ed-9d2b-cf1754ee936a/entry/20160605?lang=en<i class="fa fa-external-link-alt"></i></span><br>[2] <span class="exturl" data-url="aHR0cDovL2Jsb2cuY3Nkbi5uZXQvcXExMjMzODY5MjYvYXJ0aWNsZS9kZXRhaWxzLzQ3NzU3MDg5">http://blog.csdn.net/qq123386926/article/details/47757089<i class="fa fa-external-link-alt"></i></span><br>[3] <span class="exturl" data-url="aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC8zNTQ4OTAzNQ==">https://zhuanlan.zhihu.com/p/35489035<i class="fa fa-external-link-alt"></i></span></p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"># 虚拟化</a>
+              <a href="/tags/vfio/" rel="tag"># vfio</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/PCIe-memory-base-and-memory-limit/" rel="prev" title="PCIe memory base and memory limit">
+      <i class="fa fa-chevron-left"></i> PCIe memory base and memory limit
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/ARM64-qemu-native-build/" rel="next" title="ARM64 qemu native build">
+      ARM64 qemu native build <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#vfio-init-in-vfio-c"><span class="nav-number">1.</span> <span class="nav-text">vfio init in vfio.c</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#probe-of-vfio-pci-c-vfio-platform-c"><span class="nav-number">2.</span> <span class="nav-text">probe of vfio_pci.c&#x2F;vfio_platform.c</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#vfio-register-iommu-driver-in-specific-iommu-file"><span class="nav-number">3.</span> <span class="nav-text">vfio_register_iommu_driver in specific iommu file</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#how-to-access-cfg-mem-io-of-VFs"><span class="nav-number">4.</span> <span class="nav-text">how to access cfg&#x2F;mem&#x2F;io of VFs</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">5.</span> <span class="nav-text">Reference:</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

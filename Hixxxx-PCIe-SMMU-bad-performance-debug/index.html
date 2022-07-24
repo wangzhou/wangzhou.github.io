@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="记录一个SMMU相关的性能问题的调试过程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Hixxxx PCIe + SMMU bad performance debug">
+<meta property="og:url" content="http://example.com/Hixxxx-PCIe-SMMU-bad-performance-debug/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="记录一个SMMU相关的性能问题的调试过程">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-11T15:16:26.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.802Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="SMMU">
+<meta property="article:tag" content="软件性能">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/Hixxxx-PCIe-SMMU-bad-performance-debug/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Hixxxx PCIe + SMMU bad performance debug | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/Hixxxx-PCIe-SMMU-bad-performance-debug/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Hixxxx PCIe + SMMU bad performance debug
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-11 23:16:26" itemprop="dateCreated datePublished" datetime="2021-07-11T23:16:26+08:00">2021-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+            <span id="/Hixxxx-PCIe-SMMU-bad-performance-debug/" class="post-meta-item leancloud_visitors" data-flag-title="Hixxxx PCIe + SMMU bad performance debug" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/Hixxxx-PCIe-SMMU-bad-performance-debug/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/Hixxxx-PCIe-SMMU-bad-performance-debug/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">记录一个SMMU相关的性能问题的调试过程</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>When we enabled SMMU in Dxx board, we found that the performance of 82599 pluged<br>in PCIe slot is very bad. LeiZhen and I spent some to debug this problem. This<br>document just shares the related results and information.</p>
+<ol>
+<li>test scenarios and results</li>
+</ol>
+<hr>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">     +----------------+        +---------------+</span><br><span class="line">     |   Dxx   82599  |&lt;------&gt;|  82599   Dxx  |</span><br><span class="line">     +----------------+        +---------------+</span><br><span class="line"></span><br><span class="line">           +-----+         +-----+</span><br><span class="line">           | cpu |         | ddr |</span><br><span class="line">           +--+--+         +--+--+</span><br><span class="line">              |               |</span><br><span class="line">      --------+-----+---------+------- bus</span><br><span class="line">                    |</span><br><span class="line">                 +--+---+</span><br><span class="line">                 | smmu |</span><br><span class="line">                 +--+---+</span><br><span class="line">                    |                   </span><br><span class="line">                 +--+---+</span><br><span class="line">                 |  rp  |</span><br><span class="line">                 +--+---+</span><br><span class="line">                    |</span><br><span class="line">                 +--+---+</span><br><span class="line">                 | 82599|</span><br><span class="line">                 +------+</span><br><span class="line">```           </span><br><span class="line">Hardware topology as showed above. In order to use SMMU to translate data from</span><br><span class="line">82599 to DDR, we need enable SMMU node in ACPI table.[1]</span><br><span class="line"></span><br><span class="line">Then boot up two Dxx boards connected by two 82599 networking cards. When using</span><br><span class="line">iperf to test the performance between two 82599 networking cards, it is very bad,</span><br><span class="line">nearly 100Mbps.[2]</span><br><span class="line"></span><br><span class="line">2. analysis</span><br><span class="line">-----------</span><br><span class="line"></span><br><span class="line">The only difference is disable SMMU and enable SMMU. So the difference is we use</span><br><span class="line">diffferent DMA callbacks.</span><br><span class="line"></span><br><span class="line">We can see arch/arm64/mm/dma-mapping.c, when configuring CONFIG_IOMMU_DMA,</span><br><span class="line">callbacks in struct dma_map_ops iommu_dma_ops will be used.</span><br><span class="line"></span><br><span class="line">And we also know when 82599 sending/receiving packages, its driver will call</span><br><span class="line">ixgbe_tx_map/ixgbe_alloc_mapped_page to allocate DMA memory function which will</span><br><span class="line">finally call map_page in iommu_dma_ops when SMMU is enable. So we guess there</span><br><span class="line">is something wrong with the map_page here.</span><br><span class="line"></span><br><span class="line">So we should analyze related function to find the hot point. Here we firstly use</span><br><span class="line">ftrace to confirm our idea, then use perf to locate the hot point explicitly.</span><br><span class="line"></span><br><span class="line"> * ftrace</span><br><span class="line"></span><br><span class="line">   We can use function profiling in ftrace to see durations of related function.</span><br><span class="line">   please refer[3] to know how to use ftrace function profiling.</span><br><span class="line"></span><br><span class="line">   Here we get:</span><br></pre></td></tr></table></figure>
+<p>10)&lt;…&gt;-4313   |               |   ixgbe_xmit_frame_ring() {<br>10)&lt;…&gt;-4313   |               |     __iommu_map_page() {<br>10)&lt;…&gt;-4313   |   0.080 us    |       dma_direction_to_prot();<br>10)&lt;…&gt;-4313   |               |       iommu_dma_map_page() {<br>10)&lt;…&gt;-4313   |               |         __iommu_dma_map() {<br>10)&lt;…&gt;-4313   |   0.480 us    |           iommu_get_domain_for_dev();<br>10)&lt;…&gt;-4313   |               |           __alloc_iova() {<br>10)&lt;…&gt;-4313   |               |             alloc_iova() {<br>10)&lt;…&gt;-4313   |               |               kmem_cache_alloc() {<br>10)&lt;…&gt;-4313   |               |                 __slab_alloc.isra.21()<br>10)&lt;…&gt;-4313   |   0.040 us    |                 memcg_kmem_put_cache();<br>10)&lt;…&gt;-4313   | + 16.160 us   |               }<br>[…]<br>10)&lt;…&gt;-4313   |   0.120 us    |               _raw_spin_lock_irqsave();<br>10)&lt;…&gt;-4313   |               |               _raw_spin_unlock_irqrestore() {<br>10)&lt;…&gt;-4313   |   ==========&gt; |<br>10)&lt;…&gt;-4313   |               |                 gic_handle_irq()<br>10)&lt;…&gt;-4313   |   &lt;========== |<br>10)&lt;…&gt;-4313   | + 88.620 us   |               }<br>10)&lt;…&gt;-4313   | ! 679.760 us  |             }<br>10)&lt;…&gt;-4313   | ! 680.480 us  |           }</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">  Most time has been spent in alloc_iova.</span><br><span class="line"></span><br><span class="line">* perf</span><br><span class="line"></span><br><span class="line">  Sadly, there was no perf(PMU hardware event) support in ACPI in plinth</span><br><span class="line">  kernel :( So we directly set PMU related registers to get how many CPU cycles</span><br><span class="line">  each function has spent.</span><br></pre></td></tr></table></figure>
+<pre><code>/* Firstly call this init function to init PMU */
+static void pm_cycle_init(void)
+&#123;
+    u64 val;
+
+    asm volatile(&quot;mrs %0, pmccfiltr_el0&quot; : &quot;=r&quot; (val));
+    if (val &amp; ((u64)1 &lt;&lt; 31)) &#123;
+        val &amp;= ~((u64)1 &lt;&lt; 31);
+        asm volatile(&quot;msr pmccfiltr_el0, %0&quot; :: &quot;r&quot; (val));
+        dsb(sy);
+        asm volatile(&quot;mrs %0, pmccfiltr_el0&quot; : &quot;=r&quot; (val));
+    &#125;
+
+    asm volatile(&quot;mrs %0, pmcntenset_el0&quot; : &quot;=r&quot; (val));
+    if (!(val &amp; ((u64)1 &lt;&lt; 31))) &#123;
+        val |= ((u64)1 &lt;&lt; 31);
+        asm volatile(&quot;msr pmcntenset_el0, %0&quot; :: &quot;r&quot; (val));
+        dsb(sy);
+        asm volatile(&quot;mrs %0, pmcntenset_el0&quot; : &quot;=r&quot; (val));
+    &#125;
+
+    asm volatile(&quot;mrs %0, pmcr_el0&quot; : &quot;=r&quot; (val));
+    if (!(val &amp; ((u64)1 &lt;&lt; 6))) &#123;
+        val |= ((u64)1 &lt;&lt; 6) | 0x1;
+        asm volatile(&quot;msr pmcr_el0, %0&quot; :: &quot;r&quot; (val));
+        dsb(sy);
+        asm volatile(&quot;mrs %0, pmcr_el0&quot; : &quot;=r&quot; (val));
+    &#125;
+&#125;
+
+/* Get the CPU cycles in PMU counter */
+u64 pm_cycle_get(void)
+&#123;
+    u64 val;
+
+    asm volatile(&quot;mrs %0, pmccntr_el0&quot; : &quot;=r&quot; (val));
+
+    return val;
+&#125;
+EXPORT_SYMBOL(pm_cycle_get);
+</code></pre>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">  Using above debug functions, we found almost 600000 CPU cycles will happen in</span><br><span class="line">  a while loop in function __alloc_and_insert_iova_range. If CPU frequency is</span><br><span class="line">  2G Hz, then 600000 CPU cycles is 300us! This is the hot point.</span><br><span class="line"></span><br><span class="line">  We found it will loop almost 10000 times in above while loop!</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">* Code analysis </span><br><span class="line"></span><br><span class="line">  Firstly, this DMA software modules is like this:</span><br></pre></td></tr></table></figure>
+<p>   VA = kmalloc();<br>   IOVA = dma_map_function(PA = fun(VA)); </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">   Firstly, allocate memory for DMA memory and map a VA which can be used by CPU,</span><br><span class="line">   Then, build map between IOVA and PA in dma map function. In the case of SMMU</span><br><span class="line">   enable, .map_page(__iommu_map_page) in iommu_dma_ops will be call to build</span><br><span class="line">   above map.</span><br><span class="line"></span><br><span class="line">   Then common function iommu_dma_map_page in drivers/iommu/dma-iommu.c will be</span><br><span class="line">   called. There are two steps in above function: 1. allocate iova, this is a</span><br><span class="line">   common function; 2. build map between IOVA and PA, this is SMMU specific</span><br><span class="line">   function.   </span><br><span class="line"></span><br><span class="line">   The hot point is in the point 1 above, so we need understand the module of</span><br><span class="line">   how to allocate iova. A red black tree in iova_domain is used to store all iova</span><br><span class="line">   range in system, after allocating or freeing an iova range, an iova range</span><br><span class="line">   should be inserted or remove from above red black tree. Now we allocate the</span><br><span class="line">   iova range from the end of the iova domain, for 32 DMA mask, it is 0xffffffff,</span><br><span class="line">   for 64bit DMA mask it is 0xffffffff_ffffffff. There is a cache for 32bit DMA</span><br><span class="line">   mask to store the iova range in last time, but for 64bit DMA MASK, there is</span><br><span class="line">   no such cache. so for 64bit DMA, when we want to allocate a DMA range in</span><br><span class="line">   iova domain, we have to search from the 0xffffffff_ffffffff. If we already allocate</span><br><span class="line">   a lot iova range, then we have to search all iova range allocated before.</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">3. solution</span><br><span class="line">-----------</span><br><span class="line"></span><br><span class="line">So we can fix this bug like this:</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p>diff –git a/drivers/iommu/iova.c b/drivers/iommu/iova.c<br>index 080beca..1e582d8 100644<br>— a/drivers/iommu/iova.c<br>+++ b/drivers/iommu/iova.c<br>@@ -46,6 +46,7 @@ init_iova_domain(struct iova_domain *iovad, unsigned long granule,<br>     spin_lock_init(&amp;iovad-&gt;iova_rbtree_lock);<br>     iovad-&gt;rbroot = RB_ROOT;<br>     iovad-&gt;cached32_node = NULL;</p>
+<ul>
+<li> iovad-&gt;cached64_node = NULL;<br>   iovad-&gt;granule = granule;<br>   iovad-&gt;start_pfn = start_pfn;<br>   iovad-&gt;dma_32bit_pfn = pfn_32bit;<br>@@ -56,13 +57,19 @@ EXPORT_SYMBOL_GPL(init_iova_domain);<br>static struct rb_node *<br>__get_cached_rbnode(struct iova_domain *iovad, unsigned long *limit_pfn)<br>{</li>
+</ul>
+<ul>
+<li>   if ((*limit_pfn &gt; iovad-&gt;dma_32bit_pfn) ||</li>
+<li><pre><code>   (iovad-&gt;cached32_node == NULL))
+</code></pre>
+</li>
+</ul>
+<ul>
+<li>   struct rb_node *cached_node;</li>
+<li></li>
+<li>   if (*limit_pfn &lt; iovad-&gt;dma_32bit_pfn)</li>
+<li><pre><code>   cached_node = iovad-&gt;cached32_node;
+</code></pre>
+</li>
+<li>   else</li>
+<li><pre><code>   cached_node = iovad-&gt;cached64_node;
+</code></pre>
+</li>
+<li></li>
+<li> if (cached_node == NULL)<pre><code>   return rb_last(&amp;iovad-&gt;rbroot);
+</code></pre>
+   else {</li>
+</ul>
+<ul>
+<li><pre><code>   struct rb_node *prev_node = rb_prev(iovad-&gt;cached32_node);
+</code></pre>
+</li>
+</ul>
+<ul>
+<li><pre><code> struct rb_node *prev_node = rb_prev(cached_node);
+   struct iova *curr_iova =
+</code></pre>
+</li>
+</ul>
+<ul>
+<li><pre><code>       container_of(iovad-&gt;cached32_node, struct iova, node);
+</code></pre>
+</li>
+</ul>
+<ul>
+<li><pre><code>     container_of(cached_node, struct iova, node);         *limit_pfn = curr_iova-&gt;pfn_lo - 1;
+   return prev_node;
+</code></pre>
+   }<br>@@ -72,9 +79,10 @@ static void<br>__cached_rbnode_insert_update(struct iova_domain *iovad,<br>   unsigned long limit_pfn, struct iova *new)<br>{</li>
+</ul>
+<ul>
+<li>   if (limit_pfn != iovad-&gt;dma_32bit_pfn)</li>
+<li><pre><code>   return;
+</code></pre>
+</li>
+<li>   iovad-&gt;cached32_node = &amp;new-&gt;node;</li>
+</ul>
+<ul>
+<li>   if (limit_pfn &lt;= iovad-&gt;dma_32bit_pfn)</li>
+<li><pre><code>   iovad-&gt;cached32_node = &amp;new-&gt;node;
+</code></pre>
+</li>
+<li>   else</li>
+<li><pre><code> iovad-&gt;cached64_node = &amp;new-&gt;node;
+</code></pre>
+}</li>
+</ul>
+<p> static void<br>@@ -82,21 +90,26 @@ __cached_rbnode_delete_update(struct iova_domain *iovad, struct iova *free)<br> {<br>     struct iova *cached_iova;<br>     struct rb_node *curr;</p>
+<ul>
+<li>   struct rb_node **cached_node;</li>
+<li></li>
+<li>   if (free-&gt;pfn_hi &lt;= iovad-&gt;dma_32bit_pfn)</li>
+<li><pre><code>   cached_node = &amp;iovad-&gt;cached32_node;
+</code></pre>
+</li>
+<li>   else</li>
+<li><pre><code> cached_node = &amp;iovad-&gt;cached64_node;
+</code></pre>
+</li>
+</ul>
+<ul>
+<li>   if (!iovad-&gt;cached32_node)</li>
+</ul>
+<ul>
+<li>   curr = *cached_node;</li>
+<li> if(!curr)<pre><code>   return;
+</code></pre>
+</li>
+</ul>
+<ul>
+<li> curr = iovad-&gt;cached32_node;<br>   cached_iova = container_of(curr, struct iova, node);   if (free-&gt;pfn_lo &gt;= cached_iova-&gt;pfn_lo) {<pre><code>   struct rb_node *node = rb_next(&amp;free-&gt;node);
+   struct iova *iova = container_of(node, struct iova, node);
+</code></pre>
+</li>
+<li><pre><code>   /* only cache if it&#39;s below 32bit pfn */
+</code></pre>
+</li>
+<li><pre><code>   if (node &amp;&amp; iova-&gt;pfn_lo &lt; iovad-&gt;dma_32bit_pfn)
+</code></pre>
+</li>
+<li><pre><code>       iovad-&gt;cached32_node = node;
+</code></pre>
+</li>
+</ul>
+<ul>
+<li><pre><code>   if (node)
+</code></pre>
+</li>
+<li><pre><code>     *cached_node = node;
+   else
+</code></pre>
+</li>
+</ul>
+<ul>
+<li><pre><code>       iovad-&gt;cached32_node = NULL;
+</code></pre>
+</li>
+</ul>
+<ul>
+<li><pre><code>     *cached_node = NULL;
+</code></pre>
+   }<br>}</li>
+</ul>
+<p>diff –git a/include/linux/iova.h b/include/linux/iova.h<br>index f27bb2c..d4670c1 100644<br>— a/include/linux/iova.h<br>+++ b/include/linux/iova.h<br>@@ -41,6 +41,7 @@ struct iova_domain {<br>     spinlock_t    iova_rbtree_lock; /* Lock to protect update of rbtree <em>/<br>     struct rb_root    rbroot;        /</em> iova domain rbtree root */<br>     struct rb_node    <em>cached32_node; /</em> Save last alloced node */</p>
+<ul>
+<li> struct rb_node    <em>cached64_node; /</em> Save last 64bit alloced node <em>/<br>   unsigned long    granule;    /</em> pfn granularity for this domain <em>/<br>   unsigned long    start_pfn;     /</em> Lower limit for this domain */<br>   unsigned long    dma_32bit_pfn;<br>```</li>
+</ul>
+<p>above solution just adds another cache for 64bit DMA Mask.</p>
+<p>But now Linux kernel community just merged a PATCH:<br>        iommu/dma: Implement PCI allocation optimisation<br>into mainline kernel.</p>
+<p>This patch just castes 64bit DMA mask to 32bit DMA mask, so we can still use<br>32bit DMA cache to improve the performance.</p>
+<p>NOTE: but if this we can not allocate a 64bit iova to a PCIe device’s DMA target<br>      address. This is a problem :(</p>
+<ol start="4">
+<li>problem</li>
+</ol>
+<hr>
+<ul>
+<li><p>Performance</p>
+<p>After SMMU enable and applying above patch, 82599 performance is 7.5Gbps,<br>only 80% performance comparing SMMU disable. We need check if this is correct<br>considering both hardware and software limitation.</p>
+</li>
+<li><p>NIC panic</p>
+<p>After SMMU enable and applying above patch, xxx net will panic :( should fix this.<br>(p.s. already find where the problem is, xxx net dma map once, but unmap multiple<br> times)</p>
+</li>
+</ul>
+<h2 id="reference"><a href="#reference" class="headerlink" title="reference"></a>reference</h2><p>[1] xxx<br>[2] JIRA bug<br>[3] <span class="exturl" data-url="aHR0cHM6Ly9sd24ubmV0L0FydGljbGVzLzM3MDQyMy8=">https://lwn.net/Articles/370423/<i class="fa fa-external-link-alt"></i></span></p>
+<pre><code>cd /sys/kernel/debug/tracing
+echo ixgbe_* &gt; set_graph_function
+echo function_graph &gt; current_tracer
+cat trace &gt; ~/smmu_test
+</code></pre>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/SMMU/" rel="tag"># SMMU</a>
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E6%80%A7%E8%83%BD/" rel="tag"># 软件性能</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/How-to-use-IO-BAR-in-linux-PCIe-device-driver/" rel="prev" title="How to use IO BAR in linux PCIe device driver">
+      <i class="fa fa-chevron-left"></i> How to use IO BAR in linux PCIe device driver
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/UEFI-Linux%E7%B3%BB%E7%BB%9F%E5%8A%A0%E8%BD%BD%E8%BF%87%E7%A8%8B/" rel="next" title="UEFI/Linux系统加载过程">
+      UEFI/Linux系统加载过程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#reference"><span class="nav-number">1.</span> <span class="nav-text">reference</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

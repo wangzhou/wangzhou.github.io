@@ -127,12 +127,12 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">78</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">174</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -199,7 +199,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/mtrace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -213,7 +213,193 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/07/17/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">autoconf/automake使用笔记</a>
+            <a href="/mtrace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">mtrace使用笔记</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-17 11:24:05" itemprop="dateCreated datePublished" datetime="2021-07-17T11:24:05+08:00">2021-07-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+            <span id="/mtrace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="mtrace使用笔记" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/mtrace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/mtrace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>mtrace是一个GNU C库中的内存检测工具，用以检测用户态程序内存泄露 (malloc, realloc, free)。检测的原理为在程序开始时通过mtrace()为malloc等函数安装 handlers[1], malloc等函数执行时就会把相应的信息写到指定文件中(由环境变量指定)[2]， 最后由一个perl脚本(/usr/bin/mtrace)解析信息。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/mtrace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/strace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/strace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">strace使用笔记</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-17 11:23:29" itemprop="dateCreated datePublished" datetime="2021-07-17T11:23:29+08:00">2021-07-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+            <span id="/strace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="strace使用笔记" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/strace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/strace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>stracestrace a.out 可以输出a.out中依次调用的系统调用，和gdb一样strace使 用系统调用pstrace实现其功能。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/strace%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">autoconf/automake使用笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -230,11 +416,11 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-07-19 20:26:27" itemprop="dateModified" datetime="2021-07-19T20:26:27+08:00">2021-07-19</time>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
               </span>
 
           
-            <span id="/2021/07/17/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="autoconf/automake使用笔记" title="阅读次数">
+            <span id="/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="autoconf/automake使用笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -249,8 +435,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/07/17/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    <a title="valine" href="/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -268,7 +454,7 @@
           <p>本文以一个简单的例子展示怎么使用autoconf/automake工具构建一个工程</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/07/17/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+              <a class="btn" href="/autoconf-automake%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -292,7 +478,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -306,7 +492,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/07/17/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">pstack使用笔记</a>
+            <a href="/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">pstack使用笔记</a>
         </h2>
 
         <div class="post-meta">
@@ -323,11 +509,11 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-07-19 23:10:25" itemprop="dateModified" datetime="2021-07-19T23:10:25+08:00">2021-07-19</time>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
               </span>
 
           
-            <span id="/2021/07/17/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="pstack使用笔记" title="阅读次数">
+            <span id="/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="pstack使用笔记" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -342,8 +528,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/07/17/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    <a title="valine" href="/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -361,7 +547,7 @@
           <p>pstack的功能是显示当前进程中函数的调用栈的关系，若是多线程的情况下， 会显示各个线程中函数调用的关系。脚本用了gdb中的bt(backtrace)功能，在gdb中输入bt即可 打印出程序当前的栈中的函数调用关系。</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/07/17/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+              <a class="btn" href="/pstack%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -385,7 +571,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -399,7 +585,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/07/17/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/" class="post-title-link" itemprop="url">Linux内核模块编译</a>
+            <a href="/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/" class="post-title-link" itemprop="url">Linux内核模块编译</a>
         </h2>
 
         <div class="post-meta">
@@ -416,11 +602,11 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-07-19 23:13:06" itemprop="dateModified" datetime="2021-07-19T23:13:06+08:00">2021-07-19</time>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
               </span>
 
           
-            <span id="/2021/07/17/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/" class="post-meta-item leancloud_visitors" data-flag-title="Linux内核模块编译" title="阅读次数">
+            <span id="/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/" class="post-meta-item leancloud_visitors" data-flag-title="Linux内核模块编译" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -435,8 +621,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/07/17/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/" itemprop="commentCount"></span>
+    <a title="valine" href="/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -454,7 +640,7 @@
           <p>介绍linux内核模块的编译步骤</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/07/17/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/">
+              <a class="btn" href="/Linux%E5%86%85%E6%A0%B8%E6%A8%A1%E5%9D%97%E7%BC%96%E8%AF%91/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -478,7 +664,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -492,7 +678,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/07/17/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/" class="post-title-link" itemprop="url">ftp服务器设置</a>
+            <a href="/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/" class="post-title-link" itemprop="url">ftp服务器设置</a>
         </h2>
 
         <div class="post-meta">
@@ -509,11 +695,11 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-07-19 20:30:58" itemprop="dateModified" datetime="2021-07-19T20:30:58+08:00">2021-07-19</time>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
               </span>
 
           
-            <span id="/2021/07/17/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/" class="post-meta-item leancloud_visitors" data-flag-title="ftp服务器设置" title="阅读次数">
+            <span id="/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/" class="post-meta-item leancloud_visitors" data-flag-title="ftp服务器设置" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -528,8 +714,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/07/17/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/" itemprop="commentCount"></span>
+    <a title="valine" href="/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -547,7 +733,7 @@
           <p>本文记录一次ftp服务器的搭建过程，同时提供一种Linux上查找资料的方法</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/07/17/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/">
+              <a class="btn" href="/ftp%E6%9C%8D%E5%8A%A1%E5%99%A8%E8%AE%BE%E7%BD%AE/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -571,7 +757,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -585,7 +771,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/07/17/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/" class="post-title-link" itemprop="url">qemu虚拟机通过tun/tap上网</a>
+            <a href="/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/" class="post-title-link" itemprop="url">qemu虚拟机通过tun/tap上网</a>
         </h2>
 
         <div class="post-meta">
@@ -602,11 +788,11 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-07-19 20:32:43" itemprop="dateModified" datetime="2021-07-19T20:32:43+08:00">2021-07-19</time>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
               </span>
 
           
-            <span id="/2021/07/17/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/" class="post-meta-item leancloud_visitors" data-flag-title="qemu虚拟机通过tun/tap上网" title="阅读次数">
+            <span id="/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/" class="post-meta-item leancloud_visitors" data-flag-title="qemu虚拟机通过tun/tap上网" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -621,8 +807,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/07/17/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/" itemprop="commentCount"></span>
+    <a title="valine" href="/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -640,7 +826,7 @@
           <p>在学习perf的时候，需要使的qemu虚拟机可以上网，下面是上网的设置过程</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/07/17/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/">
+              <a class="btn" href="/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -664,7 +850,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -678,7 +864,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-title-link" itemprop="url">ftrace学习笔记1</a>
+            <a href="/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-title-link" itemprop="url">ftrace学习笔记1</a>
         </h2>
 
         <div class="post-meta">
@@ -695,11 +881,11 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-07-19 20:43:24" itemprop="dateModified" datetime="2021-07-19T20:43:24+08:00">2021-07-19</time>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
               </span>
 
           
-            <span id="/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-meta-item leancloud_visitors" data-flag-title="ftrace学习笔记1" title="阅读次数">
+            <span id="/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-meta-item leancloud_visitors" data-flag-title="ftrace学习笔记1" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -714,8 +900,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" itemprop="commentCount"></span>
+    <a title="valine" href="/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -733,7 +919,7 @@
           <p>根据之前的学习笔记整理, 介绍ftrace的一些基本知识，以及几个基础的tracer。不过读者 要是有时间，建议可以浏览下kernel源码中有关ftrace的使用介绍：linux-src/Documentation/trace/</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/07/17/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
+              <a class="btn" href="/ftrace%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -757,7 +943,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -771,7 +957,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" class="post-title-link" itemprop="url">一个服务器的配置过程</a>
+            <a href="/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" class="post-title-link" itemprop="url">一个服务器的配置过程</a>
         </h2>
 
         <div class="post-meta">
@@ -780,13 +966,19 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2021-07-17 11:13:49 / 修改时间：14:40:31" itemprop="dateCreated datePublished" datetime="2021-07-17T11:13:49+08:00">2021-07-17</time>
+              <time title="创建时间：2021-07-17 11:13:49" itemprop="dateCreated datePublished" datetime="2021-07-17T11:13:49+08:00">2021-07-17</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
 
           
-            <span id="/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" class="post-meta-item leancloud_visitors" data-flag-title="一个服务器的配置过程" title="阅读次数">
+            <span id="/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" class="post-meta-item leancloud_visitors" data-flag-title="一个服务器的配置过程" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -801,8 +993,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" itemprop="commentCount"></span>
+    <a title="valine" href="/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -820,7 +1012,7 @@
           <p>本文记录一次配置服务器的过程，如果你手上有一台服务器，要自己安装Linux 操作系统给同组的几个开发人员用, 就可以参考本文。本文介绍一些要考虑的基本内容</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/07/17/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/">
+              <a class="btn" href="/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -844,7 +1036,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
+    <link itemprop="mainEntityOfPage" href="http://example.com/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -858,7 +1050,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/07/17/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-title-link" itemprop="url">Linux中断学习笔记1</a>
+            <a href="/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-title-link" itemprop="url">Linux中断学习笔记1</a>
         </h2>
 
         <div class="post-meta">
@@ -875,11 +1067,11 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-07-19 20:37:31" itemprop="dateModified" datetime="2021-07-19T20:37:31+08:00">2021-07-19</time>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
               </span>
 
           
-            <span id="/2021/07/17/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-meta-item leancloud_visitors" data-flag-title="Linux中断学习笔记1" title="阅读次数">
+            <span id="/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-meta-item leancloud_visitors" data-flag-title="Linux中断学习笔记1" title="阅读次数">
               <span class="post-meta-item-icon">
                 <i class="fa fa-eye"></i>
               </span>
@@ -894,8 +1086,8 @@
       </span>
       <span class="post-meta-item-text">Valine：</span>
     
-    <a title="valine" href="/2021/07/17/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" itemprop="commentCount"></span>
+    <a title="valine" href="/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" itemprop="commentCount"></span>
     </a>
   </span>
   
@@ -913,187 +1105,7 @@
           <p>N年前学习Linux中断的一个笔记，当时要支持GPIO做为中断使用</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/07/17/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/%E7%94%A8%E6%88%B7%E6%80%81%E4%B8%8B%E4%BD%BF%E7%94%A8gpio%E4%B8%AD%E6%96%AD/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/07/17/%E7%94%A8%E6%88%B7%E6%80%81%E4%B8%8B%E4%BD%BF%E7%94%A8gpio%E4%B8%AD%E6%96%AD/" class="post-title-link" itemprop="url">用户态下使用gpio中断</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-07-17 11:09:20" itemprop="dateCreated datePublished" datetime="2021-07-17T11:09:20+08:00">2021-07-17</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2021-07-18 21:21:55" itemprop="dateModified" datetime="2021-07-18T21:21:55+08:00">2021-07-18</time>
-              </span>
-
-          
-            <span id="/2021/07/17/%E7%94%A8%E6%88%B7%E6%80%81%E4%B8%8B%E4%BD%BF%E7%94%A8gpio%E4%B8%AD%E6%96%AD/" class="post-meta-item leancloud_visitors" data-flag-title="用户态下使用gpio中断" title="阅读次数">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-eye"></i>
-              </span>
-              <span class="post-meta-item-text">阅读次数：</span>
-              <span class="leancloud-visitors-count"></span>
-            </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Valine：</span>
-    
-    <a title="valine" href="/2021/07/17/%E7%94%A8%E6%88%B7%E6%80%81%E4%B8%8B%E4%BD%BF%E7%94%A8gpio%E4%B8%AD%E6%96%AD/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/%E7%94%A8%E6%88%B7%E6%80%81%E4%B8%8B%E4%BD%BF%E7%94%A8gpio%E4%B8%AD%E6%96%AD/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>linux内核中的gpio驱动可以使用内核中提供的gpio驱动框架来实现(drivers/gpio/gpiolib.c) 该框架使用sys文件系统把gpio暴露给用户态程序使用，本文介绍怎么在用户态下使用 gpio提供的中断功能。在介绍使用的同时，介绍一些涉及到的内部的实现过程</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/07/17/%E7%94%A8%E6%88%B7%E6%80%81%E4%B8%8B%E4%BD%BF%E7%94%A8gpio%E4%B8%AD%E6%96%AD/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/2021/07/17/ubuntu%E5%8C%85%E7%AE%A1%E7%90%86%E7%AC%94%E8%AE%B0/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/2021/07/17/ubuntu%E5%8C%85%E7%AE%A1%E7%90%86%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">ubuntu包管理笔记</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2021-07-17 11:08:39 / 修改时间：15:39:32" itemprop="dateCreated datePublished" datetime="2021-07-17T11:08:39+08:00">2021-07-17</time>
-            </span>
-
-          
-            <span id="/2021/07/17/ubuntu%E5%8C%85%E7%AE%A1%E7%90%86%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="ubuntu包管理笔记" title="阅读次数">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-eye"></i>
-              </span>
-              <span class="post-meta-item-text">阅读次数：</span>
-              <span class="leancloud-visitors-count"></span>
-            </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Valine：</span>
-    
-    <a title="valine" href="/2021/07/17/ubuntu%E5%8C%85%E7%AE%A1%E7%90%86%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/2021/07/17/ubuntu%E5%8C%85%E7%AE%A1%E7%90%86%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>apt、dpkg是使用ubuntu系统常用的软件包管理的工具。他们可以完成软件的自动 下载和安装。本文介绍他们的一些用法</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/2021/07/17/ubuntu%E5%8C%85%E7%AE%A1%E7%90%86%E7%AC%94%E8%AE%B0/">
+              <a class="btn" href="/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -1182,7 +1194,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">174</span>
+          <span class="site-state-item-count">176</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -1193,14 +1205,14 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">78</span>
+        <span class="site-state-item-count">77</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
 </div>
   <div class="links-of-author motion-element">
       <span class="links-of-author-item">
-        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fa fa-envelope fa-fw"></i>E-Mail</a>
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
       </span>
       <span class="links-of-author-item">
         <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>

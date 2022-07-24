@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="N年前学习Linux中断的一个笔记，当时要支持GPIO做为中断使用">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux中断学习笔记1">
+<meta property="og:url" content="http://example.com/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="N年前学习Linux中断的一个笔记，当时要支持GPIO做为中断使用">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-17T03:12:26.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.814Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux中断学习笔记1 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux中断学习笔记1
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-17 11:12:26" itemprop="dateCreated datePublished" datetime="2021-07-17T11:12:26+08:00">2021-07-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+            <span id="/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" class="post-meta-item leancloud_visitors" data-flag-title="Linux中断学习笔记1" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/Linux%E4%B8%AD%E6%96%AD%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B01/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">N年前学习Linux中断的一个笔记，当时要支持GPIO做为中断使用</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="硬件"><a href="#硬件" class="headerlink" title="硬件"></a>硬件</h2><p>  cpu在正常执行一条条指令的时候，可以由于某些原因跳到一些异常处理程序，执行一些<br>  代码，然后再返回原来的程序运行。按照触发异常的源头，异常包括：</p>
+<ol>
+<li><p>中断，异步的由外部器件发起，cpu响应后，保存现场，然后跳到特定位置执行，然后返回<br>中断处继续执行下面的程序</p>
+</li>
+<li><p>同步中断，由系统中一些错误的指令引起（比如除零，非法指令等），是和cpu同步的。<br>软中断（实现系统调用的地方）就是人为的通过指令来产生一个异常，然后cpu切换工作模式，<br>对应的进入内核空间开始执行代码</p>
+</li>
+</ol>
+<p>  中断系统的整个硬件包括：cpu,中断控制器，外设。在arm体系中这里的cpu指的是cpu核，<br>  中断控制器一般是标准的gic,通常gic已经被Soc厂商集成在Soc中了, gic的输出接cpu核<br>  上的irq和frq引脚, gic的输入接Soc内各ip模块的中断产生引脚, ip模块对应的中断线<br>  （gic上的输入引脚）在Soc内已经定死。不清楚gic的输入引脚可否直接连Soc的io管脚</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">  Soc pin |  in Soc:</span><br><span class="line">   \--&gt;      -|--ip模块中断控制----&gt;gic中断控制----&gt;cpu中断控制  </span><br><span class="line">              | </span><br></pre></td></tr></table></figure>
+<p>  一个中断从发起到cpu接收到的流程可以用上面的图来表示,需要配置各个中断控制中的<br>  相关寄存器，使得中断在物理上被cpu接收到</p>
+<h2 id="中断实现"><a href="#中断实现" class="headerlink" title="中断实现 "></a>中断实现 </h2><p>  linux内核和中断相关的核心数据结构有：struct irq_desc (linux/irqdesc.h), 每个<br>  中断号对应着一个这样的结构，所有的irq_desc以数组或是树的形式存在</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">  struct irq_desc</span><br><span class="line">      |--&gt; struct irq_data irq_data -----&gt; |-&gt; mask,irq,hwirq,state_use_accessors</span><br><span class="line">      |                                                           |-&gt; struct irq_chip *chip</span><br><span class="line">      |                                                           |-&gt; struct irq_domain *domain </span><br><span class="line">      |                                                           |-&gt; void *handler_data, *chip_data...</span><br><span class="line">      |--&gt; irq_flow_handler_t handle_irq   </span><br><span class="line">      |--&gt; struct irqaction *action ----&gt;|-&gt; irq_handler_t handler, thread_fn</span><br><span class="line">      |--&gt; raw_spinlock_t lock           |-&gt; void *dev_id, int irq, flags</span><br><span class="line">      |--&gt; struct proc_dir_entry *dir    |-&gt; unsigned long thread_flags, thread_mask</span><br><span class="line">      |--&gt; const char *name...           |-&gt; const char *name</span><br><span class="line">      |-&gt; struct proc_dir_entry *dir...</span><br></pre></td></tr></table></figure>
+<p>  对着上面的数据结构分析中断流程:(arm体系)</p>
+<p>  中断被cpu接收到之后，汇编程序处理后调用的第一个程序是：<br>  asm_do_IRQ(unsigned int irq, struct pt_regs *regs)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">        --&gt;handle_IRQ(irq, regs);</span><br><span class="line">             --&gt;struct pt_regs *old_regs = set_irq_regs(regs);</span><br><span class="line">             irq_enter();</span><br><span class="line">             generic_handle_irq(irq);</span><br><span class="line">                  --&gt;generic_handle_irq_desc(irq, desc);</span><br><span class="line">                             --&gt;desc-&gt;handle_irq(irq, desc);</span><br><span class="line">     irq_exit();</span><br><span class="line">     set_irq_regs(old_regs);</span><br></pre></td></tr></table></figure>
+
+<p>  最后调用的 handle_irq() 是注册在对应irq_desc中的的中断流函数, 处理中断嵌套等问题<br>  一般电平中断用标准的: handle_level_irq() (kernel/irq/chip.c)<br>      边沿中断用标准的: handle_edge_irq(), 上面的chip.c还有另外几种中断流函数,接着<br>  中断流函数向下分析:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">  handle_edge_irq(unsigned int irq, struct irq_desc *desc)</span><br><span class="line">      --&gt;raw_spin_lock(&amp;desc-&gt;lock);</span><br><span class="line">      ...</span><br><span class="line">     desc-&gt;irq_data.chip-&gt;irq_ack(&amp;desc-&gt;irq_data); </span><br><span class="line">     ...</span><br><span class="line">    handle_irq_event(desc);</span><br><span class="line">     --&gt;struct irqaction *action = desc-&gt;action;</span><br><span class="line">     raw_spin_unlock(&amp;desc-&gt;lock);</span><br><span class="line">     handle_irq_event_percpu(desc, action);</span><br><span class="line">     --&gt;...</span><br><span class="line">            action-&gt;handler(irq, action-&gt;dev_id);</span><br><span class="line">          ...</span><br><span class="line">     raw_spin_lock(&amp;desc-&gt;lock);</span><br><span class="line"> raw_spin_unlock(&amp;desc-&gt;lock);</span><br></pre></td></tr></table></figure>
+<p>  <br>  最后调用的 handle()就是request_irq中注册的中断处理函数, 对应irq_desc中的action <br>  中的handler。上面的中断流函数中调用了irq_ack(), irq_ack()是注册在irq_chip中的<br>  函数, 最上面的数据结构显示irq_chip在irq_desc中的irq_data中</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">  struct irq_chip &#123;</span><br><span class="line">    ...</span><br><span class="line">void (*irq_enable)(struct irq_data *data);</span><br><span class="line">void (*irq_ack)(struct irq_data *data);</span><br><span class="line">void (*irq_mask)(struct irq_data *data);</span><br><span class="line">void (*irq_unmask)(struct irq_data *data);</span><br><span class="line">void (*irq_eoi)(struct irq_data *data);</span><br><span class="line">int (*irq_set_type)(struct irq_data *data, unsigned int flow_type);</span><br><span class="line">    ...</span><br><span class="line">unsigned long flags;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+<p>  irq_chip包括和硬件相关的一组回调函数，他们直接操作中断相关的寄存器, 比如irq_enble<br>  使能中断线，irq_mask屏蔽中断线</p>
+<h2 id="中断使用"><a href="#中断使用" class="headerlink" title="中断使用"></a>中断使用</h2><p>  在驱动程序中只需要调用request_irq()注册中断处理程序即可使用中断，上面的中断实现<br>  为我们做了很多工作。注册中断和释放中断：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line">request_irq(unsigned int irq, irq_handler_t handler, unsigned long flags,</span><br><span class="line">const char *name, void *dev)</span><br><span class="line">    request_irq有可能会睡眠，里面会调用kmalloc()分配内存</span><br><span class="line">    free_irq(unsigned int irq, void *dev_id)</span><br><span class="line">```  </span><br><span class="line"></span><br><span class="line">  中断处理函数: irqreturn_t handler(int irq, void *dev_id) 无需要可重入，一个中</span><br><span class="line">  断在执行的时候，相同的中断在其他的所有的处理器上的中断线都会被屏蔽?</span><br><span class="line"></span><br><span class="line">  request_irq()中使用中断号irq注册中断处理函数, 一个中断号也可以注册多个处理函数。</span><br><span class="line">  中断发生了，cpu就跳去执行中断处理函数，一个外设也可以发出几个不同的中断, 这时</span><br><span class="line">  可以在外设的驱动程序中注册多个中断处理函数</span><br><span class="line"></span><br><span class="line">  当外设的中断引脚和gic的输入直接相连时,直接注册中断处理函数就可以使用中断。这是</span><br><span class="line">  因为gic的驱动程序(drivers/irqchip/irq-gic.c)已经实现了开头的数据结构和回调函数,</span><br><span class="line">  其中包括：gic对应的irq_chip中的回调函数(这些回调函数操作gic的输入，可以mask,</span><br><span class="line">  unmask, enable等等?), gic对应的中断流函数(gic_handle_irq()?)</span><br><span class="line"></span><br><span class="line">  若是Soc内部的ip存在中断控制，比如gpio, 它一端接N个输入管脚，每个输入管脚可以接</span><br><span class="line">  收中断，它的中断输出接一个gic的输入，也就是说gpio的N个管脚上的中断输入，都反应</span><br><span class="line">  在gic的一个输入上。gpio中也有一组寄存器可以控制中断(enable, mask, unmask gpio</span><br><span class="line">  输入管脚上的中断)。这时我们要自己为这些中断建立开头的那写数据结构和回调函数</span><br><span class="line">  </span><br><span class="line">中断流函数</span><br><span class="line">----------</span><br><span class="line">   </span><br><span class="line">   以一个gpio控制器的驱动程序为例说明，linux内核中各个厂商的gpio驱动在/drivers/gpio</span><br><span class="line">   内, 以gpio-mvebu.c来分析</span><br><span class="line">   </span><br><span class="line">   irq = platform_get_irq(pdev, i) 取出gpio对应的中断号，这个中断号是系统一开是就</span><br><span class="line">   定好的，是gic给gpio分配的中断号，这一个中断号可以对应gpio的多个输入。当gpio</span><br><span class="line">   引脚配置成中断引脚时，任何一个引脚上产生的中断都通过这个中断号上报给gic</span><br></pre></td></tr></table></figure>
+<p>irq_set_handler_data(irq, mvchip)<br>   –&gt;desc-&gt;irq_data.handler_data = data;</p>
+<p>irq_set_chained_handler(irq, mvebu_gpio_irq_handler)<br>   –&gt;__irq_set_handler(irq, handle, 1, NULL); // 1 表示：is_chained<br>   desc-&gt;handled_irq = handle;<br>         <br>mvchip-&gt;irqbase = irq_alloc_descs(-1, 0, ngpios, -1)<br>__irq_alloc_descs(irq, from, cnt, node, THIS_MODULE)<br>   –&gt;start=bitmap_find_next_zero_area(allocated_irqs,IRQ_BITMAP_BITS,from,cnt,0);<br>            bitmap_set(allocated_irqs, start, cnt);<br>   alloc_descs(start, cnt, node, owner);<br>    以上分配了ngpios个连续的中断号，最后返回的是第一个中断号</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">```</span><br><span class="line">gc = irq_alloc_generic_chip(&quot;mvebu_gpio_irq&quot;, 2, mvchip-&gt;irqbase,</span><br><span class="line">   mvchip-&gt;membase, handle_level_irq); </span><br><span class="line">   --&gt;struct irq_chip_generic *gc;</span><br><span class="line">   unsigned long sz = sizeof(*gc) + num_ct * sizeof(struct irq_chip_type);</span><br><span class="line">   gc = kzalloc(sz, GFP_KERNEL);</span><br><span class="line">            irq_init_generic_chip(gc, name, num_ct, irq_base, reg_base, handler);</span><br><span class="line">        --&gt; raw_spin_lock_init(&amp;gc-&gt;lock);</span><br><span class="line">                gc-&gt;num_ct = num_ct;</span><br><span class="line">                gc-&gt;irq_base = irq_base;</span><br><span class="line"></span><br><span class="line">                gc-&gt;reg_base = reg_base;</span><br><span class="line"></span><br><span class="line">                gc-&gt;chip_types-&gt;chip.name = name;</span><br><span class="line"></span><br><span class="line">                gc-&gt;chip_types-&gt;handler = handler;</span><br></pre></td></tr></table></figure>
+<p>以上动态分配了一个irq_chip_generic结构, 然后用之前分配的连续中断号中的第一个<br>中断号填充irq_base, 并且填充中断流函数</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">    stuct irq_chip_generic</span><br><span class="line">    |--&gt; irq_base</span><br><span class="line">    |--&gt; u32 mask_cache, tpye_cache</span><br><span class="line">    |--&gt; void *private</span><br><span class="line">    |...</span><br><span class="line">    |--&gt; struct irq_chip_type chip_types[0]---&gt;|--&gt; struct irq_chip</span><br><span class="line">    |                                                                         |--&gt; irq_flow_handler_t handler</span><br><span class="line">                                                                              |--&gt; type</span><br><span class="line">                                                                              |...</span><br><span class="line">gc-&gt;private = mvchip; // gc: *irq_chip_generic </span><br><span class="line">ct = &amp;gc-&gt;chip_types[0]; // ct: *irq_chip_type</span><br><span class="line">ct-&gt;type = IRQ_TYPE_LEVEL_HIGH | IRQ_TYPE_LEVEL_LOW;</span><br><span class="line">ct-&gt;chip.irq_mask = mvebu_gpio_level_irq_mask;</span><br><span class="line">ct-&gt;chip.irq_unmask = mvebu_gpio_level_irq_unmask;</span><br><span class="line">ct-&gt;chip.irq_set_type = mvebu_gpio_irq_set_type;</span><br><span class="line">ct-&gt;chip.name = mvchip-&gt;chip.label;</span><br></pre></td></tr></table></figure>
+
+<p>以上向irq_chip中注册了相应的回调函数，这些回调函数处理gpio中断相关，如mask,<br>ack, unmask gpio中断线。现在irq_desc结构也分配好了, irq_chip中的回调函数也注册<br>好了, 需要做的是向irq_desc中注册相应的irq_chip</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">irq_setup_generic_chip(gc, IRQ_MSK(ngpios), 0,</span><br><span class="line">      IRQ_NOREQUEST, IRQ_LEVEL | IRQ_NOPROBE);</span><br><span class="line">        --&gt;list_add_tail(&amp;gc-&gt;list, &amp;gc_list);</span><br><span class="line">irq_set_chip_and_handler(i, chip, ct-&gt;handler); // for loop to do this</span><br><span class="line">irq_set_chip_data(i, gc);</span><br></pre></td></tr></table></figure>
+<p>以上先把上面动态生成的irq_chip_generic结构加入gc_list链表，然后向之前申请的<br>irq_desc注册各自的irq_chip和中断流函数</p>
+<p>mvchip-&gt;domain = irq_domain_add_simple(); <br>添加一个irq_domain, 作用暂时不清楚</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E7%94%A8%E6%88%B7%E6%80%81%E4%B8%8B%E4%BD%BF%E7%94%A8gpio%E4%B8%AD%E6%96%AD/" rel="prev" title="用户态下使用gpio中断">
+      <i class="fa fa-chevron-left"></i> 用户态下使用gpio中断
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/%E4%B8%80%E4%B8%AA%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%85%8D%E7%BD%AE%E8%BF%87%E7%A8%8B/" rel="next" title="一个服务器的配置过程">
+      一个服务器的配置过程 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%A1%AC%E4%BB%B6"><span class="nav-number">1.</span> <span class="nav-text">硬件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%AD%E6%96%AD%E5%AE%9E%E7%8E%B0"><span class="nav-number">2.</span> <span class="nav-text">中断实现 </span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%AD%E6%96%AD%E4%BD%BF%E7%94%A8"><span class="nav-number">3.</span> <span class="nav-text">中断使用</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

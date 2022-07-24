@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文梳理在qemu里增加一个指令的前端解码的基本逻辑。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="在qemu里增加指令的前端解码">
+<meta property="og:url" content="http://example.com/%E5%9C%A8qemu%E9%87%8C%E5%A2%9E%E5%8A%A0%E6%8C%87%E4%BB%A4%E7%9A%84%E5%89%8D%E7%AB%AF%E8%A7%A3%E7%A0%81/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文梳理在qemu里增加一个指令的前端解码的基本逻辑。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-12-25T15:56:02.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.846Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="QEMU">
+<meta property="article:tag" content="虚拟化">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/%E5%9C%A8qemu%E9%87%8C%E5%A2%9E%E5%8A%A0%E6%8C%87%E4%BB%A4%E7%9A%84%E5%89%8D%E7%AB%AF%E8%A7%A3%E7%A0%81/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>在qemu里增加指令的前端解码 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/%E5%9C%A8qemu%E9%87%8C%E5%A2%9E%E5%8A%A0%E6%8C%87%E4%BB%A4%E7%9A%84%E5%89%8D%E7%AB%AF%E8%A7%A3%E7%A0%81/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          在qemu里增加指令的前端解码
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-12-25 23:56:02" itemprop="dateCreated datePublished" datetime="2021-12-25T23:56:02+08:00">2021-12-25</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+            <span id="/%E5%9C%A8qemu%E9%87%8C%E5%A2%9E%E5%8A%A0%E6%8C%87%E4%BB%A4%E7%9A%84%E5%89%8D%E7%AB%AF%E8%A7%A3%E7%A0%81/" class="post-meta-item leancloud_visitors" data-flag-title="在qemu里增加指令的前端解码" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/%E5%9C%A8qemu%E9%87%8C%E5%A2%9E%E5%8A%A0%E6%8C%87%E4%BB%A4%E7%9A%84%E5%89%8D%E7%AB%AF%E8%A7%A3%E7%A0%81/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/%E5%9C%A8qemu%E9%87%8C%E5%A2%9E%E5%8A%A0%E6%8C%87%E4%BB%A4%E7%9A%84%E5%89%8D%E7%AB%AF%E8%A7%A3%E7%A0%81/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文梳理在qemu里增加一个指令的前端解码的基本逻辑。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="qemu基础逻辑"><a href="#qemu基础逻辑" class="headerlink" title="qemu基础逻辑"></a>qemu基础逻辑</h2><p> qemu虚拟机提供两种CPU实现的方式，一种是基于中间码的实现，一种是基于KVM的实现。</p>
+<p> 第一种方式，我们一般叫tcg(tiny code generator)，这种方式的基本思路是用纯软件的<br> 方式把target CPU的指令先翻译成所谓的中间码，然后再把中间码翻译成host CPU 的指令，<br> 我们把target CPU指令翻译成中间码的过程叫整个过程的前端，中间码翻译成host CPU的<br> 过程对应的叫做后端。给qemu增加一个新CPU的模型需要既增加前端也增加后端，如果要把<br> 整个系统支持起来，还要增加基础设备以及user mode的支持，整个系统的支持的逻辑不在<br> 本文档里展开，本文只聚焦于前端的相关逻辑。如果目的是在一个成熟的平台上验证另一个<br> 新的CPU，比如在x86机器上跑riscv的虚拟机，验证riscv的逻辑，只需要加上riscv指令到<br> 中间码这个前端支持就好，因为中间码到x86的后端已经存在；如果目的是，比如在一台riscv<br> 的机器上模拟x86，就需要加中间码到riscv的后端支持，我们这里以riscv为例子，把它作为<br> 一个需要支持的CPU构架。</p>
+<p> 一个完整的riscv到中间码前端支持的例子可以参考：<br> <span class="exturl" data-url="aHR0cHM6Ly9sb3JlLmtlcm5lbC5vcmcvYWxsLzE1MTkzNDQ3MjktNzM0ODItMS1naXQtc2VuZC1lbWFpbC1tamNAc2lmaXZlLmNvbQ==">https://lore.kernel.org/all/1519344729-73482-1-git-send-email-mjc@sifive.com<i class="fa fa-external-link-alt"></i></span></p>
+<p> 以riscv为例子，体系相关的前端的代码在：target/riscv/，后端的代码在：tcg/riscv/，<br> 基础外设和machine的代码在hw/riscv/</p>
+<p> 基于KVM的方式，直接使用host CPU执行target CPU的指令，性能接近host上的性能，但是<br> 需要target CPU和host CPU是相同的构架。本文不讨论KVM的逻辑。</p>
+<h2 id="qemu-tcg前端解码逻辑"><a href="#qemu-tcg前端解码逻辑" class="headerlink" title="qemu tcg前端解码逻辑"></a>qemu tcg前端解码逻辑</h2><p> 把target cpu指令翻译成host cpu指令有两种方式，一种是使用helper函数，一种是使用<br> tiny code generator函数的方式。helper函数的方式还没有分析，现在只看tcg的方式。</p>
+<p> 我们把逻辑拉高一层看问题，所谓target CPU的运行，实际上是根据target CPU指令流去<br> 不断的改变target CPU软件描述结构里的数据状态，因为实际的代码要运行到host CPU上，<br> 所以，target代码要被翻译成host代码，才可以执行，通过执行改变target CPU的数据状态。<br> qemu为了解耦把target CPU代码先翻译成中间码，那么翻译成的中间码的语义也就是改变<br> target CPU数据状态的一组描述语句，所以target CPU状态参数会被当做入参传入中间码<br> 描述语句。这组中间码是改变CPU状态的抽象的描述，有些CPU上的状态不好抽象成一般的<br> 描述就用helper函数的方式补充，所以helper函数也是改变target CPU状态的描述。</p>
+<p> tcg的方式，我们要使用tcg_gen_xxx的函数组织逻辑描述target CPU指令对target CPU状态<br> 的改变。一些公共的代码是可以自动生成的，qemu里使用decode tree的方式自动生成这一部<br> 分代码。</p>
+<p> 以riscv的代码来具体说明。qemu定义了一组target CPU指令的描述格式，说明文档在：<br> docs/devel/decodetree.rst，riscv的指令描述在target/riscv/insn16.decode、insn32.decode<br> 里，qemu编译的时候会解析.decode文件，生成对应的定义和函数，生成的文件放在<br> qemu/build/libqemu-riscv64-softmmu.fa.p/decode-insn32.c.inc，decode-insn16.c.inc里。<br> 这些文件生成的trans_xxx函数需要自己实现，riscv的这部分实现是放在了在target/riscv/insn_trans/*里。<br> 生成的文件里有两个很大的解码函数decode-insn32.c.inc和decode-insn16.c.inc，qemu<br> 把target CPU指令翻译成中间码的时候就需要调用上面两个解码函数。</p>
+<p> 我们用riscv user mode的代码来看看上层具体调用关系。qemu提供system mode和user mode<br> 的模拟方式，其中system mode会完整模拟整个系统，一个完整的OS可以运行在这个模拟的<br> 系统上，user mode只是支持加载一个target CPU构架的用户态程序来跑，对于一般指令<br> 使用tcg的方式翻译执行，对于用户态程序里的系统调用，user mode代码里模拟实现了系统<br> 调用的语意。linux user mode的代码在qemu/linux-user/*，具体的调用过程如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">/* qemu/linux-user/main.c */</span><br><span class="line">main</span><br><span class="line">  +-&gt; cpu_loop</span><br><span class="line">    +-&gt; cpu_exec</span><br><span class="line">      +-&gt; tb_gen_code</span><br><span class="line">      |     /* qemu/target/riscv/trannslate.c */</span><br><span class="line">      | +-&gt; gen_intermediate_code</span><br><span class="line">      | | +-&gt; translator_loop(&amp;riscv_tr_ops, xxx)</span><br><span class="line">      | |       /* riscv_tr_translate_insn */</span><br><span class="line">      | |   +-&gt; ops-&gt;translator_insn</span><br><span class="line">      | |     +-&gt; decode_ops</span><br><span class="line">      | |       +-&gt; decode_insn16</span><br><span class="line">      | |       +-&gt; decode_insn32</span><br><span class="line">      | +-&gt; tcg_gen_code</span><br><span class="line">      |   +-&gt; tcg_out_xxx</span><br><span class="line">      +-&gt; cpu_loop_exec_tb</span><br></pre></td></tr></table></figure>
+<p> gen_intermediate_code是前端的解码函数，把target CPU的指令翻译成tcg中间码。tcg_gen_code<br> 是后端，把中间码翻译成host CPU上的指令，其中tcg_out_xxx的一组函数做具体的翻译工作。</p>
+<p> 基本逻辑就是这样。下面展开其中的各个细节看下，细节上大概有这么几块：</p>
+<ol>
+<li>tcg整个翻译流程构架分析</li>
+<li>decode tree的语法</li>
+<li>tcg trans_xxx函数的语法</li>
+</ol>
+<h2 id="tcg翻译流程"><a href="#tcg翻译流程" class="headerlink" title="tcg翻译流程"></a>tcg翻译流程</h2><p> 整个tcg前后端的翻译流程按指令块的粒度来搞，收集一个指令块翻译成中间码，然后把<br> 中间码翻译成host CPU指令，整个过程动态执行。为了加速翻译，qemu把翻译成的host<br> CPU指令块做了缓存，tcg前端解码的时候，先在缓存里找，如果找见就直接执行。</p>
+<p> 大致的代码调用关系如上。</p>
+<h2 id="decode-tree语法"><a href="#decode-tree语法" class="headerlink" title="decode tree语法"></a>decode tree语法</h2><p> 因为CPU指令编码总是一组一组的，就可以用decode去描述这些固定的结构。</p>
+<p> decode tree里定义了几个描述：field，argument，format，pattern，group。依次看看<br> 他们是怎么用的。只记录要注意的点，细节还是直接看decodetree.rst这个文档。</p>
+<p> CPU在解码的时候总要把指令中的特性field中的数据取出作为入参(寄存器编号，立即数，操作码等)，<br> field描述一个指令编码中特定的域段，根据描述可以生成取对应域段的函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">+---------------------------+---------------------------------------------+</span><br><span class="line">| Input                     | Generated code                              |</span><br><span class="line">+===========================+=============================================+</span><br><span class="line">| %disp   0:s16             | sextract(i, 0, 16)                          |</span><br><span class="line">+---------------------------+---------------------------------------------+</span><br><span class="line">| %imm9   16:6 10:3         | extract(i, 16, 6) &lt;&lt; 3 | extract(i, 10, 3)  |</span><br><span class="line">+---------------------------+---------------------------------------------+</span><br><span class="line">| %disp12 0:s1 1:1 2:10     | sextract(i, 0, 1) &lt;&lt; 11 |                   |</span><br><span class="line">|                           |    extract(i, 1, 1) &lt;&lt; 10 |                 |</span><br><span class="line">|                           |    extract(i, 2, 10)                        |</span><br><span class="line">+---------------------------+---------------------------------------------+</span><br><span class="line">| %shimm8 5:s8 13:1         | expand_shimm8(sextract(i, 5, 8) &lt;&lt; 1 |      |</span><br><span class="line">|   !function=expand_shimm8 |               extract(i, 13, 1))            |</span><br><span class="line">+---------------------------+---------------------------------------------+</span><br></pre></td></tr></table></figure>
+<p> 上面的定义中，一个数据，比如一个立即数，可能是多个域段拼成的，所以就有相应的<br> 移位操作，再比如有些立即数是编码域段的数值取出来后再进过简单运算得到的，field定义<br> 中带的函数就可以完成这样的计算。</p>
+<p> argument用来定义数据结构，比如，riscv insn32.decode里定义的: &amp;b imm rs2 rs1，<br> 编译后的decode-insn32.c.inc里生成的数据结构：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">typedef struct &#123;</span><br><span class="line">    int imm;</span><br><span class="line">    int rs2;</span><br><span class="line">    int rs1;</span><br><span class="line">&#125; arg_b;</span><br></pre></td></tr></table></figure>
+
+<p> format定义指令的格式。比如；</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">@opr    ...... ra:5 rb:5 ... 0 ....... rc:5</span><br><span class="line">@opi    ...... ra:5 lit:8    1 ....... rc:5</span><br></pre></td></tr></table></figure>
+<p> 比如上面就是对一个32bit指令编码的描述，.表示一个0或者1的bit位，描述里可以用<br> field、之前定义的filed的引用、argument的引用，field的引用还可以赋值。field可以<br> 用来匹配，argument用来生成trans_xxx函数的入参。</p>
+<p> pattern用来定义具体指令。比如riscv32里的lui指令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">lui      ....................       ..... 0110111 @u</span><br><span class="line"></span><br><span class="line">@u       ....................      ..... ....... &amp;u      imm=%imm_u          %rd</span><br><span class="line">%imm_u    12:s20                 !function=ex_shift_12</span><br><span class="line">%rd        7:5</span><br></pre></td></tr></table></figure>
+<p> 上面把相关的formate、argument、field的定义也列了出来。可以看到lui的操作码是0110111，<br> 31-12bit是立即数，11-7是rd寄存器的标号，其中立即数要把31-12bit的数值左移12bit。<br> 可以看到riscv里对应的trans函数的实现是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">static bool trans_lui(DisasContext *ctx, arg_lui *a)</span><br><span class="line">&#123;</span><br><span class="line">    if (a-&gt;rd != 0) &#123;</span><br><span class="line">        tcg_gen_movi_tl(cpu_gpr[a-&gt;rd], a-&gt;imm);</span><br><span class="line">    &#125;</span><br><span class="line">    return true;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> 用生成的立即数更新rd寄存器。</p>
+<p> group定指令解码的组合，这个用的不多。</p>
+<h2 id="trans-xxx函数的逻辑"><a href="#trans-xxx函数的逻辑" class="headerlink" title="trans_xxx函数的逻辑"></a>trans_xxx函数的逻辑</h2><p> tcg的trans_xxx函数在qemu/tcg/README里很好的介绍，这个文档里介绍了中间码的整套<br> 指令，可以比较容易的把这套指令和对应的trans_xxx函数对上，trans_xxxx函数的作用是<br> 生成这些中间码指令。以riscv上的add指令为例看下，如下是trans_rvi.c.inc里add指令<br> 的模拟。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">static bool trans_add(DisasContext *ctx, arg_add *a)</span><br><span class="line">&#123;</span><br><span class="line">    return gen_arith(ctx, a, &amp;tcg_gen_add_tl);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static bool gen_arith(DisasContext *ctx, arg_r *a,</span><br><span class="line">                      void(*func)(TCGv, TCGv, TCGv))</span><br><span class="line">&#123;</span><br><span class="line">    TCGv source1, source2;</span><br><span class="line">    source1 = tcg_temp_new();</span><br><span class="line">    source2 = tcg_temp_new();</span><br><span class="line"></span><br><span class="line">    gen_get_gpr(source1, a-&gt;rs1);</span><br><span class="line">    gen_get_gpr(source2, a-&gt;rs2);</span><br><span class="line"></span><br><span class="line">    (*func)(source1, source1, source2);</span><br><span class="line"></span><br><span class="line">    gen_set_gpr(a-&gt;rd, source1);</span><br><span class="line">    tcg_temp_free(source1);</span><br><span class="line">    tcg_temp_free(source2);</span><br><span class="line">    return true;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void tcg_gen_addi_i64(TCGv_i64 ret, TCGv_i64 arg1, int64_t arg2);</span><br></pre></td></tr></table></figure>
+<p> tcg_gen_addi_i64可以看到tcg_gen_add_tl的函数入参，riscv的add指令从target CPU的<br> rs1，rs2里取两个加数，相加后放到rd寄存里，所以上面gen_get_gpr就表示生成这样的<br> 中间码：把rs1/2位置上的数据存到source1/2位置上，gen_get_gpr的实现就是:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">tcg_gen_mov_tl(t, cpu_gpr[reg_num])</span><br><span class="line">  -&gt; tcg_gen_mov_i64</span><br><span class="line">    -&gt; tcg_gen_op2_i64(INDEX_op_mov_i64, ret, arg)</span><br><span class="line">      -&gt; tcg_gen_op2(opc, tcgv_i64_arg(a1), tcgv_i64_arg(a2))</span><br><span class="line">        -&gt; TCGOp *op = tcg_emit_op(opc);</span><br><span class="line">        -&gt; op-&gt;args[0] = a1;</span><br><span class="line">        -&gt; op-&gt;args[1] = a2;</span><br></pre></td></tr></table></figure>
+<p> 可以看到最后生成的mov指令先挂到了一个链表里，后面的后端解码会把这些指令翻译成<br> host指令，生成的指令就是qemu/tcg/README里介绍的mov_i32/i64 t0, t1这个指令。这里<br> 有几个逻辑要打通: 1. tcg_temp_new创建的变量存在哪里; 2. cpu_gpr[reg_num]是一个<br> 全局变量，它如何索引到target CPU的寄存器。</p>
+<p> 首先tcg_temp_new分配的空间是在TCGContext tcg_ctx里的，所谓创建一个这样的TCGv就是<br> 在tcg_ctx里用去一个TCGTemp。cpu_gpr[reg_num]可以索引到target CPU寄存器的基本逻辑<br> 是，其实只要在前端和后端约定好描述target CPU的软件结构，cpu_gpr[reg_num]描述的就<br> 时相关寄存器在这个软件结构里的位置。我们再看下这个cpu_gpr[]的初始化逻辑和tcg_ctx<br> 的初始化逻辑，以及后端的编码逻辑就可以打通整个逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">riscv_translate_init</span><br><span class="line">  -&gt; cpu_gpr[i] = tcg_global_mem_new(cpu_env, offsetof(CPURISCVState, gpr[i]), riscv_int_regnames[i]);            </span><br></pre></td></tr></table></figure>
+<p> cpu_env在tcg_context_init(unsigned max_cpus)里初始化，得到的是tcg_ctx里TCGTemp temps<br> 的地址。tcg_global_mem_new一次在tcg_ctx里从TCGTemp temps上分配空间，返回空间在<br> tcg_ctx上的相对地址。这样cpu_gpr[reg_name]就可以作为标记在前端和后端之间建立连接。</p>
+<p> 后端的代码直接把中间码翻译成host指令，中间码中的TCGv直接映射到host CPU的寄存器上，<br> 从逻辑上讲，应该是翻译得到的host代码修改中间码对应TCGv对应的内存才对。这里的基本<br> 逻辑是qemu在生成的中间码中以及TB执行后做了host寄存器到target CPU描述内存之间的<br> 同步。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">/* qemu/tcg/riscv/tcg-target.c.inc */</span><br><span class="line">/* tcg_out_op是整个后端解码体系架构相关的入口函数，每个架构都要做具体实现 */</span><br><span class="line">tcg_out_op</span><br><span class="line">  -&gt; case INDEX_op_add_i64</span><br><span class="line">    -&gt; tcg_out_opc_reg</span><br><span class="line">      -&gt; tcg_out32</span><br></pre></td></tr></table></figure>
+<p> 可以看到add_i64的中间码直接翻译到了host上的寄存器，这里后端的翻译还是拿riscv举例了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">tcg_gen_code</span><br><span class="line">     /* 如上提到的同步代码逻辑在这个函数中 */</span><br><span class="line">  -&gt; default: tcg_reg_alloc_op</span><br><span class="line">    -&gt; 生成用host指令描述的同步逻辑，放在TB里</span><br><span class="line">       /* 生成业务相关的host指令，后端译码的总入口 */</span><br><span class="line">    -&gt; tcg_out_op</span><br></pre></td></tr></table></figure>
+<p> 如上是同步的一个大概逻辑，具体细节需要进一步分析。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"># 虚拟化</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E3%80%8A%E5%A4%A7%E5%AD%A6%E3%80%8B%E9%98%85%E8%AF%BB%E9%80%9F%E8%AE%B0/" rel="prev" title="《大学》阅读速记">
+      <i class="fa fa-chevron-left"></i> 《大学》阅读速记
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/qemu-user-mode%E9%80%9F%E8%AE%B0/" rel="next" title="qemu user mode速记">
+      qemu user mode速记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu%E5%9F%BA%E7%A1%80%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">qemu基础逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu-tcg%E5%89%8D%E7%AB%AF%E8%A7%A3%E7%A0%81%E9%80%BB%E8%BE%91"><span class="nav-number">2.</span> <span class="nav-text">qemu tcg前端解码逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#tcg%E7%BF%BB%E8%AF%91%E6%B5%81%E7%A8%8B"><span class="nav-number">3.</span> <span class="nav-text">tcg翻译流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#decode-tree%E8%AF%AD%E6%B3%95"><span class="nav-number">4.</span> <span class="nav-text">decode tree语法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#trans-xxx%E5%87%BD%E6%95%B0%E7%9A%84%E9%80%BB%E8%BE%91"><span class="nav-number">5.</span> <span class="nav-text">trans_xxx函数的逻辑</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

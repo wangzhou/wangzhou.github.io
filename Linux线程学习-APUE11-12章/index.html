@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Linux线程学习- APUE11&#x2F;12章笔记">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux线程学习- APUE11&#x2F;12章">
+<meta property="og:url" content="http://example.com/Linux%E7%BA%BF%E7%A8%8B%E5%AD%A6%E4%B9%A0-APUE11-12%E7%AB%A0/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="Linux线程学习- APUE11&#x2F;12章笔记">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-06-19T01:43:55.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.818Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="APUE">
+<meta property="article:tag" content="Linux用户态编程">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/Linux%E7%BA%BF%E7%A8%8B%E5%AD%A6%E4%B9%A0-APUE11-12%E7%AB%A0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux线程学习- APUE11/12章 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/Linux%E7%BA%BF%E7%A8%8B%E5%AD%A6%E4%B9%A0-APUE11-12%E7%AB%A0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux线程学习- APUE11/12章
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-06-19 09:43:55" itemprop="dateCreated datePublished" datetime="2021-06-19T09:43:55+08:00">2021-06-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/read/" itemprop="url" rel="index"><span itemprop="name">read</span></a>
+                </span>
+            </span>
+
+          
+            <span id="/Linux%E7%BA%BF%E7%A8%8B%E5%AD%A6%E4%B9%A0-APUE11-12%E7%AB%A0/" class="post-meta-item leancloud_visitors" data-flag-title="Linux线程学习- APUE11/12章" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/Linux%E7%BA%BF%E7%A8%8B%E5%AD%A6%E4%B9%A0-APUE11-12%E7%AB%A0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/Linux%E7%BA%BF%E7%A8%8B%E5%AD%A6%E4%B9%A0-APUE11-12%E7%AB%A0/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">Linux线程学习- APUE11/12章笔记</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <ol>
+<li>线程的创建和退出</li>
+</ol>
+<hr>
+<p> Linux系统下线程和进程的概念是比较模糊的。一般来说，线程是调度的单位，进程是资源<br> 的单位。本质上来说，内核看到都是一个个线程，但是线程之间可以通过共享资源，相互<br> 之间又划分到不同的进程里。</p>
+<p> 从内核视角上看各种不同的ID会比较清楚。之前的这篇文章对进程ID, 线程ID，进程组，<br> 线程组，会话已经有了简单描述：<br> <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzUwNDM3NjI2P3NwbT0xMDAxLjIwMTQuMzAwMS41NTAx">https://blog.csdn.net/scarecrow_byr/article/details/50437626?spm=1001.2014.3001.5501<i class="fa fa-external-link-alt"></i></span></p>
+<p> 在一个进程的多个线程里调用getpid，这个是一个c库对getpid系统调用的封装，所以这<br> 个函数返回调用线程的进程ID, 这个ID其实就是这个线程组的线程组ID，也是这个线程组<br> 的主线程的内核pid，这个从kernel代码kernel/sys.c getpid的系统调用可以看的很清楚。<br> 使用gettid系统调用可以得到一个线程的对应内核pid。</p>
+<p> 而所谓pthread库的pthread_self()得到的只是pthread库自定义的线程ID，这个东西和上<br> 面内核里真正的各种ID是完全不同的。</p>
+<p> 线程的创建用pthread_create, 用的系统调用是clone。我们考虑线程结束的方法，线程执<br> 行完线程函数后自己会退出，这其中也包括线程函数自己调用pthread_exit把自己结束。<br> 线程也可以被进程中的其他线程取消，取消一个线程使用的函数是：pthread_cancel(pthread_t tid)。<br> 用strace跟踪下，可以发现pthread_cancel中的系统调用是tgkill(tgid, tid, SIGRTMIN),<br> 这个系统调用向线程组tgid里的tid线程发送SIGRTMIN信号。</p>
+<p> 线程可以用pthread_jorn在阻塞等待相关线程结束，并且得到线程结束所带的返回值。</p>
+<p> 线程可以注册退出的时候要调用的函数。使用pthread_cleanup_push, pthread_cleanup_pop。<br> 注册的函数在线程调用pthread_exit或者是线程被pthread_cancel的时候执行，线程正常<br> 执行结束时不执行。用strace -f跟踪进程中所有线程的系统调用可以发现，对应的系统调用<br> 是set_robust_list。</p>
+<ol start="2">
+<li>线程同步的锁</li>
+</ol>
+<hr>
+<p> 线程之间共享变量的时候需要加锁，以pthread库为例，我们有pthread_mutex, pthead_spinlock,<br> pthread读写锁。此外我们还可以自己实现锁，这个的好处是不受具体线程库的限制，<br> 不好的地方是，我们自己实现的锁一定没有pthread库实现的性能高。如下的测试代码中<br> 比较了pthread mutex/spinlock，以及自己实现的spinlock的性能:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL2xvY2tfdGVzdC90ZXN0LmM=">https://github.com/wangzhou/tests/blob/master/lock_test/test.c<i class="fa fa-external-link-alt"></i></span></p>
+<p> apue这里的例子11-5很好的展示了一个引用计数的实现方式。<br> 一定要避免A-B/B-A这种交叉加锁的情况，但是注意这里只是加锁，减锁的顺序可以随意。</p>
+<p> 如果一定要出现交叉加锁的情况，要做成如果第二把锁没有抢到(所以，第二把锁要用try<br> 锁)，那么已经锁上的第一把锁也要放开，要留出一条通道把可能的死锁情况放过去。过<br> 一段时间再锁上第一把锁，再try第二把锁。</p>
+<p> 11-6的代码对于交叉加锁的处理方式是，需要上第二把锁的时候，直接放开第一把锁，<br> 然后先上第二把锁，再上第一把锁，由于这个时候有个时间的空隙，可能不满足之前的<br> 条件了，所以要再check下之前需要第二把锁的条件。当然apue举这个例子的目的这里是<br> 为了说明可以简化加锁，需要在复杂度和性能之间权衡。</p>
+<ol start="3">
+<li>条件变量和信号量</li>
+</ol>
+<hr>
+<p> 条件变量和信号量都是为了线程/进程之间同步用的，提供了线程/进程之间相互等待、<br> 通知的机制。简单写一个测试:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvdGhyZWFkLmM=">https://github.com/wangzhou/tests/blob/master/pthread/thread.c<i class="fa fa-external-link-alt"></i></span><br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvc2VtLmM=">https://github.com/wangzhou/tests/blob/master/pthread/sem.c<i class="fa fa-external-link-alt"></i></span><br> 在thread.c和sem.c里都会出现同一个问题，如果不在enqueue_msg函数里unlock和发信号<br> 之间增加时延，会出现发送线程一直持有锁，接收线程得不到锁从而无法及时接收的情况。<br> 测试发现，在unlock和发送信号(比如thread.c的pthread_mutex_unlock和pthread_cond_signal)<br> 之间增加usleep(1)的时延就可以使如上的这种情况不出现。</p>
+<ol start="4">
+<li>线程控制</li>
+</ol>
+<hr>
+<p> pthread库还有很多控制接口，这些接口可以改变如上接口的语义，或者增减新的功能。<br> 比如，每种锁的初始化接口都可以控制这些锁在嵌套加锁、不对称加锁等的语义，遇到<br> 这样的情况，可以配置成容许或者是返回错误值; 可以配置锁在线程之间还是进程之间<br> 共享; 可以配置线程栈的大小等; 可以申请线程的私有数据; 可以使得一个函数只执行<br> 一次。</p>
+<p> 简单写一个线程私有数据的测试:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvcHJpdi5j">https://github.com/wangzhou/tests/blob/master/pthread/priv.c<i class="fa fa-external-link-alt"></i></span><br> 可以看到，pthread_key_t key1的create没有和线程绑定。基本的逻辑是，pthread_key_create<br> 可以在任意一个线程里，pthread_setspecific和pthread_getspecific是在线程里对应的，<br> 在线程A里set的数据，可以在线程A里通过get拿到，但是在另外的一个线程B里对全局的<br> key1使用pthread_getspecific只能拿到NULL。apue里的例子把pthread_key_create放到<br> 了每个线程里，为了只调用一次pthread_key_create, 还介绍只跑一个函数一次的接口：<br> int pthread_once(pthread_once_t *initflag, void (*initfn)(void))，可以想象这个<br> 函数的实现是先上锁，然后检查initflag，initflag没有置上已经跑过的flag就调用initfn，<br> 如果已经跑过就不用跑了。这个只跑一次的接口在某些库的设计里是很有用的，比如一个<br> 库需要在进程使用的时候初始化一次，这里就可以用相似的设计或者直接用这个API。</p>
+<p> 关于信号可以参考如下link，线程和信号的细节内容需要另外描述。<br> <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzk3NjIxNDMyP3NwbT0xMDAxLjIwMTQuMzAwMS41NTAx">https://blog.csdn.net/scarecrow_byr/article/details/97621432?spm=1001.2014.3001.5501<i class="fa fa-external-link-alt"></i></span></p>
+<p> 线程在fork系统调用上遇到的问题，我们自己写一个独立的应用的时候比较难遇到，因为<br> 全局受自己的控制，我们只要一开始fork进程，做好规划就好。但是，当我们要写一个库，<br> 这个库可以被其他上层代码调用，我们的库里又要起独立的线程时，这个问题就会出来。<br> 这个问题的本质是自己写的库里向上层export出了全局的资源，比如，如果库里只出函数<br> 接口，就没有问题，所有库里的资源都在函数的栈上，但是，如果库里有了全局资源，相当<br> 于，我们的库向调用进程里增加了全局的资源，调用进程将需要考虑这些全局资源(当然库<br> 可以向上层的调用者提出诉求或者接口)。具体看，子进程会从父进程那里继承:<br> 全局变量(子进程在没有写之前，如果去读这个变量，依然得到的是父进程里的值，如果拿<br> 这个值去做判断就有可能出错)、各种锁、信号量和条件变量。如果fork出来的进程不是<br> 调用exec系列函数去执行一个新的程序，那么子进程里拥有和父进程一样的锁、信号量和<br> 条件变量。可以通过pthread_atfork提前挂上fork时候的回调函数进行处理，即一定是在<br> prepare回调里先获取所有的锁，在parent、child里再释放所有的锁，注意这里的获取释放<br> 的操作和父进程里的可能获取锁的行为做了互斥。</p>
+<p> preaed/pwrite可以保证多线程对一个fd的操作是原子的。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/APUE/" rel="tag"># APUE</a>
+              <a href="/tags/Linux%E7%94%A8%E6%88%B7%E6%80%81%E7%BC%96%E7%A8%8B/" rel="tag"># Linux用户态编程</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E4%BD%BF%E7%94%A8eBPF%E5%BE%97%E5%88%B0%E5%86%85%E6%A0%B8%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B%E7%9A%84%E6%97%B6%E9%97%B4%E5%88%86%E5%B8%83/" rel="prev" title="使用eBPF得到内核执行过程的时间分布">
+      <i class="fa fa-chevron-left"></i> 使用eBPF得到内核执行过程的时间分布
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/%E5%9C%A8qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E4%B8%8A%E5%AE%89%E8%A3%85Linux%E5%8F%91%E8%A1%8C%E7%89%88/" rel="next" title="在qemu虚拟机上安装Linux发行版">
+      在qemu虚拟机上安装Linux发行版 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

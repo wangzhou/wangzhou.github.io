@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析riscv特权级spec，尝试依照spec总结下riscv的特权级模型。有时直接看 spec，可能过于分散，本文分析的时候结合qemu tcg riscv的代码。基于riscv的spec 是20190608，基于的qemu版本是5.1.50。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="riscv特权级模型">
+<meta property="og:url" content="http://example.com/riscv%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A8%A1%E5%9E%8B/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析riscv特权级spec，尝试依照spec总结下riscv的特权级模型。有时直接看 spec，可能过于分散，本文分析的时候结合qemu tcg riscv的代码。基于riscv的spec 是20190608，基于的qemu版本是5.1.50。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-07-24T16:26:34.027Z">
+<meta property="article:modified_time" content="2022-07-24T16:26:34.027Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="riscv">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/riscv%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A8%A1%E5%9E%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>riscv特权级模型 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/riscv%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A8%A1%E5%9E%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          riscv特权级模型
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-07-25 00:26:34" itemprop="dateCreated datePublished" datetime="2022-07-25T00:26:34+08:00">2022-07-25</time>
+            </span>
+
+          
+            <span id="/riscv%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A8%A1%E5%9E%8B/" class="post-meta-item leancloud_visitors" data-flag-title="riscv特权级模型" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/riscv%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A8%A1%E5%9E%8B/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/riscv%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A8%A1%E5%9E%8B/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析riscv特权级spec，尝试依照spec总结下riscv的特权级模型。有时直接看 spec，可能过于分散，本文分析的时候结合qemu tcg riscv的代码。基于riscv的spec 是20190608，基于的qemu版本是5.1.50。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="特权级"><a href="#特权级" class="headerlink" title="特权级"></a>特权级</h2><p> 这一节先梳理CPU运行的基本逻辑。CPU在PC处取指令，然后执行指令，指令改变CPU状态，<br> 这个状态周而复。指令改变CPU状态，被改变的有CPU的寄存器以及内存，被改变的寄存器<br> 包括PC，这样CPU就可以完成计算以及指令跳转。</p>
+<p> 这个同步变化的模型可能被中断或者异常打断。实际上异常的整体运行情况也符合上面的<br> 模型，指令在执行的时候，会遇到各种各样的异常，当异常发生的时候，硬件通过一组寄存器<br> 向软件提供异常发生时的硬件状态，同时硬件改变PC的状态，使其指向一段预先放好的代码。</p>
+<p> 中断异步的打断CPU正在执行的指令，通过一组寄存器向软件提供中断发生时的硬件状态，<br> 同时硬件改变PC的状态，使其指向一段预先放好的代码。</p>
+<p> 当中断或异常发生的时候，硬件可以把CPU切换到一个正交的状态上，这些状态对于CPU的<br> 寄存器有着不同的访问权限。目前在riscv处理器上，有U, S, M等CPU模式(本文先不看虚拟化<br> 相关的CPU状体)，它们的编码分别是：0，1，3。</p>
+<h2 id="寄存器以及访问方式"><a href="#寄存器以及访问方式" class="headerlink" title="寄存器以及访问方式"></a>寄存器以及访问方式</h2><p> CPU有通用寄存器，也有系统寄存器，其中系统寄存器也叫CSR，control system register。<br> 一般指令可以访问通用寄存器，但是只有特殊的指令才能访问系统寄存器，在riscv上，有<br> 一堆这样的csr指令。这些指令以csrxxx的方式命名，通过寄存器编号做各种读写操作。</p>
+<h2 id="M-mode寄存器"><a href="#M-mode寄存器" class="headerlink" title="M mode寄存器"></a>M mode寄存器</h2><p> M mode下的寄存器大概可以分为若干类，一类是描述机器的寄存器，一类是和中断异常以及<br> 内存相关的寄存器，一类是时间相关的寄存器，另外还有PMU相关的寄存器。</p>
+<p> 描述机器的寄存器有：misa，mvendorid，marchid，mimpid，mhartid。从名字就可以看出，<br> 这些寄存器是机器相关特性的描述，其中最后一个是core的编号。misa描述当前硬件支持的特性，<br> riscv很多特性是可选的，这个寄存器就相当于一个能力寄存器。</p>
+<p> 中断异常相关的寄存器有：mstatus, mepc, mtvec, mtval, medeleg, mideleg, mie, mip，mcause。<br> S mode的相关寄存器和这些寄存器基本一样，只是以s开头。这些寄存器我们可以用中断异常<br> 处理的流程把他们串起来，在下面S mode里描述。比较特殊的是medeleg/mideleg寄存器，默认<br> 情况下riscv的中断和异常都在M mode下处理，可以通过配置这两个寄存器把异常或中断委托<br> 在S mode下处理。</p>
+<p> 内存管理相关的寄存器有: PMP相关寄存器。</p>
+<p> 时间管理相关的寄存器：mtime，mtimecmp。CPU内时钟相关的寄存器。</p>
+<h2 id="S-mode寄存器"><a href="#S-mode寄存器" class="headerlink" title="S mode寄存器"></a>S mode寄存器</h2><p> S mode存在和中断异常以及内存相关的寄存器。我们主要从S mode出发来整理梳理下。</p>
+<p> 中断异常相关的寄存器有：sstatus, sepc, stvec, stval, sie, sip，scratch，scause。<br> 内存管理相关的寄存器有: satp</p>
+<p> sstatus是机器相关的全局状态寄存器。riscv上，虽然各个mode的status寄存器是独立，但是<br> 各个mode的status的各个域段是正交的，基本上是每个域段在每个mode上都有一份。</p>
+<p>  SIE   SPIE   SPP</p>
+<p> SIE表示全局中断的使能情况，SPIE表示特权级切换之前全局中断的使能情况，SPP表示特权级<br> 切换之前CPU所处在的mode。其他的域段，后续遇见具体使用场景可以补充上来。</p>
+<p> sie是riscv上定义的各种具体中断的使能状态，每种中断一个bit。riscv定义的中断可以<br> 参考riscv的spec。</p>
+<p> sip是对应各种中断的pending状态，每种中断一个bit。</p>
+<p> stvec是存放中断异常的跳转地址，当中断或异常发生时，硬件在做相应状态的改动后，就<br> 直接跳到stvec保存的地址，从这里取指令执行。基于这样的定义，软件可以把中断异常向量表<br> 的地址配置到这个寄存器里，中断或者异常的时候，硬件就会把PC跳到中断异常向量表。<br> 当然软件也可以把其他的地址配置到stvec，借用它完成跳转的功能。</p>
+<p> sepc是S mode exception PC，就是硬件用来给软件报告发生异常或者中断时的PC的，当异常<br> 发生时，sepc就是异常指令对应的PC，当中断发生的时候，sepc是被中断的指令，比如有A、B<br> 两条指令，中断发生在AB之间、或者和B同时发生导致B没有执行，sepc保存B指令的PC。</p>
+<p> scause报告中断或异常发生的原因，当这个寄存器的最高bit是1时表示中断，0表示发成的<br> 是异常。</p>
+<p> stval报告中断或异常的参数，当发生非法指令异常时，这个寄存器里存放非法指令的指令编码，<br> 当发生访存异常时，这个寄存器存放的是被访问内存的地址。</p>
+<p> scratch寄存器是留给软件使用的一个寄存器。Linux内核使用这个寄存器判断中断或者异常<br> 发生的时候CPU是在用户态还是内核态，当scratch是0时，表示在内核态，否则在用户态。</p>
+<p> satp是存放页表的基地址，riscv内核态和用户态分时使用这个页表基地址寄存器，这个寄存器<br> 的最高bit表示是否启用页表。如果启用页表，硬件在执行访存指令的时候，在TLB没有命中<br> 时，就会通过satp做page table walk，以此来找虚拟地址对应的物理地址。</p>
+<p> 到此为止，中断或异常发生时需要用到的寄存器都有了。我们下面通过具体的中断或者异常<br> 流程把整个过程串起来。</p>
+<h2 id="中断或异常流程"><a href="#中断或异常流程" class="headerlink" title="中断或异常流程"></a>中断或异常流程</h2><p> 中断异常向量表的地址会提前配置到stvec。medeleg/mideleg寄存器需要提前配置好，把<br> 需要在S mode下处理的异常和中断对应的bit配置上。</p>
+<p> 当中断或异常发生的时候，硬件把SIE的值copy到SPIE，当前处理器mode写入SPP，SIE清0。<br> sepc存入异常指令地址、或者中断指令地址，scause写入中断或者异常的原因，stval写入<br> 中断或异常的参数，然后通过stvec得到中断异常向量的地址。随后，硬件从中断异常向量<br> 地址取指令执行。(可以参考qemu代码：qemu/target/riscv/cpu.c riscv_cpu_do_interrupt函数)</p>
+<p> 以Linux内核为例，riscv的中断异常处理流程，先保存中断或异常发生时的寄存器上下文，<br> 然后根据scause的信息找见具体的中断或异常处理函数执行。具体的软件流程分析可以参考<br> 本站的Linux内核riscv entry.S分析。</p>
+<p> 当异常或中断需要返回时，软件可以使用sret指令，sret指令在执行的时候会把sepc寄存器<br> 里保存的地址作为返回地址，使用SPP寄存器里的值作为CPU的mode，把SPIE的值写入SIE，<br> SPIE写1，SPP写入U mode编号。所以，在调用sret前，软件要配置好sepc、SPP、SPIE寄存器<br> 的值。</p>
+<h2 id="特权级相关的指令"><a href="#特权级相关的指令" class="headerlink" title="特权级相关的指令"></a>特权级相关的指令</h2><p> 异常相关的指令：ecall、ebreak、sret、mret。ecall和ebreak比较相似，就是使用指令触发<br> ecall或者ebreak异常。ecall异常又可以分为ecall from U mode、ecall from S mode，分别<br> 表示ecall是在CPU U mode还是在S mode发起的。在Linux上，从U mode发起的ecall就是一个<br> 系统调用，软件把系统调用需要的参数先摆到系统寄存器上，然后触发ecall指令，硬件依照<br> 上述的异常流程改变CPU的状态，最终软件执行系统调用代码，参数从系统寄存器上获取。<br> Linux上，特性体系构架的系统调用ABI是软件约定的。sret、mret只是从S mode或者从M mode<br> 返回的不同，其他的逻辑是相同的。</p>
+<p> 机器相关的指令：reset、wfi。reset复位整个riscv机器。wfi执行的时候会挂起CPU，直到<br> CPU收到中断，一般是用来降低功耗的。</p>
+<p> 内存屏障相关的指令：sfence.vma。sfence.vma和其他体系构架下的TLB flush指令类似，<br> 用来清空TLB，这个指令可以带ASID或address参数，表示清空对应参数标记的TLB，当ASID<br> 或者address的寄存器是X0时，表示对应的参数是无效的。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"># 计算机体系结构</a>
+              <a href="/tags/riscv/" rel="tag"># riscv</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/Linux%E5%86%85%E6%A0%B8riscv-entry-S%E5%88%86%E6%9E%90/" rel="prev" title="Linux内核riscv entry.S分析">
+      <i class="fa fa-chevron-left"></i> Linux内核riscv entry.S分析
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%89%B9%E6%9D%83%E7%BA%A7"><span class="nav-number">1.</span> <span class="nav-text">特权级</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%84%E5%AD%98%E5%99%A8%E4%BB%A5%E5%8F%8A%E8%AE%BF%E9%97%AE%E6%96%B9%E5%BC%8F"><span class="nav-number">2.</span> <span class="nav-text">寄存器以及访问方式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#M-mode%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">3.</span> <span class="nav-text">M mode寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#S-mode%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">4.</span> <span class="nav-text">S mode寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%AD%E6%96%AD%E6%88%96%E5%BC%82%E5%B8%B8%E6%B5%81%E7%A8%8B"><span class="nav-number">5.</span> <span class="nav-text">中断或异常流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%89%B9%E6%9D%83%E7%BA%A7%E7%9B%B8%E5%85%B3%E7%9A%84%E6%8C%87%E4%BB%A4"><span class="nav-number">6.</span> <span class="nav-text">特权级相关的指令</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

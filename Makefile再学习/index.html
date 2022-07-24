@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是《跟我一起学Makefile》的一个学习笔记，N年前看过这个材料，现在再回头 看下，温故而知新。然后在那pciutils里手写的Makefile逐行对照着看下。本文也用于 后面持续收集make相关的用法。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Makefile再学习">
+<meta property="og:url" content="http://example.com/Makefile%E5%86%8D%E5%AD%A6%E4%B9%A0/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文是《跟我一起学Makefile》的一个学习笔记，N年前看过这个材料，现在再回头 看下，温故而知新。然后在那pciutils里手写的Makefile逐行对照着看下。本文也用于 后面持续收集make相关的用法。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-09-17T14:54:43.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.822Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Makefile">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/Makefile%E5%86%8D%E5%AD%A6%E4%B9%A0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Makefile再学习 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/Makefile%E5%86%8D%E5%AD%A6%E4%B9%A0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Makefile再学习
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-09-17 22:54:43" itemprop="dateCreated datePublished" datetime="2021-09-17T22:54:43+08:00">2021-09-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/read/" itemprop="url" rel="index"><span itemprop="name">read</span></a>
+                </span>
+            </span>
+
+          
+            <span id="/Makefile%E5%86%8D%E5%AD%A6%E4%B9%A0/" class="post-meta-item leancloud_visitors" data-flag-title="Makefile再学习" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/Makefile%E5%86%8D%E5%AD%A6%E4%B9%A0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/Makefile%E5%86%8D%E5%AD%A6%E4%B9%A0/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文是《跟我一起学Makefile》的一个学习笔记，N年前看过这个材料，现在再回头 看下，温故而知新。然后在那pciutils里手写的Makefile逐行对照着看下。本文也用于 后面持续收集make相关的用法。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="make和Makefile的基本逻辑"><a href="#make和Makefile的基本逻辑" class="headerlink" title="make和Makefile的基本逻辑"></a>make和Makefile的基本逻辑</h2><p> make以及Makefile完成的最基本的功能是，根据定义的依赖关系，决定是否执行相应的命令。<br> 相关的依赖描述可以写在默认名字的文件里，也可以用make -f决定使用哪个makefile文件。</p>
+<p> makefile文件只有一个最终目标target，是make解析makefile文件遇到的第一个target，<br> 但是，这并不是说只能编译出一个程序。可以像 all：target1 target2 target3 这样定义<br> 多个target，可以make all一次编译出所有target，也可以make target1，只编译出target1。</p>
+<p> make也支持只有target没有被依赖对象的定义，比如我们看到的clean目标，这是这样的目标<br> 叫做伪目标，要执行伪目标对应的命令需要显示的使用make，比如make clean。伪目标一般<br> 放到makefile文件的后面，并用.PHONY这样的伪目标定义下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">.PHONY: clean</span><br><span class="line">	rm *.o</span><br></pre></td></tr></table></figure>
+<p> 伪目标可以支持和程序编译无关的一起操作，比如，程序的打包、安装、删除等等。</p>
+<p> 可以想象要支持复杂的功能，make会定义自己的变量语法，流程控制的语法和函数。这些<br> 语法的定义都和shell的里的定义长的差不多。学习Makefile也就是对这些语法的学习。</p>
+<h2 id="变量"><a href="#变量" class="headerlink" title="变量"></a>变量</h2><p> 变量在makefile里可以理解为一个宏，make在运行之前先做变量替换。一般变量直接定义，<br> 使用$()来引用，比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">PREFIX=/usr/local</span><br><span class="line">SBINDIR=$(PREFIX)/sbin</span><br></pre></td></tr></table></figure>
+<p> 变量的定义方式还可以用 := , ?= 和 +=。</p>
+<p> 变量有其相关的作用域。一般定义的变量的作用域就是本makefile。使用export可以把所有<br> 当前makefile中的变量export到子makefile中，也可以export A只把A变量export到子makefile中。<br> makefile里的变量，如果和环境变量一样，就会覆盖环境变量。还可以使用目标变量，把<br> 一个变量的作为范围只绑定到对应目标的命令上，目标变量的定义在下面pciutils makefile<br> 的分析中有提及。</p>
+<p> 自动变量，$@, $&lt;, $^, 其中$@表示target的集合，$&lt;表示依赖中的第一个名字，$^表示<br> 依赖目标的集合。</p>
+<h2 id="流程控制"><a href="#流程控制" class="headerlink" title="流程控制"></a>流程控制</h2><p> makefile可以把另一个makefile include进来。比如下面pciutils makefile中的<br> -include lib/config.mk</p>
+<p> make可以进入另外的目录执行。比如pciutils makefile中的$(MAKE) -C lib all<br> 这个会进入lib目录，运行lib里的Makefile，进入退出lib目录的时候会有log提示。</p>
+<p> make中有分支语句。一般是，判断变量的值，然后根据判断结果决定是否执行命令，或者<br> 有相关的依赖条件。</p>
+<p> make中有支持循环的函数。其语法是：$(foreach <var>,<list>,<text>)，其中list是变量<br> list，text是执行的表达式，var是每次取出的变量。比如：</text></list></var></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">names := a b c d</span><br><span class="line">files := $(foreach n,$(names),$(n).o)</span><br></pre></td></tr></table></figure>
+<p> $(files)的值是 a.o b.o c.o d.o</p>
+<h2 id="函数"><a href="#函数" class="headerlink" title="函数"></a>函数</h2><p> 这里列出下面pciutils makefile里用的函数。</p>
+<h2 id="一些高级用法"><a href="#一些高级用法" class="headerlink" title="一些高级用法"></a>一些高级用法</h2><p> make可以自动推导依赖关闭和要执行的命令，这叫make的隐含规则，其实就是对一些基本<br> 写法的省略表示。比如，对于.o的target，make自动推导依赖里有相同名字的.c存在，自动<br> 可以自动推导出基本的编译命令。</p>
+<p> 隐含规则</p>
+<p> 持续增加…</p>
+<h2 id="pciutils-Makefile分析"><a href="#pciutils-Makefile分析" class="headerlink" title="pciutils Makefile分析"></a>pciutils Makefile分析</h2><p> 我们把pciutils Makefile copy到这里，然后逐行分析下。pciutils的github地址在：<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3BjaXV0aWxzL3BjaXV0aWxzLmdpdCVFMyU4MCU4MiVFNiU4OCU5MSVFNCVCQiVBQyVFNyU5QiVCNCVFNiU4RSVBNSVFNyU5NCVBOCVFNiVCMyVBOCVFOSU4NyU4QSVFNyU5QSU4NCVFNiU5NiVCOSVFNSVCQyU4RiVFNSU4NiU5OSVFNSU4OCU4NiVFNiU5RSU5MCVFMyU4MCU4Mg==">https://github.com/pciutils/pciutils.git。我们直接用注释的方式写分析。<i class="fa fa-external-link-alt"></i></span><br> 用这个makefile做例子分析，有个缺点，是这个里面没有使用make的函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br></pre></td><td class="code"><pre><span class="line"># Makefile for The PCI Utilities</span><br><span class="line"># (c) 1998--2020 Martin Mares &lt;mj@ucw.cz&gt;</span><br><span class="line"></span><br><span class="line">OPT=-O2</span><br><span class="line"></span><br><span class="line"># 定义编译参数。make的隐含规则会自动的把这个编译参数加到编译里。</span><br><span class="line"># 这里真是有点行业黑话的意思了 :)</span><br><span class="line">CFLAGS=$(OPT) -Wall -W -Wno-parentheses -Wstrict-prototypes -Wmissing-prototypes</span><br><span class="line"></span><br><span class="line">VERSION=3.7.0</span><br><span class="line">DATE=2020-05-31</span><br><span class="line"></span><br><span class="line"># Host OS and release (override if you are cross-compiling)</span><br><span class="line">HOST=</span><br><span class="line">RELEASE=</span><br><span class="line">CROSS_COMPILE=</span><br><span class="line"></span><br><span class="line"># Support for compressed pci.ids (yes/no, default: detect)</span><br><span class="line">ZLIB=</span><br><span class="line"></span><br><span class="line"># Support for resolving ID&#x27;s by DNS (yes/no, default: detect)</span><br><span class="line">DNS=</span><br><span class="line"></span><br><span class="line"># Build libpci as a shared library (yes/no; or local for testing; requires GCC)</span><br><span class="line">SHARED=no</span><br><span class="line"></span><br><span class="line"># Use libkmod to resolve kernel modules on Linux (yes/no, default: detect)</span><br><span class="line">LIBKMOD=</span><br><span class="line"></span><br><span class="line"># Use libudev to resolve device names using hwdb on Linux (yes/no, default: detect)</span><br><span class="line">HWDB=</span><br><span class="line"></span><br><span class="line"># ABI version suffix in the name of the shared library</span><br><span class="line"># (as we use proper symbol versioning, this seldom needs changing)</span><br><span class="line">ABI_VERSION=.3</span><br><span class="line"></span><br><span class="line"># Installation directories</span><br><span class="line">PREFIX=/usr/local</span><br><span class="line">SBINDIR=$(PREFIX)/sbin</span><br><span class="line">SHAREDIR=$(PREFIX)/share</span><br><span class="line">IDSDIR=$(SHAREDIR)</span><br><span class="line"></span><br><span class="line"># 通过shell调用shell命令，这里判断特定的安装目录是否存在。</span><br><span class="line">MANDIR:=$(shell if [ -d $(PREFIX)/share/man ] ; then echo $(PREFIX)/share/man ; else echo $(PREFIX)/man ; fi)</span><br><span class="line">INCDIR=$(PREFIX)/include</span><br><span class="line">LIBDIR=$(PREFIX)/lib</span><br><span class="line">PKGCFDIR=$(LIBDIR)/pkgconfig</span><br><span class="line"></span><br><span class="line"># Commands</span><br><span class="line">INSTALL=install</span><br><span class="line">DIRINSTALL=install -d</span><br><span class="line">STRIP=-s</span><br><span class="line">CC=$(CROSS_COMPILE)gcc</span><br><span class="line">AR=$(CROSS_COMPILE)ar</span><br><span class="line">RANLIB=$(CROSS_COMPILE)ranlib</span><br><span class="line"></span><br><span class="line"># Base name of the library (overridden on NetBSD, which has its own libpci)</span><br><span class="line">LIBNAME=libpci</span><br><span class="line"></span><br><span class="line"># 使用include关键字把lib下的配置文件包含进来。可以看到config.mk只是定义了一些变量。</span><br><span class="line"># 这里include之前的-表示忽略include过程中的报错。</span><br><span class="line">-include lib/config.mk</span><br><span class="line"></span><br><span class="line">PCIINC=lib/config.h lib/header.h lib/pci.h lib/types.h lib/sysdep.h</span><br><span class="line">PCIINC_INS=lib/config.h lib/header.h lib/pci.h lib/types.h</span><br><span class="line"></span><br><span class="line"># export这个makefile中的所有的变量到子make流程里，比如，下面使用$(MAKE) -C lib all</span><br><span class="line"># 进入lib目录，调用lib目录里的Makefile文件编译其中定义的target，lib Makefile里就</span><br><span class="line"># 可以看见本Makefile里定义的所有变量。</span><br><span class="line">export</span><br><span class="line"></span><br><span class="line"># 定义这个Makefile的总目标all，可以all又有一堆依赖，可以make all编译出所有，也可以</span><br><span class="line"># make加一个依赖，只编译出其中的一个target。</span><br><span class="line">all: lib/$(PCILIB) lspci setpci example lspci.8 setpci.8 pcilib.7 pci.ids.5 update-pciids update-pciids.8 $(PCI_IDS)</span><br><span class="line"></span><br><span class="line"># 这里的定义是，如果头文件有变动，那么重新编译lib。似乎也有到里，头文件不动的话，</span><br><span class="line"># 依然可以正常link，如果头文件都变动了，link一定会错。至于，头文件不同，lib的实现</span><br><span class="line"># 变动了的情况，上面也只是单独编译lib。</span><br><span class="line">#</span><br><span class="line"># force是不管依赖条件，强制都跑下面命令的意思。这里的force和下面的force是一起的</span><br><span class="line"># 逻辑，make的手册里相关的解释：gnu.org/software/make/manual/html_node/Force-Targets.html</span><br><span class="line">#</span><br><span class="line"># 简单讲就是force作为一个没有依赖，没有命令的伪目标，make认识force每次都update，</span><br><span class="line"># 所以依赖force的target也没有都要执行下。</span><br><span class="line">#</span><br><span class="line">lib/$(PCILIB): $(PCIINC) force</span><br><span class="line">	$(MAKE) -C lib all</span><br><span class="line"></span><br><span class="line">force:</span><br><span class="line"></span><br><span class="line"># 对于多目标的语法，一般拆开理解，比如下面的两个目标就可以拆开成：</span><br><span class="line"># lib/config.h:</span><br><span class="line"># 	cd lib &amp;&amp; ./configure</span><br><span class="line"># lib/config.mk:</span><br><span class="line"># 	cd lib &amp;&amp; ./configure</span><br><span class="line">#</span><br><span class="line"># 但是，拆开也比较费解?</span><br><span class="line">#</span><br><span class="line">lib/config.h lib/config.mk:</span><br><span class="line">	cd lib &amp;&amp; ./configure</span><br><span class="line"></span><br><span class="line"># 如下的编译命令都是由make的隐含规则推导出来的。</span><br><span class="line">lspci: lspci.o ls-vpd.o ls-caps.o ls-caps-vendor.o ls-ecaps.o ls-kernel.o ls-tree.o ls-map.o common.o lib/$(PCILIB)</span><br><span class="line">setpci: setpci.o common.o lib/$(PCILIB)</span><br><span class="line"></span><br><span class="line">LSPCIINC=lspci.h pciutils.h $(PCIINC)</span><br><span class="line">lspci.o: lspci.c $(LSPCIINC)</span><br><span class="line">ls-vpd.o: ls-vpd.c $(LSPCIINC)</span><br><span class="line">ls-caps.o: ls-caps.c $(LSPCIINC)</span><br><span class="line">ls-ecaps.o: ls-ecaps.c $(LSPCIINC)</span><br><span class="line">ls-kernel.o: ls-kernel.c $(LSPCIINC)</span><br><span class="line">ls-tree.o: ls-tree.c $(LSPCIINC)</span><br><span class="line">ls-map.o: ls-map.c $(LSPCIINC)</span><br><span class="line"></span><br><span class="line">setpci.o: setpci.c pciutils.h $(PCIINC)</span><br><span class="line">common.o: common.c pciutils.h $(PCIINC)</span><br><span class="line"></span><br><span class="line"># 这里的一个点是目标变量，他的语法是这样的：</span><br><span class="line">#</span><br><span class="line"># &lt;target&gt;: &lt;variable-assignment&gt;</span><br><span class="line"># 语义是限定变量的作用范围，比如，如下，lspci的所有相关依赖命令中LDLIBS都用这里</span><br><span class="line"># 赋予的值。CFLAGS的含义是一样的。</span><br><span class="line">#</span><br><span class="line"># LDLIBS, CFLAGS成了lspci，ls-kernel.o的相关命令的局部变量。</span><br><span class="line">lspci: LDLIBS+=$(LIBKMOD_LIBS)</span><br><span class="line">ls-kernel.o: CFLAGS+=$(LIBKMOD_CFLAGS)</span><br><span class="line"></span><br><span class="line"># 如果update-pciids.sh有变化，要重新生成下update-pciids, sed命令没有看懂？</span><br><span class="line">update-pciids: update-pciids.sh</span><br><span class="line">	sed &lt;$&lt; &gt;$@ &quot;s@^DEST=.*@DEST=$(IDSDIR)/$(PCI_IDS)@;s@^PCI_COMPRESSED_IDS=.*@PCI_COMPRESSED_IDS=$(PCI_COMPRESSED_IDS)@&quot;</span><br><span class="line">	chmod +x $@</span><br><span class="line"></span><br><span class="line"># The example of use of libpci</span><br><span class="line">example: example.o lib/$(PCILIB)</span><br><span class="line">example.o: example.c $(PCIINC)</span><br><span class="line"></span><br><span class="line"># 定义模式规则。所有，xxx: xxx.o的编译命令都使用如下的隐含规则。</span><br><span class="line">#</span><br><span class="line">%: %.o</span><br><span class="line">	$(CC) $(LDFLAGS) $(TARGET_ARCH) $^ $(LDLIBS) -o $@ --static -L../zlib</span><br><span class="line"></span><br><span class="line"># 多target + 定义模式规则。可以展开成:</span><br><span class="line">#</span><br><span class="line"># %.8: %.man</span><br><span class="line"># 	command</span><br><span class="line"># %.7: %.man</span><br><span class="line"># 	command</span><br><span class="line"># %.5: %.man</span><br><span class="line"># 	command</span><br><span class="line">#</span><br><span class="line">%.8 %.7 %.5: %.man</span><br><span class="line">	M=`echo $(DATE) | sed &#x27;s/-01-/-January-/;s/-02-/-February-/;s/-03-/-March-/;s/-04-/-April-/;s/-05-/-May-/;s/-06-/-June-/;s/-07-/-July-/;s/-08-/-August-/;s/-09-/-September-/;s/-10-/-October-/;s/-11-/-November-/;s/-12-/-December-/;s/\(.*\)-\(.*\)-\(.*\)/\3 \2 \1/&#x27;` ; sed &lt;$&lt; &gt;$@ &quot;s/@TODAY@/$$M/;s/@VERSION@/pciutils-$(VERSION)/;s#@IDSDIR@#$(IDSDIR)#&quot;</span><br><span class="line"></span><br><span class="line">ctags:</span><br><span class="line">	rm -f tags</span><br><span class="line">	find . -name &#x27;*.[hc]&#x27; -exec ctags --append &#123;&#125; +</span><br><span class="line"></span><br><span class="line">TAGS:</span><br><span class="line">	rm -f TAGS</span><br><span class="line">	find . -name &#x27;*.[hc]&#x27; -exec etags --append &#123;&#125; +</span><br><span class="line"></span><br><span class="line">clean:</span><br><span class="line">	rm -f `find . -name &quot;*~&quot; -o -name &quot;*.[oa]&quot; -o -name &quot;\#*\#&quot; -o -name TAGS -o -name core -o -name &quot;*.orig&quot;`</span><br><span class="line">	rm -f update-pciids lspci setpci example lib/config.* *.[578] pci.ids.gz lib/*.pc lib/*.so lib/*.so.* tags</span><br><span class="line">	rm -rf maint/dist</span><br><span class="line"></span><br><span class="line">distclean: clean</span><br><span class="line"></span><br><span class="line"># install伪目标依赖全部的目标。make install 会执行到下一个依赖之前。</span><br><span class="line">install: all</span><br><span class="line"># -c is ignored on Linux, but required on FreeBSD</span><br><span class="line">	$(DIRINSTALL) -m 755 $(DESTDIR)$(SBINDIR) $(DESTDIR)$(IDSDIR) $(DESTDIR)$(MANDIR)/man8 $(DESTDIR)$(MANDIR)/man7 $(DESTDIR)/$(MANDIR)/man5</span><br><span class="line">	$(INSTALL) -c -m 755 $(STRIP) lspci setpci $(DESTDIR)$(SBINDIR)</span><br><span class="line">	$(INSTALL) -c -m 755 update-pciids $(DESTDIR)$(SBINDIR)</span><br><span class="line">	$(INSTALL) -c -m 644 $(PCI_IDS) $(DESTDIR)$(IDSDIR)</span><br><span class="line">	$(INSTALL) -c -m 644 lspci.8 setpci.8 update-pciids.8 $(DESTDIR)$(MANDIR)/man8</span><br><span class="line">	$(INSTALL) -c -m 644 pcilib.7 $(DESTDIR)$(MANDIR)/man7</span><br><span class="line">	$(INSTALL) -c -m 644 pci.ids.5 $(DESTDIR)$(MANDIR)/man5</span><br><span class="line">ifeq ($(SHARED),yes)</span><br><span class="line">ifeq ($(LIBEXT),dylib)</span><br><span class="line">	ln -sf $(PCILIB) $(DESTDIR)$(LIBDIR)/$(LIBNAME)$(ABI_VERSION).$(LIBEXT)</span><br><span class="line">else</span><br><span class="line">	ln -sf $(PCILIB) $(DESTDIR)$(LIBDIR)/$(LIBNAME).$(LIBEXT)$(ABI_VERSION)</span><br><span class="line">endif</span><br><span class="line">endif</span><br><span class="line"></span><br><span class="line">ifeq ($(SHARED),yes)</span><br><span class="line">install: install-pcilib</span><br><span class="line">endif</span><br><span class="line"></span><br><span class="line">install-pcilib: lib/$(PCILIB)</span><br><span class="line">	$(DIRINSTALL) -m 755 $(DESTDIR)$(LIBDIR)</span><br><span class="line">	$(INSTALL) -c -m 644 lib/$(PCILIB) $(DESTDIR)$(LIBDIR)</span><br><span class="line"></span><br><span class="line">install-lib: $(PCIINC_INS) lib/$(PCILIBPC) install-pcilib</span><br><span class="line">	$(DIRINSTALL) -m 755 $(DESTDIR)$(INCDIR)/pci $(DESTDIR)$(PKGCFDIR)</span><br><span class="line">	$(INSTALL) -c -m 644 $(PCIINC_INS) $(DESTDIR)$(INCDIR)/pci</span><br><span class="line">	$(INSTALL) -c -m 644 lib/$(PCILIBPC) $(DESTDIR)$(PKGCFDIR)</span><br><span class="line">ifeq ($(SHARED),yes)</span><br><span class="line">ifeq ($(LIBEXT),dylib)</span><br><span class="line">	ln -sf $(LIBNAME)$(ABI_VERSION).$(LIBEXT) $(DESTDIR)$(LIBDIR)/$(LIBNAME).$(LIBEXT)</span><br><span class="line">else</span><br><span class="line">	ln -sf $(LIBNAME).$(LIBEXT)$(ABI_VERSION) $(DESTDIR)$(LIBDIR)/$(LIBNAME).$(LIBEXT)</span><br><span class="line">endif</span><br><span class="line">endif</span><br><span class="line"></span><br><span class="line">uninstall: all</span><br><span class="line">	rm -f $(DESTDIR)$(SBINDIR)/lspci $(DESTDIR)$(SBINDIR)/setpci $(DESTDIR)$(SBINDIR)/update-pciids</span><br><span class="line">	rm -f $(DESTDIR)$(IDSDIR)/$(PCI_IDS)</span><br><span class="line">	rm -f $(DESTDIR)$(MANDIR)/man8/lspci.8 $(DESTDIR)$(MANDIR)/man8/setpci.8 $(DESTDIR)$(MANDIR)/man8/update-pciids.8</span><br><span class="line">	rm -f $(DESTDIR)$(MANDIR)/man7/pcilib.7</span><br><span class="line">ifeq ($(SHARED),yes)</span><br><span class="line">	rm -f $(DESTDIR)$(LIBDIR)/$(PCILIB) $(DESTDIR)$(LIBDIR)/$(LIBNAME).so$(ABI_VERSION)</span><br><span class="line">endif</span><br><span class="line"></span><br><span class="line">#</span><br><span class="line">pci.ids.gz: pci.ids</span><br><span class="line">	gzip -9n &lt;$&lt; &gt;$@</span><br><span class="line"></span><br><span class="line">.PHONY: all clean distclean install install-lib uninstall force tags TAGS</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Makefile/" rel="tag"># Makefile</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E4%B8%80%E4%B8%AA%E4%BC%98%E5%85%88%E7%BA%A7%E9%98%9F%E5%88%97%E7%9A%84%E5%AE%9E%E7%8E%B0/" rel="prev" title="一个优先级队列的实现">
+      <i class="fa fa-chevron-left"></i> 一个优先级队列的实现
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/%E4%B8%A4%E5%B1%82qemu%E7%8E%AF%E5%A2%83%E9%85%8D%E7%BD%AE/" rel="next" title="两层qemu环境配置">
+      两层qemu环境配置 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#make%E5%92%8CMakefile%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">make和Makefile的基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%98%E9%87%8F"><span class="nav-number">2.</span> <span class="nav-text">变量</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B5%81%E7%A8%8B%E6%8E%A7%E5%88%B6"><span class="nav-number">3.</span> <span class="nav-text">流程控制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%87%BD%E6%95%B0"><span class="nav-number">4.</span> <span class="nav-text">函数</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E4%BA%9B%E9%AB%98%E7%BA%A7%E7%94%A8%E6%B3%95"><span class="nav-number">5.</span> <span class="nav-text">一些高级用法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#pciutils-Makefile%E5%88%86%E6%9E%90"><span class="nav-number">6.</span> <span class="nav-text">pciutils Makefile分析</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

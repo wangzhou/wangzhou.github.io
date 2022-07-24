@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="这篇文档的开始是got git这本书的读书笔记。后面开始是一些git使用技巧的总结。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="git使用笔记">
+<meta property="og:url" content="http://example.com/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="这篇文档的开始是got git这本书的读书笔记。后面开始是一些git使用技巧的总结。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-17T03:00:34.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.830Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="软件开发">
+<meta property="article:tag" content="git">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>git使用笔记 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          git使用笔记
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-17 11:00:34" itemprop="dateCreated datePublished" datetime="2021-07-17T11:00:34+08:00">2021-07-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/read/" itemprop="url" rel="index"><span itemprop="name">read</span></a>
+                </span>
+            </span>
+
+          
+            <span id="/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="git使用笔记" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">这篇文档的开始是got git这本书的读书笔记。后面开始是一些git使用技巧的总结。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="chaper-2"><a href="#chaper-2" class="headerlink" title="chaper 2"></a>chaper 2</h2><p>git add -u 加入缓冲区所有的改动文件<br>        -A 把所有增加/删除的文件加入缓冲区<br>    -i 提供一个添加文件的交互界面</p>
+<p>git diff 显示改动，只显示没有提交到缓冲区的改动<br>         –cached 显示缓冲区中的改动<br>     old-ID new-ID 显示两次提交的改动</p>
+<p>git stash/git stash pop 工作的时候往往要临时切换到一个分支，这时可以用git stash<br>    不需要git add, 当处理完另一个分支时，切换会原来的分支，使用git stash pop<br>    即可以回到原来的工作区</p>
+<h2 id="chapter-3"><a href="#chapter-3" class="headerlink" title="chapter 3"></a>chapter 3</h2><p> 中文：UTF-8字符集(一般)</p>
+<h2 id="chapter-4"><a href="#chapter-4" class="headerlink" title="chapter 4"></a>chapter 4</h2><p> git config -e           改当前库的配置(.git/config)<br> git config -e –global  改当前用户的配置(/home/***/.gitconfig)<br> git config -e –system  改整个系统的配置(/etc/gitconfig)</p>
+<h2 id="chapter-5"><a href="#chapter-5" class="headerlink" title="chapter 5"></a>chapter 5</h2><p> git log –oneline 精简模式显示提交信息<br> git log –prety=fuller 显示AuthorData和Commit Date ?<br> git ls-tree -l HEAD 查看版本库中的最新提交<br> git ls-files 查看缓冲区的最新内容</p>
+<h2 id="chapter-6"><a href="#chapter-6" class="headerlink" title="chapter 6"></a>chapter 6</h2><p> git cat-file -t <ID> 显示ID对应的类型(type)：commit, tree, blob…<br>              -p <ID> 显示ID对应的内容<br> git rev-parse HEAD/master… 显示对应的ID<br> git log –graph –all 显示commit的历史，加上–all可以显示所有分支</ID></ID></p>
+<p> HEAD: 保存当前分支的路径，若当前分支test, HEAD内容是 ref: refs/heads/test<br> .git/refs/heads/master : heads目录下存放所有的分支，若此时git中还有一个分支test<br>                          在heads下会发现：master，test. master, test文件中放的<br>              是ID，是对应分支最新提交的ID<br> .git/refs/tags/*** : …</p>
+<h2 id="chapter-7"><a href="#chapter-7" class="headerlink" title="chapter 7"></a>chapter 7</h2><p> git reset –hard HEAD^ 整个HEAD切换到他的父提交, 若现在有如下的提交:<br> A–&gt;B–&gt;C–&gt;D<br> 使用上述命令后，使用git log将只看到: A–&gt;B–&gt;C<br> git reset –hard 将版本库，缓存区，工作区全部切换到相应的版本(C), D版本相当于<br> 被丢掉了(没有显示出来)</p>
+<p> git reset –soft HEAD^ 只把版本库切到了父提交，也就是回到了，上次git add ***<br> git commit *** 之前的状态，使用git status可以证明这点</p>
+<p> git reset HEAD^ 把版本库，缓存区切到了父提交，也就是回到了上次编辑过工作区，<br> git add *** 之前的状态，使用git status可以看到这点</p>
+<p> git reset/git reset HEAD 依照上面的分析，相当于缓冲区切到父提交，就是把git add<br> 加入缓冲区的东西去掉，是git add 的逆操作</p>
+<p> git reset – filename 是git add filename的逆操作</p>
+<p> git reset –hard HEAD^ 之后的挽救措施：（想恢复原来的提交）<br> 在.git/log/logs/HEAD中记录着每次HEAD的改动，找到想要的ID用来恢复<br> 更简单的方法：<br> git reflog show 找到要恢复的版本<br> git reset –hard master@{***} 即可</p>
+<p> 注: git reset –hard HEAD^<br>     do some change…<br>     git add …<br>     git commit … (version E)<br>     实际是存储是：(其中version D是不可见的)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">A--&gt;B--&gt;C--&gt;D</span><br><span class="line">         \--&gt;E</span><br></pre></td></tr></table></figure>
+<pre><code> git reset 没有改变HEAD的内容，而是改变了.git/refs/head/... 的内容
+</code></pre>
+<h2 id="chapter-8"><a href="#chapter-8" class="headerlink" title="chapter 8"></a>chapter 8</h2><p> git checkout ID 检出ID所对应的提交. 比如；<br> A–&gt;B–&gt;C–&gt;D<br> git checkout ID(C) ID(C)表示C对应的ID<br> 这是用git branch察看所在的分支，会显示当前处于no branch的状态，实际上察看<br> .git/HEAD会发现其中的内容不是指向一个分支(如：ref:refs/heads/master), 而是一个<br> 具体提交的ID. 在这种no branch的状态可以查看代码，做验证，但是不能提交修改。<br> 其实也是可以在提交的，只是再从当前的状态切回某个分支(如：git checkout master),<br> 之前的提交不可见了:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">              /-- master</span><br><span class="line">A--&gt;B--&gt;C--&gt;D </span><br><span class="line">     \</span><br><span class="line">      E -- git checkout ID(B), git commit E</span><br></pre></td></tr></table></figure>
+<p> 如上在no branch上提交了E，然后git checkout master切回了master这时候E不可见了.<br> 用git reflog show 查看提交的历史，然后git reset –hard HEAD@{…} 可以把HEAD<br> 指向E，这时 A–&gt;B–&gt;E 成了master分支，C、D不可见了</p>
+<p> git checkout -b branch_name 创建新的分支，名字是branch_name<br> git checkout 改变HEAD的内容</p>
+<h2 id="chapter-12"><a href="#chapter-12" class="headerlink" title="chapter 12"></a>chapter 12</h2><p> git cherry-pick id 把id对应的commit向当前的HEAD提交<br> A–&gt;B–&gt;C–&gt;D–&gt;E git checkout id(C) git cherry-pich id(E)会把E向C提交:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">                 /-- master</span><br><span class="line">A--&gt;B--&gt;C--&gt;D--&gt;E </span><br><span class="line">         \</span><br><span class="line">          E &lt;--HEAD</span><br></pre></td></tr></table></figure>
+<p> 这时HEAD分离的情况，HEAD不对应任何分支,可以建立新的branch, 也可以git reset可以<br> 把master的内容指向E, 这时D和其后的E将显示不出来</p>
+<p> git cherry-pick id -e 可以修改commit的签名中的内容(邮箱)</p>
+<p> git rebase</p>
+<h2 id="chapter-15"><a href="#chapter-15" class="headerlink" title="chapter 15"></a>chapter 15</h2><p> git pull/push<br> git push 有时无法成功，可能是因为git push对应的git仓库不是bare的，直接推送会<br> 改变工作区。这可以配置对应的远程仓库：git config receive.denyCurrentBranch ignore<br> 这时可以成功push</p>
+<h2 id="chapter-16"><a href="#chapter-16" class="headerlink" title=" chapter 16"></a> chapter 16</h2><p> -other<br> git commit –amend –author=’your name <email-box>‘ 可以修改commit中author一行的内容</email-box></p>
+<p> patch的subject这一行有时不只是[PATCH], 比如在询问意见时可以是[PATCH RFC ***], 在第3版<br> patch时subject可以是[PATCH v3 <em><strong>]. 如何改变subject这一行的内容：可以在生成patch<br> 的时候加–subject-prefix=”</strong></em>“, 比如, git format-patch -s -2 –subject-prefix=”PATCH RFC”<br> 生成的patch subject为：[PATCH RFC 0/3], [PATCH RFC 1/3], [PATCH RFC 2/3], [PATCH RFC 3/3]</p>
+<p> git send-email 使用git send-email发送patches, 组成的patches是一个系列的。<br> 用git format-patch生成patches, 然后一个个用普通邮箱发出，给出的patches是一个个分裂的。<br> git send-email *.patch 即可把当前目录里的patch都发送出去，而且git send-email提供一个<br> 对话是的发送过程，只要在过程中填入发送的邮箱即可。对于cc的邮箱可以在一开始的命令中给出：<br> git send-email *.patch --cc=<span class="exturl" data-url="bWFpbHRvOiYjeDc5OyYjMTExOyYjMTE3OyYjeDcyOyYjeDVmOyYjeDY1OyYjMTA5OyYjeDYxOyYjMTA1OyYjMTA4OyYjOTU7JiN4NjI7JiN4NmY7JiN4Nzg7JiN4NDA7JiN4MzE7JiN4MzI7JiN4MzY7JiM0NjsmIzk5OyYjMTExOyYjeDZkOw==">&#x79;&#111;&#117;&#x72;&#x5f;&#x65;&#109;&#x61;&#105;&#108;&#95;&#x62;&#x6f;&#x78;&#x40;&#x31;&#x32;&#x36;&#46;&#99;&#111;&#x6d;<i class="fa fa-external-link-alt"></i></span></p>
+<p> Message-ID to be used as In-Reply-To?</p>
+<h2 id="git-pull-note"><a href="#git-pull-note" class="headerlink" title="git pull note"></a>git pull note</h2><ol>
+<li><p>git repo A:<br>branch: master, test</p>
+<p>git repo B;<br>branch: master, test(all pull from repo A)</p>
+<p>若在repo A上test分支加一个提交, 在repo B的master分支上用git pull, reop<br>B的test分支将不会更新，repo B切换到test分支上，再使用git pull,<br>则可以更新test分支。</p>
+</li>
+<li><p>还是上面的场景，在repo A test分支上加一个commit new。在repo B中git fetch,<br>git checkout origin/test, git log, 会发现现在repo B的远程分支origin/test<br>有了repo A test分支上的commit new</p>
+<p>在repo B的test分支上，git merge orgin/test，即可把git fetch得到的repo B<br>origin/test分支和test合并。这也就是常说的git pull = git fetch + git merge</p>
+<p>可以看出repo B在本地是有origin/master, origin/test的远程分支的完整拷贝，也有<br>本地分支master, test。在git fetch操作时，只是把repo A上的新提交加到repo B的<br>origin/test“分支”上。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">                    git clone</span><br><span class="line">repo A: A--&gt;B--&gt;C   ========&gt;   repo B: A--&gt;B--&gt;C </span><br><span class="line">                \                                    \</span><br><span class="line">               master                           master(也是origin/master)</span><br><span class="line"></span><br><span class="line">                     new commit</span><br><span class="line">                    /  </span><br><span class="line">repo A: A--&gt;B--&gt;C--&gt;D           repo B: A--&gt;B--&gt;C </span><br><span class="line">                    \                            \</span><br><span class="line">                     master                       master(也是origin/master)</span><br><span class="line"></span><br><span class="line">                     new commit        git fetch    origin/master</span><br><span class="line">                    /                               / </span><br><span class="line">repo A: A--&gt;B--&gt;C--&gt;D           repo B: A--&gt;B--&gt;C--&gt;D</span><br><span class="line">                    \                            \</span><br><span class="line">                     master                      master</span><br><span class="line"></span><br><span class="line">                     new commit       git merge     origin/master</span><br><span class="line">                    /                               / </span><br><span class="line">repo A: A--&gt;B--&gt;C--&gt;D           repo B: A--&gt;B--&gt;C--&gt;D</span><br><span class="line">                    \                                \</span><br><span class="line">                         master                                master</span><br><span class="line"></span><br><span class="line">如果在第三步中在repo B的master分支上又作了几次提交,比如:</span><br><span class="line">                     new commit                     origin/master</span><br><span class="line">                    /                               / </span><br><span class="line">repo A: A--&gt;B--&gt;C--&gt;D           repo B: A--&gt;B--&gt;C--&gt;D</span><br><span class="line">                    \                            \</span><br><span class="line">                    master                        --&gt;E--&gt;F  master</span><br><span class="line">                   </span><br><span class="line">那么在git merge会如下, master分支中会加入E, F两个提交</span><br><span class="line">                     new commit        git merge    origin/master</span><br><span class="line">                    /                               / </span><br><span class="line">repo A: A--&gt;B--&gt;C--&gt;D           repo B: A--&gt;B--&gt;C--&gt;D-------</span><br><span class="line">                    \                            \          \</span><br><span class="line">                    master                        --&gt;E--&gt;F--&gt;G  master</span><br></pre></td></tr></table></figure></li>
+<li><p>git branch显示本地分支，git branch -r显示远程分支，<br>git checkout orgin/test -b local_branch 建立一个本地分支local_branch跟踪<br>远程分支</p>
+</li>
+<li><p>在repo B .git中的config文件中有这样的配置条目:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">[remote &quot;origin&quot;]</span><br><span class="line"> url = /home/example/git_test_client/../git_test</span><br><span class="line"> fetch = +refs/heads/*:refs/remotes/origin/*</span><br><span class="line">[branch &quot;master&quot;]</span><br><span class="line"> remote = origin</span><br><span class="line"> merge = refs/heads/master</span><br><span class="line">[branch &quot;test_client&quot;]</span><br><span class="line"> remote = origin</span><br><span class="line"> merge = refs/heads/test</span><br></pre></td></tr></table></figure>
+<p> 其中第一条[remote “origin”], url表示远程仓库的url, fetch表示做git fetch<br> 的时候远程仓库中的各个分支，对应本地仓库中的refs/remotes/orgin/下的各个“分支”。<br> 本地仓库的origin/master等严格的讲并不是一个分支，使用git checkout origin/master<br> 会显示处于头指针分离状态。<br> 后面的[branch “master”]条目表示，当时候git pull时，会把git fetch得到的orgin/master<br> merge到本地的master分支中。</p>
+</li>
+</ol>
+<h2 id="给branch添加描述信息"><a href="#给branch添加描述信息" class="headerlink" title="给branch添加描述信息"></a>给branch添加描述信息</h2><p>   git branch –edit-description 可以添加当前git分支的说明，说明文字被添加到.git/config<br>   所以可以用git config -l 查看当前分支的说明，如果有说明的话。</p>
+<h2 id="一些开发中有用的小技巧"><a href="#一些开发中有用的小技巧" class="headerlink" title="一些开发中有用的小技巧"></a>一些开发中有用的小技巧</h2><ol>
+<li><p>已经知道了可以下载代码的git服务器的地址，比如：git://git.linaro.org/kernel.git<br>可以使用：</p>
+<pre><code>git clone git://git.linaro.org/kernel.git
+</code></pre>
+<p>下在代码</p>
+<p>要是你的本地电脑上已经有了之前clone的一个kernel的git仓库，可以使用：</p>
+<pre><code>git clone git://git.linaro.org/kernel.git --reference /path/to/kernel.git
+</code></pre>
+<p>提高下载的速度，新的下载的git库将会重用以前已有的git库</p>
+<p>下载好git库后，可以使用：</p>
+<pre><code>git branch -r 
+</code></pre>
+<p>显示所用的远程分支, 然后用：</p>
+<pre><code>git checkout branchname
+</code></pre>
+<p>提取出需要的分支，然后用；</p>
+<pre><code>git branch
+</code></pre>
+<p>就可以看到上面提出来的分支的名字了</p>
+</li>
+<li><p>显示远程仓库的网址和名字：</p>
+<pre><code>git remote -v
+</code></pre>
+<p>修改远程仓库，发现远程仓库的地址错了，导致一直下载不下来代码，需要添加正确<br>的地址：</p>
+<pre><code>git remote add hilt ssh://git.linaro.org/kernel.git
+</code></pre>
+<p>其中hilt是这个远程仓库的名字</p>
+<pre><code>git remote rm origin
+</code></pre>
+<p>其中orgin是原来错误远程仓库的名字，之后把远程仓库的名字从hilt改成origin：</p>
+<pre><code>git remote rename hilt origin
+</code></pre>
+</li>
+<li><p>在开发的时候会出现很多中间版本，这些版本做的改动对别人是无意义的, 比如有<br>version_1—&gt;version_2—&gt;version_3, 怎么把这三个版本合并成一个版本(一次提交):</p>
+<pre><code>git rebase -i HEAD~3
+</code></pre>
+<p>其中3表示把最近的3次提交合并成一次提交</p>
+<p>如果commit的log message写的不好，也可以用：</p>
+<pre><code>git commit --amend
+</code></pre>
+<p>重写commit的log message</p>
+</li>
+<li><p>代码改好了，需要制作patch，可以使用：</p>
+<pre><code>git format-patch -s -1
+</code></pre>
+<p>其中s表示patch中会加上签名项, 1表示对最近一次提交生成patch. 如果把1变成2，那么<br>会生成两个patch, 以version_1—&gt;version_2—&gt;version_3为例，这两个patch是<br>version_3对version_2的patch、version_2对version_1的patch</p>
+</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E5%BC%80%E5%8F%91/" rel="tag"># 软件开发</a>
+              <a href="/tags/git/" rel="tag"># git</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E4%BD%BF%E7%94%A8qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%AD%A6%E4%B9%A0Linux%E5%86%85%E6%A0%B8/" rel="prev" title="使用qemu虚拟机学习Linux内核">
+      <i class="fa fa-chevron-left"></i> 使用qemu虚拟机学习Linux内核
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/Linux-irq-domain/" rel="next" title="Linux irq domain">
+      Linux irq domain <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#chaper-2"><span class="nav-number">1.</span> <span class="nav-text">chaper 2</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#chapter-3"><span class="nav-number">2.</span> <span class="nav-text">chapter 3</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#chapter-4"><span class="nav-number">3.</span> <span class="nav-text">chapter 4</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#chapter-5"><span class="nav-number">4.</span> <span class="nav-text">chapter 5</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#chapter-6"><span class="nav-number">5.</span> <span class="nav-text">chapter 6</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#chapter-7"><span class="nav-number">6.</span> <span class="nav-text">chapter 7</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#chapter-8"><span class="nav-number">7.</span> <span class="nav-text">chapter 8</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#chapter-12"><span class="nav-number">8.</span> <span class="nav-text">chapter 12</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#chapter-15"><span class="nav-number">9.</span> <span class="nav-text">chapter 15</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#chapter-16"><span class="nav-number">10.</span> <span class="nav-text"> chapter 16</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#git-pull-note"><span class="nav-number">11.</span> <span class="nav-text">git pull note</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BB%99branch%E6%B7%BB%E5%8A%A0%E6%8F%8F%E8%BF%B0%E4%BF%A1%E6%81%AF"><span class="nav-number">12.</span> <span class="nav-text">给branch添加描述信息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E4%BA%9B%E5%BC%80%E5%8F%91%E4%B8%AD%E6%9C%89%E7%94%A8%E7%9A%84%E5%B0%8F%E6%8A%80%E5%B7%A7"><span class="nav-number">13.</span> <span class="nav-text">一些开发中有用的小技巧</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

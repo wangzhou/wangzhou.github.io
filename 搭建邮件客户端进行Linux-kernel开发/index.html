@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文介绍用纯命令行处理邮件的环境搭建方法">
+<meta property="og:type" content="article">
+<meta property="og:title" content="搭建邮件客户端进行Linux kernel开发">
+<meta property="og:url" content="http://example.com/%E6%90%AD%E5%BB%BA%E9%82%AE%E4%BB%B6%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BF%9B%E8%A1%8CLinux-kernel%E5%BC%80%E5%8F%91/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文介绍用纯命令行处理邮件的环境搭建方法">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-11T15:45:12.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.850Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="软件开发">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/%E6%90%AD%E5%BB%BA%E9%82%AE%E4%BB%B6%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BF%9B%E8%A1%8CLinux-kernel%E5%BC%80%E5%8F%91/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>搭建邮件客户端进行Linux kernel开发 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/%E6%90%AD%E5%BB%BA%E9%82%AE%E4%BB%B6%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BF%9B%E8%A1%8CLinux-kernel%E5%BC%80%E5%8F%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          搭建邮件客户端进行Linux kernel开发
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-11 23:45:12" itemprop="dateCreated datePublished" datetime="2021-07-11T23:45:12+08:00">2021-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+            <span id="/%E6%90%AD%E5%BB%BA%E9%82%AE%E4%BB%B6%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BF%9B%E8%A1%8CLinux-kernel%E5%BC%80%E5%8F%91/" class="post-meta-item leancloud_visitors" data-flag-title="搭建邮件客户端进行Linux kernel开发" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/%E6%90%AD%E5%BB%BA%E9%82%AE%E4%BB%B6%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BF%9B%E8%A1%8CLinux-kernel%E5%BC%80%E5%8F%91/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/%E6%90%AD%E5%BB%BA%E9%82%AE%E4%BB%B6%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BF%9B%E8%A1%8CLinux-kernel%E5%BC%80%E5%8F%91/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文介绍用纯命令行处理邮件的环境搭建方法</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>进行linux kernel开发需要实时关注kernel相关邮件列表的动态，本文介绍怎么搭建一个<br>邮件客户端，以便更好的查看邮件列表中的邮件。根据本文内容可以搭建一个这样的邮件<br>阅读环境。</p>
+<p>收到内核邮件列表中的邮件需要首先订阅相应的邮件列表，具体订阅的方法请自行google.<br>订阅的本质是向一个地址发送特定内容的邮件。</p>
+<p>每天来自一个邮件列表中的邮件可能会有几十封，如果同时订阅几个邮件列表，每天邮箱<br>中的邮件会有几百封。怎么管理这些邮件，有一种方法是用雷鸟邮件客户端(thunderbird),<br>还有一种方法就是本文将要介绍的 fetchmail + procmail + msmtp + mutt。当然你也可以<br>直接从你注册的邮箱里看邮件，不过从成千上百的邮件中找到你想看的，再找到别人的回复<br>的邮寄真的非常麻烦。</p>
+<p>除了邮件客户端，还有一个问题：用什么邮箱。一般的公司邮箱可以用来注册邮件列表，<br>但是业余时间也想学习下大牛们的讨论，用公司邮箱显然不太好。于是需要注册一个私人<br>邮箱，用gmail显然要显得专业，但是用gmail邮箱设置thunderbird的时候比较麻烦，要先<br>生成一个第三方app接入gmail邮箱的密码，在设置thunderbird密码的时候设置进去，本人<br>用 gmail + thunderbird 的方式搭的环境，收邮件的时候时而连上时而连不上，所以本文<br>对这个不做介绍。用163,126邮箱注册了邮件列表，发了邮件就没有了下文，估计是给屏蔽<br>了，大家也不用忙活用163，126邮箱注册邮件列表了。在网上发现有人用139的邮箱成功<br>注册内核邮件列表，试了一下，果然可以。所以本文使用139邮箱。(update: 139用了一段<br>时间也不行了)</p>
+<p>有了上面的背景，我们可以开始介绍整个环境的搭建了。首先想到的肯定是 139邮箱 + thunderbird<br>的方法，thunderbird图形化操作似乎也更方便一点。thunderbird只是一个邮件客户端，你<br>要配置它，告诉它发送/接收邮件使用的发送和接收服务器分别是什么。139邮箱的发送接收<br>服务器可以在邮箱的设置里找到，至于怎么设置thunderbird, 具体方法请自行google.<br>用thunderbird的好处是可以设置不同的邮件目录，对应的目录设置不同的过滤器以归类<br>邮件，还有就是可以以一个个thread的形式管理邮件，回复关系一目了然。需要注意的是<br>thunderbird的默认格式不符合linux kernel patch的格式，需要简单配置一下，想用<br>thunderbird的人也要google下了。</p>
+<p>但是像本人这样，有时需要远程调试，然后在服务器上把调试log发回本地的情况时。图形<br>界面的邮件客户端显然满足不了需求，于是有了本文要介绍的命令行邮件客户端配置。<br>本文使用139邮箱，139邮箱默认是开启pop, smtp服务的，下面的配置脚本中可以看到<br>pop, smtp服务器地址。</p>
+<p>首先简要说明fetchmail, procmail, msmtp, mutt的作用。<br>fetchmail是从邮箱下在邮件, procmail提供对邮件的过滤功能, msmtp用来发送邮件，<br>mutt用来看邮件和写邮件。本人的工作环境是ubuntu, 所以下面配置都是在ubuntu的环境<br>下完成的。ubuntu下安装上面四个软件apt-get install即可搞定。</p>
+<p>fetchmail的配置文件在自己的home目录下的.fetchmailrc文件，需要自己创建一个这样<br>的文件。文件内容大概如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">poll pop.139.com</span><br><span class="line">protocol POP3</span><br><span class="line">user &quot;your_email_address@139.com&quot;</span><br><span class="line">password &quot;your_password&quot;</span><br><span class="line">keep</span><br><span class="line">ssl</span><br><span class="line">mda &quot;procmail -d %T&quot;</span><br></pre></td></tr></table></figure>
+
+<p>配置完后，运行fetchmail, 可以看到在/var/mail/下有以你账号名作为文件名的文件。<br>里面就是下载的邮件。本人一开始没有配置最后一行，下载邮件失败, 加上最后一行后可以<br>下载。</p>
+<p>procmail的配置文件也在自己的home目录下，为.procmailrc， 内容大概如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">PATH=/usr/local/bin:/usr/bin:/bin</span><br><span class="line">MAILDIR=$HOME/Mail</span><br><span class="line">DEFAULT=$MAILDIR/mbox</span><br><span class="line">LOGFILE=$MAILDIR/log</span><br></pre></td></tr></table></figure>
+
+<p>msmtp的配置文件也在自己的home目录下，为.msmtprc， 内容大概如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">account default</span><br><span class="line">host smtp.139.com</span><br><span class="line">from your_email_address@139.com</span><br><span class="line">auth login</span><br><span class="line">tls on</span><br><span class="line">tls_certcheck off</span><br><span class="line">user your_email_address@139.com</span><br><span class="line">password &quot;your_password&quot;</span><br></pre></td></tr></table></figure>
+
+<p>配置好后可以用 msmtp -S 检查自己的配置是否正确。</p>
+<p>mutt的配置文件也在自己的home目录下，为.muttrc， 内容大概如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">set from=&quot;your name &lt;your_email_address@139.com&gt;&quot;</span><br><span class="line">set use_from=yes</span><br><span class="line">set sendmail=&quot;/usr/bin/msmtp&quot;</span><br><span class="line">set editor=vim</span><br><span class="line">set folder=&quot;$HOME/Mail&quot;</span><br><span class="line">set record=&quot;+sent&quot;</span><br><span class="line">set mbox=&quot;+mbox&quot;</span><br><span class="line">set postponed=&quot;+postponed&quot;</span><br></pre></td></tr></table></figure>
+
+<p>配置好后每次可以先fetchmail, 然后用mutt -f ~/Mail/mbox打开邮件查看。</p>
+<p>到现在就基本可以命令行浏览，收发邮件了。但是如果你一下订阅了几个邮件列表，想<br>分类管理邮件，下面给一个简单的示范：</p>
+<p>想单独管理下来自<span class="exturl" data-url="bWFpbHRvOiYjeDZjOyYjeDY5OyYjMTEwOyYjeDc1OyYjeDc4OyYjeDJkOyYjMTEyOyYjOTk7JiMxMDU7JiN4NDA7JiMxMTg7JiN4Njc7JiMxMDE7JiMxMTQ7JiN4MmU7JiMxMDc7JiMxMDE7JiMxMTQ7JiMxMTA7JiMxMDE7JiMxMDg7JiM0NjsmI3g2ZjsmIzExNDsmIzEwMzs=">&#x6c;&#x69;&#110;&#x75;&#x78;&#x2d;&#112;&#99;&#105;&#x40;&#118;&#x67;&#101;&#114;&#x2e;&#107;&#101;&#114;&#110;&#101;&#108;&#46;&#x6f;&#114;&#103;<i class="fa fa-external-link-alt"></i></span> 邮件列表里的邮件。先在家目录的Mail下<br>创建一个文件保存邮件，这里我们创建一个叫pci-mbox的文件。在.procmailrc文件中添加<br>一下几行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">:0</span><br><span class="line">* ^Cc:.*linux-pci@vger.kernel.org</span><br><span class="line">pci-mbox</span><br></pre></td></tr></table></figure>
+<p>之后再fetchmail，来自pci邮件列表中的邮件就自动保存在~/Mail/pci-mbox中了。</p>
+<p>注意：</p>
+<ol>
+<li>fetchmail失败: 在.procmailrc中配置不当（配置不当的过滤脚本）会导致fetchmail<br>下载不了邮件</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E5%BC%80%E5%8F%91/" rel="tag"># 软件开发</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/GIC-ITS%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E4%B8%80/" rel="prev" title="GIC ITS学习笔记(一)">
+      <i class="fa fa-chevron-left"></i> GIC ITS学习笔记(一)
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/Parsing-ranges-item-in-pcie-designware-c/" rel="next" title="Parsing ranges item in pcie-designware.c">
+      Parsing ranges item in pcie-designware.c <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

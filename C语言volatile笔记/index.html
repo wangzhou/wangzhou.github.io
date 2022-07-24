@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文介绍C语言里的volatile关键词的使用方法。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="C语言volatile笔记">
+<meta property="og:url" content="http://example.com/C%E8%AF%AD%E8%A8%80volatile%E7%AC%94%E8%AE%B0/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文介绍C语言里的volatile关键词的使用方法。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-05T14:35:27.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.802Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="C语言">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/C%E8%AF%AD%E8%A8%80volatile%E7%AC%94%E8%AE%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>C语言volatile笔记 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/C%E8%AF%AD%E8%A8%80volatile%E7%AC%94%E8%AE%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          C语言volatile笔记
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-05 22:35:27" itemprop="dateCreated datePublished" datetime="2021-07-05T22:35:27+08:00">2021-07-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+            <span id="/C%E8%AF%AD%E8%A8%80volatile%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="C语言volatile笔记" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/C%E8%AF%AD%E8%A8%80volatile%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/C%E8%AF%AD%E8%A8%80volatile%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文介绍C语言里的volatile关键词的使用方法。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>C语言里volatile用来修饰一个变量，告诉编译器怎么去编译一个变量。编译器编译一个变量，<br>看起来应该是很直白的：一个变量在内存里存放，读的话就读对应的内存，写这个变量的<br>话就向这个内存写值就可以了，为什么还要volatile这个词来修饰下？</p>
+<p>在这之前我们要搞清楚两个问题.</p>
+<p>第一，代码要编译成汇编指令才可以执行，编译成的汇编指令可能不是从内存里取这个值，<br>当然也可能写内存的时候不会立即生效。注意我这里只提到了内存，没有说cache，这里我<br>假设代码运行的机器是可以在硬件层面保证内存/cache的数据一致性的，就是说cache在软<br>件层面是透明的。其实现在大部分机器也确实是这样的。</p>
+<p>第二，读写一个值的时候，不要认为它对应的物理存储一定是内存(DDR), 它还可以是设备<br>的一段IO寄存器(MMIO), 比如，我把一个物理设备的一段IO寄存器直接mmap出来，你在<br>用户态用mmap的到一个地址，你访问这个地址，其实访问的是这个设备的寄存器。IO寄存器<br>的属性和内存的完全不一样，你写下去一个值是为了触发一个操作，你再写下去一个相同的<br>值是为了再触发一次这个操作, 第二个操作是不能代替第一个操作的；硬件还可以通过IO<br>寄存器给你返回状态，也就是一个“内存”里的值，可能自己会改变 :)</p>
+<p>还有一种情况和上面的情况相似，就是多个独立的执行流改变一个变量的情况。当一个写<br>操作已经改变了内存里的值的时候，如果读代码是去读一个缓存的值，这样就会出错。再次<br>强调这里不包括cache和内存不一致的问题，也就是说，我们假设如果写已经更新了内存，<br>读的时候，即使读的是对应的cache，硬件也会识别到cache里的数据和内存的数据是不一样<br>的，硬件会自动把内存里的新数据填到cache里，之后读是可以读到正确的值。那什么时候<br>会出问题呢: 当读操作把数据缓存在寄存器里的时候。</p>
+<p>基于以上的认识，我们看一段代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">/* for test 1 */</span><br><span class="line">int test;</span><br><span class="line"></span><br><span class="line">/* for test 2 */</span><br><span class="line">volatile int test_v;</span><br><span class="line"></span><br><span class="line">/* for test 3 */</span><br><span class="line">int test_3, tmp1, tmp2, tmp3;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">void volatile_test_1()</span><br><span class="line">&#123;</span><br><span class="line">	test = 111;	</span><br><span class="line">	test = 222;</span><br><span class="line">	test = 333;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void volatile_test_2()</span><br><span class="line">&#123;</span><br><span class="line">	test_v = 111;	</span><br><span class="line">	test_v = 222;</span><br><span class="line">	test_v = 333;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void volatile_test_3_read()</span><br><span class="line">&#123;</span><br><span class="line">	test = test_3;	</span><br><span class="line">	tmp1 = test_3;</span><br><span class="line">	tmp2 = test_3;</span><br><span class="line">	tmp3 = test_3;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void volatile_test_3_write()</span><br><span class="line">&#123;</span><br><span class="line">	test_3 = 111;	</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对这段代码普通的情况下，编译成的汇编代码是：(使用x86-arm64 gcc交叉编译器)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br></pre></td><td class="code"><pre><span class="line">	.arch armv8-a</span><br><span class="line">	.file	&quot;test.c&quot;</span><br><span class="line">	.comm	test,4,4</span><br><span class="line">	.comm	test_v,4,4</span><br><span class="line">	.comm	test_3,4,4</span><br><span class="line">	.comm	tmp1,4,4</span><br><span class="line">	.comm	tmp2,4,4</span><br><span class="line">	.comm	tmp3,4,4</span><br><span class="line">	.text</span><br><span class="line">	.align	2</span><br><span class="line">	.global	volatile_test_1</span><br><span class="line">	.type	volatile_test_1, %function</span><br><span class="line">volatile_test_1:</span><br><span class="line">	adrp	x0, test</span><br><span class="line">	add	x0, x0, :lo12:test</span><br><span class="line">	mov	w1, 111</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	adrp	x0, test</span><br><span class="line">	add	x0, x0, :lo12:test</span><br><span class="line">	mov	w1, 222</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	adrp	x0, test</span><br><span class="line">	add	x0, x0, :lo12:test</span><br><span class="line">	mov	w1, 333</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	nop</span><br><span class="line">	ret</span><br><span class="line">	.size	volatile_test_1, .-volatile_test_1</span><br><span class="line">	.align	2</span><br><span class="line">	.global	volatile_test_2</span><br><span class="line">	.type	volatile_test_2, %function</span><br><span class="line">volatile_test_2:</span><br><span class="line">	adrp	x0, test_v</span><br><span class="line">	add	x0, x0, :lo12:test_v</span><br><span class="line">	mov	w1, 111</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	adrp	x0, test_v</span><br><span class="line">	add	x0, x0, :lo12:test_v</span><br><span class="line">	mov	w1, 222</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	adrp	x0, test_v</span><br><span class="line">	add	x0, x0, :lo12:test_v</span><br><span class="line">	mov	w1, 333</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	nop</span><br><span class="line">	ret</span><br><span class="line">	.size	volatile_test_2, .-volatile_test_2</span><br><span class="line">	.align	2</span><br><span class="line">	.global	volatile_test_3_read</span><br><span class="line">	.type	volatile_test_3_read, %function</span><br><span class="line">volatile_test_3_read:</span><br><span class="line">	adrp	x0, test_3</span><br><span class="line">	add	x0, x0, :lo12:test_3</span><br><span class="line">	ldr	w1, [x0]</span><br><span class="line">	adrp	x0, test</span><br><span class="line">	add	x0, x0, :lo12:test</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	adrp	x0, test_3</span><br><span class="line">	add	x0, x0, :lo12:test_3</span><br><span class="line">	ldr	w1, [x0]</span><br><span class="line">	adrp	x0, tmp1</span><br><span class="line">	add	x0, x0, :lo12:tmp1</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	adrp	x0, test_3</span><br><span class="line">	add	x0, x0, :lo12:test_3</span><br><span class="line">	ldr	w1, [x0]</span><br><span class="line">	adrp	x0, tmp2</span><br><span class="line">	add	x0, x0, :lo12:tmp2</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	adrp	x0, test_3</span><br><span class="line">	add	x0, x0, :lo12:test_3</span><br><span class="line">	ldr	w1, [x0]</span><br><span class="line">	adrp	x0, tmp3</span><br><span class="line">	add	x0, x0, :lo12:tmp3</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	nop</span><br><span class="line">	ret</span><br><span class="line">	.size	volatile_test_3_read, .-volatile_test_3_read</span><br><span class="line">	.align	2</span><br><span class="line">	.global	volatile_test_3_write</span><br><span class="line">	.type	volatile_test_3_write, %function</span><br><span class="line">volatile_test_3_write:</span><br><span class="line">	adrp	x0, test_3</span><br><span class="line">	add	x0, x0, :lo12:test_3</span><br><span class="line">	mov	w1, 111</span><br><span class="line">	str	w1, [x0]</span><br><span class="line">	nop</span><br><span class="line">	ret</span><br><span class="line">	.size	volatile_test_3_write, .-volatile_test_3_write</span><br><span class="line">	.ident	&quot;GCC: (Linaro GCC 6.3-2017.05) 6.3.1 20170404&quot;</span><br><span class="line">	.section	.note.GNU-stack,&quot;&quot;,@progbits</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>但是加上-O3的选项，叫编译器帮忙给我优化下编译结果，最后的代码是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line">	.arch armv8-a</span><br><span class="line">	.file	&quot;test.c&quot;</span><br><span class="line">	.text</span><br><span class="line">	.align	2</span><br><span class="line">	.p2align 3,,7</span><br><span class="line">	.global	volatile_test_1</span><br><span class="line">	.type	volatile_test_1, %function</span><br><span class="line">volatile_test_1:</span><br><span class="line">	adrp	x0, test</span><br><span class="line">	mov	w1, 333</span><br><span class="line">	str	w1, [x0, #:lo12:test]</span><br><span class="line">	ret</span><br><span class="line">	.size	volatile_test_1, .-volatile_test_1</span><br><span class="line">	.align	2</span><br><span class="line">	.p2align 3,,7</span><br><span class="line">	.global	volatile_test_2</span><br><span class="line">	.type	volatile_test_2, %function</span><br><span class="line">volatile_test_2:</span><br><span class="line">	adrp	x0, test_v</span><br><span class="line">	mov	w3, 111</span><br><span class="line">	mov	w2, 222</span><br><span class="line">	mov	w1, 333</span><br><span class="line">	str	w3, [x0, #:lo12:test_v]</span><br><span class="line">	str	w2, [x0, #:lo12:test_v]</span><br><span class="line">	str	w1, [x0, #:lo12:test_v]</span><br><span class="line">	ret</span><br><span class="line">	.size	volatile_test_2, .-volatile_test_2</span><br><span class="line">	.align	2</span><br><span class="line">	.p2align 3,,7</span><br><span class="line">	.global	volatile_test_3_read</span><br><span class="line">	.type	volatile_test_3_read, %function</span><br><span class="line">volatile_test_3_read:</span><br><span class="line">	adrp	x0, test_3</span><br><span class="line">	adrp	x4, test</span><br><span class="line">	adrp	x3, tmp1</span><br><span class="line">	adrp	x2, tmp2</span><br><span class="line">	adrp	x1, tmp3</span><br><span class="line">	ldr	w0, [x0, #:lo12:test_3]</span><br><span class="line">	str	w0, [x4, #:lo12:test]</span><br><span class="line">	str	w0, [x3, #:lo12:tmp1]</span><br><span class="line">	str	w0, [x2, #:lo12:tmp2]</span><br><span class="line">	str	w0, [x1, #:lo12:tmp3]</span><br><span class="line">	ret</span><br><span class="line">	.size	volatile_test_3_read, .-volatile_test_3_read</span><br><span class="line">	.align	2</span><br><span class="line">	.p2align 3,,7</span><br><span class="line">	.global	volatile_test_3_write</span><br><span class="line">	.type	volatile_test_3_write, %function</span><br><span class="line">volatile_test_3_write:</span><br><span class="line">	adrp	x0, test_3</span><br><span class="line">	mov	w1, 111</span><br><span class="line">	str	w1, [x0, #:lo12:test_3]</span><br><span class="line">	ret</span><br><span class="line">	.size	volatile_test_3_write, .-volatile_test_3_write</span><br><span class="line">	.comm	tmp3,4,4</span><br><span class="line">	.comm	tmp2,4,4</span><br><span class="line">	.comm	tmp1,4,4</span><br><span class="line">	.comm	test_3,4,4</span><br><span class="line">	.comm	test_v,4,4</span><br><span class="line">	.comm	test,4,4</span><br><span class="line">	.ident	&quot;GCC: (Linaro GCC 6.3-2017.05) 6.3.1 20170404&quot;</span><br><span class="line">	.section	.note.GNU-stack,&quot;&quot;,@progbits</span><br></pre></td></tr></table></figure>
+
+<p>可以看出普通编译的时候都是没有问题的。问题出现在编译器做优化的时候:</p>
+<p>test_1多次写一个变量的时候, 编译器认为，只要最后一次写就可以了。如果，test1对应<br>的是一个IO寄存器，或者test_1的值，会被另一个执行流程识别，这里就会出问题。解决<br>办法就是给test_1加上volatile，告诉编译器每次写操作都不能被编译器优化掉。</p>
+<p>test_3多次读一个变量的时候，编译器后两次的读都没有去正真读内存，而是使用了第一次<br>缓存在寄存器里的值。如果，test_3对应的是一个IO寄存器，或者如代码里一样test_3在<br>另一个执行流里被修改了(volatile_test_3_write), 但是read操作还是读的寄存器里的值，<br>这样就会出问题。要修改也是加volatile。</p>
+<p>在上面的第一里提到，写内存的时候不是马上生效的, 这里也和cache没有啥关系，在硬件<br>保证cache一致性的系统里，对于单个操作，可以认为是写内存就马上生效的。这里说的<br>不生效是指CPU的多个写操作写下去的写完成的先后是不保证的。要想保证一个写操作的先后<br>顺序，就需要使用内存屏障指令。这个不是本问讨论的问题, 另外再说。这里只是说明，<br>volatile只是告诉编译器不做额外优化，它是不能保证写生效顺序的。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/C%E8%AF%AD%E8%A8%80/" rel="tag"># C语言</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/git-am-%E5%86%B2%E7%AA%81%E8%A7%A3%E5%86%B3%E6%8A%80%E5%B7%A7/" rel="prev" title="git am 冲突解决技巧">
+      <i class="fa fa-chevron-left"></i> git am 冲突解决技巧
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/C%E8%AF%AD%E8%A8%80bit%E6%93%8D%E4%BD%9C/" rel="next" title="C语言bit操作">
+      C语言bit操作 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

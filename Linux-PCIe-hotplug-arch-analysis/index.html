@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析Linux内核里PCIe热插拔的代码架构">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux PCIe hotplug arch analysis">
+<meta property="og:url" content="http://example.com/Linux-PCIe-hotplug-arch-analysis/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析Linux内核里PCIe热插拔的代码架构">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-07-11T15:37:56.000Z">
+<meta property="article:modified_time" content="2022-07-24T15:20:53.810Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="PCIe">
+<meta property="article:tag" content="Linux内核">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/Linux-PCIe-hotplug-arch-analysis/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux PCIe hotplug arch analysis | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">77</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">176</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/Linux-PCIe-hotplug-arch-analysis/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux PCIe hotplug arch analysis
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-11 23:37:56" itemprop="dateCreated datePublished" datetime="2021-07-11T23:37:56+08:00">2021-07-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+            <span id="/Linux-PCIe-hotplug-arch-analysis/" class="post-meta-item leancloud_visitors" data-flag-title="Linux PCIe hotplug arch analysis" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/Linux-PCIe-hotplug-arch-analysis/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/Linux-PCIe-hotplug-arch-analysis/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析Linux内核里PCIe热插拔的代码架构</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>This analysis is based on v4.8-rc5.</p>
+<p>There are two kinds of PCIe hotplug: one is PCIe native hotplug which is implemented<br>just used the codes in linux kernel, second is PCIe hotplug based on ACPI. Here<br>we just analyze the native hotplug.</p>
+<p>PCIe hotplug is implemented as a pcie port service, it is registered in pcie port<br>driver in drivers/pci/hotplug/pciehp_core.c:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">--&gt; pcied_init(void)</span><br><span class="line">    --&gt; pcie_port_service_register(&amp;hpdriver_portdrv)</span><br></pre></td></tr></table></figure>
+<p>so system will finally call pciehp_probe in struct pcie_port_service_driver hpdriver_portdrv,<br>main flow of this probe:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line">pciehp_probe(struct pcie_device *dev)</span><br><span class="line">        /* create struct controller, struct slot, get slot capability and slot status info */</span><br><span class="line">    --&gt; pcie_init(dev);</span><br><span class="line">            /* will register a delay_work in slot:</span><br><span class="line">             * INIT_DELAYED_WORK(&amp;slot-&gt;work, pciehp_queue_pushbutton_work)</span><br><span class="line">             *</span><br><span class="line">             * This will be called, e.g. in hot-insertion, after inserting card</span><br><span class="line">             * and press button and wait 5s.</span><br><span class="line">             */</span><br><span class="line">        --&gt; pcie_init_slot</span><br><span class="line">        /* create struct hotplug_slot, struct hotplug_slot_info, struct hotplug_slot_ops,</span><br><span class="line">         * fill functions in hotplug_slot_ops</span><br><span class="line">         *</span><br><span class="line">         *   controller</span><br><span class="line">         *        +------&gt; slot</span><br><span class="line">         *                   +----&gt; hotplug_slot</span><br><span class="line">         *                               +-------&gt; pci_slot</span><br><span class="line">         *                                         hotplug_slot_ops</span><br><span class="line">         *                                         hotplug_slot_info</span><br><span class="line">         *                   +----&gt; delayed_work</span><br><span class="line">         *                   +----&gt; workqueue_struct</span><br><span class="line">         *</span><br><span class="line">         * then the whole structures will like above.</span><br><span class="line">         *</span><br><span class="line">         * After above structure been built, it will call pci_hp_register</span><br><span class="line">         */</span><br><span class="line">    --&gt; init_slot(ctrl);</span><br><span class="line">            /* add hotplug_slot into pci_hotplug_slot_list */</span><br><span class="line">        --&gt; pci_hp_register(hotplug, ctrl-&gt;pcie-&gt;port-&gt;subordinate, 0, name);</span><br><span class="line">                /* to check: where to init pci_slot */</span><br><span class="line">            --&gt; pci_create_slot</span><br><span class="line">            --&gt; list_add(&amp;slot-&gt;slot_list, &amp;pci_hotplug_slot_list);</span><br><span class="line">                /* expose pci_slot related file in sys-fs */</span><br><span class="line">            --&gt; fs_add_slot(pci_slot);</span><br><span class="line">        /* register irq */</span><br><span class="line">    --&gt; pcie_init_notification(ctrl);</span><br><span class="line">            /* when request_irq, will let struct controller to be its private data */</span><br><span class="line">        --&gt; pciehp_request_irq(ctrl)</span><br><span class="line">            /* hardware set here ?? enable some bits in slot control reg,</span><br><span class="line">             *</span><br><span class="line">             * here, in pcie_write_cmd function, we need wait former cmd finished,</span><br><span class="line">             * if needed, we should check the details of this wait function.</span><br><span class="line">             */</span><br><span class="line">        --&gt; pcie_enable_notification(ctrl);</span><br><span class="line">        /* if there is a device on the slot */</span><br><span class="line">    --&gt; pciehp_enable_slot(slot);</span><br><span class="line">            /* after check the status of device, if needed, will enable the device</span><br><span class="line">             *</span><br><span class="line">             * As we already implements linkup in UEFI, if we enable PCIe controller</span><br><span class="line">             * driver, it will not call board_added. If we do not enable PCIe controller,</span><br><span class="line">             * it will call board_added here.</span><br><span class="line">             */</span><br><span class="line">        --&gt; board_added(struct slot *p_slot)</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">pcie_isr</span><br><span class="line">        /* to check: where to define the handle of below queue */</span><br><span class="line">    --&gt; wake_up(&amp;ctrl-&gt;queue);</span><br><span class="line">        /* create related work_struct, then put work_struct to the work_queue in struct slot,</span><br><span class="line">         * Here, we may have: Attention Button Pressed, Presence Detect Changed</span><br><span class="line">         * Power Fault Detected, Link up/down check.</span><br><span class="line">         *</span><br><span class="line">         * same handle will be added to work_struct: interrupt_event_handler, </span><br><span class="line">         * in above function, it handle all cases.</span><br><span class="line">         *</span><br><span class="line">         * We can not analyze all cases, the key point to understand the standard</span><br><span class="line">         * hot-insertion and hot-removal is to consider the whole flow together</span><br><span class="line">         * with INIT_DELAYED_WORK(&amp;slot-&gt;work, pciehp_queue_pushbutton_work) in</span><br><span class="line">         * pcie_init mentioned above.</span><br><span class="line">         *</span><br><span class="line">         * when you analyze the different cases, please pay great attention on</span><br><span class="line">         * struct slot -&gt; state, which indicates the current status of hot-plug</span><br><span class="line">         * state machine. And we should get clear the map between these state</span><br><span class="line">         * and real physical state.</span><br><span class="line">         *</span><br><span class="line">         * STATIC_STATE: at this state, pcie ep already runs fine or ep already</span><br><span class="line">         * had been remove the system.</span><br><span class="line">         *</span><br><span class="line">         * BLINKINGON_STATE: in hot-insertion, after step1, card insertion; step2,</span><br><span class="line">         * press button, power indicator led will blinking 5s. This state just </span><br><span class="line">         * indicates this.</span><br><span class="line">         *</span><br><span class="line">         * BLINKINGOFF_STATE: same as above, but in hot-removal.</span><br><span class="line">         *</span><br><span class="line">         * POWERON_STATE: in hot-insertion, in the 5s of power indicator led blinking,</span><br><span class="line">         * if we do not press button again, it will try to bring the ep power on,</span><br><span class="line">         * linkup, then add ep to system. This state just shows this.</span><br><span class="line">         *</span><br><span class="line">         * POWEROFF_STATE: same as above, but in hot-removal.</span><br><span class="line">         */</span><br><span class="line">    --&gt; pciehp_queue_interrupt_event(slot, INT_BUTTON_PRESS);</span><br></pre></td></tr></table></figure>
+
+<p>If we only see the flow of “interrupt_event_handler: INT_PRESENCE_ON”, it can not<br>match the stardard hot-inertion flow, which firstly inserting a PCIe card and then<br>pressing the attention button.</p>
+<p>If in a system, when a pcie card been plugged in, a hotplug interrupt will be<br>triggered and presence detect change bit set 1 in slot status register.<br>This will trigger the operation in flow 1 below. you can see that now the whole<br>hot-insertion process has no relationship with attention button press.</p>
+<p>pcie device hot insertion, trigger Presence Detect interrupt:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">--&gt; interrupt_event_handler: INT_PRESENCE_ON</span><br><span class="line">    --&gt; handle_surprise_event</span><br><span class="line">            /* if presence detect bit in slot status set 1 */</span><br><span class="line">        --&gt; pciehp_queue_power_work(..., ENABLE_REQ)</span><br><span class="line">                /* will create work_queue, and add it to struct slot&#x27;s wq,</span><br><span class="line">                 * the handler function is pciehp_power_thread</span><br><span class="line">                 *</span><br><span class="line">                 * above handler will be called by work queue in slot.</span><br><span class="line">                 */</span><br><span class="line">            --&gt; pciehp_power_thread: case ENABLE_REQ</span><br><span class="line">                --&gt; pciehp_enable_slot(p_slot)</span><br><span class="line">                        /* before doing this, we will check slot status */</span><br><span class="line">                    --&gt; board_added</span><br><span class="line">                        --&gt; pciehp_green_led_blink</span><br><span class="line">                                /* send green led blink */</span><br><span class="line">                            --&gt; pcie_write_cmd_nowait</span><br><span class="line">                            /* check linkup, here maximum wait 1s */</span><br><span class="line">                        --&gt; pciehp_check_link_status</span><br><span class="line">                            /* to check resource assign if has problem */</span><br><span class="line">                        --&gt; pciehp_configure_device</span><br><span class="line">                        --&gt; pciehp_green_led_on</span><br><span class="line">                --&gt; p_slot-&gt;state = STATIC_STATE;</span><br></pre></td></tr></table></figure>
+
+<p>Let’s see standard pcie hot-removal:<br>button pressed, trigger Attention Button Pressed interrupt</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">--&gt; interrupt_event_handler: INT_BUTTON_PRESS</span><br><span class="line">        /* In this function, it depends on hot-plug state machine to decide</span><br><span class="line">         * what to do next. Here assuming, power on, we operate hot-removal.</span><br><span class="line">         */</span><br><span class="line">    --&gt; handle_button_press_event(p_slot)</span><br><span class="line">            /* if pcie card is running fine, we are in STATIC_STATE,</span><br><span class="line">             * and at this time, we check power, it is power on, so we know</span><br><span class="line">             * this operation will be a hot-removal, print:</span><br><span class="line">             * &quot;powering off due to button press&quot;</span><br><span class="line">             *</span><br><span class="line">             * Then we change state to BLINKINGOFF_STATE, which means</span><br><span class="line">             * PCIe controller/card will wait 5s to turn off power.</span><br><span class="line">             */</span><br><span class="line">            /* blink power indicator to show power unstable */</span><br><span class="line">        --&gt; pciehp_green_led_blink(p_slot)</span><br><span class="line">            /* turn off attention indicator to show everything fine */</span><br><span class="line">        --&gt; pciehp_set_attention_status(p_slot, 0)</span><br><span class="line">            /* delay work queue 5s to wait if we will cancel this operation */</span><br><span class="line">        --&gt; queue_delayed_work(p_slot-&gt;wq, &amp;p_slot-&gt;work, 5*HZ)</span><br></pre></td></tr></table></figure>
+<p>As [1] page 394, step 4, it said, hotplug driver should let the driver of PCIe card<br>stop, and card driver should handle stop the data/interrupt. We should check<br>pci_stop_and_remove_bus_device below to get the details.</p>
+<p>If in 5s, we do not press button, it will eventually call pciehp_queue_pushbutton_work<br>which initialized in pcie_init.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">pciehp_queue_pushbutton_work</span><br><span class="line">        /* when hot-removal, state is BLINKINGOFF_STATE */</span><br><span class="line">    --&gt; pciehp_queue_power_work(p_slot, DISABLE_REQ)</span><br><span class="line">            /* POWEROFF_STATE */</span><br><span class="line">        --&gt; pciehp_power_thread</span><br><span class="line">            --&gt; pciehp_disable_slot</span><br><span class="line">                --&gt; remove_board(p_slot)</span><br><span class="line">                    --&gt; pciehp_unconfigure_device(p_slot)</span><br><span class="line">                            /* the point here is how to removal the ep specific</span><br><span class="line">                             * work. If needed, we should check the details here.</span><br><span class="line">                             */</span><br><span class="line">                        --&gt; pci_stop_and_remove_bus_device</span><br></pre></td></tr></table></figure>
+<p>above is the code map of standard hot-removal.</p>
+<p>If at any time, the pcie card has been surprise hot-removed, linux kernel can<br>handle it by:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">--&gt; interrupt_event_handler: INT_PRESENCE_OFF</span><br><span class="line">    --&gt; handle_surprise_event</span><br><span class="line">        --&gt; pciehp_queue_power_work(p_slot, DISABLE_REQ)</span><br><span class="line">                /* add this to slot&#x27;s work queue */</span><br><span class="line">            --&gt; pciehp_power_threa</span><br><span class="line">                --&gt; pciehp_disable_slot(p_slot)</span><br><span class="line">                    --&gt; remove_board(p_slot)</span><br><span class="line">                --&gt; p_slot-&gt;state = STATIC_STATE;</span><br></pre></td></tr></table></figure>
+<p>but the point here is how to handle ep specific work, need more investigation here.</p>
+<p>Let’s see standard pcie hot-insertion:<br>If we consider pciehp_queue_pushbutton_work in the flow of standard hot-insertion,<br>it is easy to get the work flow analysis like standard hot-removal above.</p>
+<p>The point here is that only if the power of slot is off before inserting ep, can<br>we use the button to trigger standard hot-insertion flow. If power of slot is on,<br>once a ep has been inserted in slot, it will trigger presence ditect change interrupt,<br>then code in kernel can handle following part of hot-insertion, we indeed do not<br>need to press a button. We just show this in above section.</p>
+<p>Resource assignment problem in linux hotplug:<br>kernel use below code to add a ep to system.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">--&gt; pciehp_enable_slot</span><br><span class="line">    --&gt; board_added(p_slot)</span><br><span class="line">        --&gt; pciehp_configure_device</span><br><span class="line">            ...</span><br><span class="line">            --&gt; pci_hp_add_bridge(dev)</span><br></pre></td></tr></table></figure>
+<p>But how does linux assign bus number ahead for a hotplug capable slot ?<br>we should pay attention to a value: max in pci enumeration code.</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">     --&gt; pci_scan_child_bus</span><br><span class="line">  --&gt; if (bus-&gt;self &amp;&amp; bus-&gt;self-&gt;is_hotplug_bridge &amp;&amp; pci_hotplug_bus_size)</span><br><span class="line">if (max - bus-&gt;busn_res.start &lt; pci_hotplug_bus_size - 1)</span><br><span class="line">	max = bus-&gt;busn_res.start + pci_hotplug_bus_size - 1;</span><br></pre></td></tr></table></figure>
+<p>It will check if this is a hotplug bridge and assign more pci buses for this bridge<br>according to pci_hotplug_bus_size which can be set in command line of kernel.</p>
+<h2 id="note"><a href="#note" class="headerlink" title="note"></a>note</h2><p>struct slot -&gt; state:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">(to finish)</span><br><span class="line">                         +-------------------+</span><br><span class="line">                         | BLINKINGOFF_STATE |</span><br><span class="line">                         +-------------------+</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">+--------------+ slot enable +------------+  slot disable +--------------+</span><br><span class="line">|POWERON_STATE | ----------&gt; |STATIC_STATE|  &lt;----------- |POWEROFF_STATE|</span><br><span class="line">+--------------+             +------------+               +--------------+</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">                          +----------------+</span><br><span class="line">                          |BLINKINGON_STATE|</span><br><span class="line">                          +----------------+</span><br></pre></td></tr></table></figure>
+
+<p>from PCIe spec, power indicator should be a green led:<br>off means power off, so we can insertion/removal<br>on means power on, so we can not insertion/removal<br>blinking means, it is powering up/down or a feedback from attention button pressed<br>                or hot-plug operation is initiated through software.</p>
+<p>attention indicator should be a yellow or amber led:<br>on means, should be pay attention to<br>off means, everything fine</p>
+<h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h2><ol>
+<li>PCI.EXPRESS系统体系结构标准教材].(美)Pavi.Budruk,Don.Anderson,Tom.Shanley.扫描版.pdf</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/PCIe/" rel="tag"># PCIe</a>
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/cpio-compress-and-extract/" rel="prev" title="cpio compress and extract">
+      <i class="fa fa-chevron-left"></i> cpio compress and extract
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/Linux-PCIe-DPC-analysis/" rel="next" title="Linux PCIe DPC analysis">
+      Linux PCIe DPC analysis <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#note"><span class="nav-number">1.</span> <span class="nav-text">note</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Reference"><span class="nav-number">2.</span> <span class="nav-text">Reference</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">176</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">77</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
