@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析riscv ebreak指令在Linux内核中的使用，分析基于的代码时Linux主线v5.12-rc8， 主要分析BUG_ON宏、kprobe、uaccess实现。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="riscv ebreak指令的使用">
+<meta property="og:url" content="http://example.com/riscv-ebreak%E6%8C%87%E4%BB%A4%E7%9A%84%E4%BD%BF%E7%94%A8/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析riscv ebreak指令在Linux内核中的使用，分析基于的代码时Linux主线v5.12-rc8， 主要分析BUG_ON宏、kprobe、uaccess实现。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-07-25T07:46:36.000Z">
+<meta property="article:modified_time" content="2022-07-25T07:56:52.873Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="riscv">
+<meta property="article:tag" content="ISA">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/riscv-ebreak%E6%8C%87%E4%BB%A4%E7%9A%84%E4%BD%BF%E7%94%A8/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>riscv ebreak指令的使用 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">80</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">181</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/riscv-ebreak%E6%8C%87%E4%BB%A4%E7%9A%84%E4%BD%BF%E7%94%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          riscv ebreak指令的使用
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-07-25 15:46:36 / 修改时间：15:56:52" itemprop="dateCreated datePublished" datetime="2022-07-25T15:46:36+08:00">2022-07-25</time>
+            </span>
+
+          
+            <span id="/riscv-ebreak%E6%8C%87%E4%BB%A4%E7%9A%84%E4%BD%BF%E7%94%A8/" class="post-meta-item leancloud_visitors" data-flag-title="riscv ebreak指令的使用" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/riscv-ebreak%E6%8C%87%E4%BB%A4%E7%9A%84%E4%BD%BF%E7%94%A8/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/riscv-ebreak%E6%8C%87%E4%BB%A4%E7%9A%84%E4%BD%BF%E7%94%A8/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析riscv ebreak指令在Linux内核中的使用，分析基于的代码时Linux主线v5.12-rc8， 主要分析BUG_ON宏、kprobe、uaccess实现。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="ebreak指令"><a href="#ebreak指令" class="headerlink" title="ebreak指令"></a>ebreak指令</h2><p> riscv上的ebreak指令和ecall指令的功能基本一致，都是用指令触发一个异常，ebreak使用<br> 指令出发一个ebreak异常。</p>
+<h2 id="BUG-ON宏实现"><a href="#BUG-ON宏实现" class="headerlink" title="BUG_ON宏实现"></a>BUG_ON宏实现</h2><p> BUG_ON()是内核里常用的一个断言，当不满足BUG_ON的条件时，内核就会打印出当前的CPU<br> 寄存器上下文以及相关的内核调用栈。</p>
+<p> riscv上BUG_ON内部实现是BUG()，它的定义在arch/riscv/include/asm/bug.h</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">#define BUG() do &#123;						\</span><br><span class="line">	__BUG_FLAGS(0);						\</span><br><span class="line">	unreachable();						\</span><br><span class="line">&#125; while (0)</span><br><span class="line"></span><br><span class="line">#define __BUG_FLAGS(flags)					\</span><br><span class="line">do &#123;								\</span><br><span class="line">	__asm__ __volatile__ (					\</span><br><span class="line">		&quot;1:\n\t&quot;					\</span><br><span class="line">			&quot;ebreak\n&quot;				\</span><br><span class="line">			&quot;.pushsection __bug_table,\&quot;aw\&quot;\n\t&quot;	\</span><br><span class="line">		&quot;2:\n\t&quot;					\</span><br><span class="line">			__BUG_ENTRY &quot;\n\t&quot;			\</span><br><span class="line">			&quot;.org 2b + %3\n\t&quot;                      \</span><br><span class="line">			&quot;.popsection&quot;				\</span><br><span class="line">		:						\</span><br><span class="line">		: &quot;i&quot; (__FILE__), &quot;i&quot; (__LINE__),		\</span><br><span class="line">		  &quot;i&quot; (flags),					\</span><br><span class="line">		  &quot;i&quot; (sizeof(struct bug_entry)));              \</span><br><span class="line">&#125; while (0)</span><br></pre></td></tr></table></figure>
+<p>如上的.pushsection指示编译器把下面label2开头的一段二进制在链接的时候<br>放到名叫__bug_table的段里。</p>
+<p>ebreak指令的执行最终会执行到ebreak的异常处理函数: do_trap_break，这个函数的定义在<br>linux/arch/riscv/kernel/traps.c，这个函数的实现包含了kprobe、uprobe、kgdb以及BUG<br>的逻辑。</p>
+<p>BUG的逻辑实现在report_bug函数，核心的逻辑是使用异常PC在__bug_table这个段里查找对应<br>的信息，然后打印查找到的内容。</p>
+<h2 id="uaccess实现"><a href="#uaccess实现" class="headerlink" title="uaccess实现"></a>uaccess实现</h2><p> riscv的对应实现在linux/arch/riscv/include/asm/uaccess.h，用户态内核态之间传递信息<br> 的逻辑基本上在uaccess里实现，比如，copy_from_user、copy_to_user等等。</p>
+<p> 这里只看一个copy_to_user的实现:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">/* linux/include/linux/uaccess.h */</span><br><span class="line">copy_to_user</span><br><span class="line">      /* linux/lib/usercopy.c */</span><br><span class="line">  +-&gt; _copy_to_user</span><br><span class="line">        /* 下面的体系构架相关的函数在arch/riscv/include/asm/uaccess.h */</span><br><span class="line">    +-&gt; access_ok</span><br><span class="line">    +-&gt; raw_copy_to_user</span><br><span class="line">          /* arch/riscv/lib/uaccess.S */</span><br><span class="line">      +-&gt; __asm_copy_to_user(void __user *to, const void *from, unsigned long n)</span><br></pre></td></tr></table></figure>
+<p>__asm_copy_to_user的代码分析如下，直接以注释的形式写在下面的代码之间:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br></pre></td><td class="code"><pre><span class="line">ENTRY(__asm_copy_to_user)</span><br><span class="line">ENTRY(__asm_copy_from_user)</span><br><span class="line"></span><br><span class="line">	/* Enable access to user memory */</span><br><span class="line">	li t6, SR_SUM</span><br><span class="line">	csrs CSR_STATUS, t6</span><br><span class="line"></span><br><span class="line">	/* 如上，a0是用户态目的地址，a1是内核buffer的地址, a2是要copy的size，a3是源数据buffer的结尾 */</span><br><span class="line">	add a3, a1, a2</span><br><span class="line">	/* Use word-oriented copy only if low-order bits match */</span><br><span class="line">	/* 64bit的系统，SZREG是8，t0得到目的地址的低3bit，t1得到源地址的低3bit */</span><br><span class="line">	andi t0, a0, SZREG-1</span><br><span class="line">	andi t1, a1, SZREG-1</span><br><span class="line">	/* </span><br><span class="line">         * 目的地址和源地址低3bit不相等的时候，跳到label 2，有数据要拷贝的时候，</span><br><span class="line">         * 会直接跳到label 5, label 5本来是拷贝非8Byte数据的，但是，在源数据buffer</span><br><span class="line">         * 和目的数据buffer地址不对应的情况，直接在label 5用单Byte拷贝的方式复制</span><br><span class="line">         * 整段内存。</span><br><span class="line">         */</span><br><span class="line">	bne t0, t1, 2f</span><br><span class="line"></span><br><span class="line">	/*</span><br><span class="line">	 * 对于源数据buffer，下面每一段表示8B，那么t0和t1的志向的位置如下：</span><br><span class="line">         *</span><br><span class="line">	 * |  8B   |       |       |       |       |</span><br><span class="line">	 * +-------+-------+-------+-------+-------+</span><br><span class="line">	 * |   ^   |       |       |    ^  |       |</span><br><span class="line">         *     |                        |</span><br><span class="line">         *     +------------------------+</span><br><span class="line">         *     |   ^               ^    | 源数据buffer</span><br><span class="line">         *         |               |</span><br><span class="line">         *     a1                       a3</span><br><span class="line">         *         t0              t1</span><br><span class="line">         *</span><br><span class="line">         * 如下这块代码的逻辑是找到源数据buffer中整8Byte的部分，t0指向起始地址，</span><br><span class="line">         * t1指向结尾地址。</span><br><span class="line">	 */</span><br><span class="line">	addi t0, a1, SZREG-1</span><br><span class="line">	andi t1, a3, ~(SZREG-1)</span><br><span class="line">	andi t0, t0, ~(SZREG-1)</span><br><span class="line">	/*</span><br><span class="line">	 * a3: terminal address of source region</span><br><span class="line">	 * t0: lowest XLEN-aligned address in source</span><br><span class="line">	 * t1: highest XLEN-aligned address in source</span><br><span class="line">	 */</span><br><span class="line">        /*</span><br><span class="line">         * t0 &gt;= t1是一些边角的情况，跳到label 2，有数据要拷贝的时候，再跳到label 5</span><br><span class="line">         * 做单Byte拷贝。过了这个点后，下面是拷贝算法的主题逻辑。</span><br><span class="line">         */</span><br><span class="line">	bgeu t0, t1, 2f</span><br><span class="line">        /* a1 &lt; t0说明有t0前面多出来的那一截，跳到label 4，单Byte拷贝结尾这段非对齐数据 */</span><br><span class="line">	bltu a1, t0, 4f</span><br><span class="line">1:</span><br><span class="line">	/*</span><br><span class="line">	 * fixup宏的定义是：</span><br><span class="line">	 *</span><br><span class="line">	 *      .macro fixup op reg addr lbl</span><br><span class="line">	 * 100:</span><br><span class="line">	 *	\op \reg, \addr</span><br><span class="line">	 *	.section __ex_table,&quot;a&quot;</span><br><span class="line">	 *	.balign RISCV_SZPTR</span><br><span class="line">	 *	RISCV_PTR 100b, \lbl</span><br><span class="line">	 *	.previous</span><br><span class="line">	 *	.endm</span><br><span class="line">	 *</span><br><span class="line">	 * 这个宏生成了一个指令，上下文看来，一般是生成load或者store指令，然后在</span><br><span class="line">	 * __ex_table这个段生成一个dword大小(8B)的数据，这个数据的格式是低4B是之前</span><br><span class="line">	 * 生成指令的地址，高4B是一个跳转的label。当load/store有异常发生的时候，</span><br><span class="line">         * 异常处理函数在__ex_table中找到对应的地址，高32bit保存就是要继续跳转的</span><br><span class="line">         * 地址，这里是继续跳转到label 10的地方，函数返回值配置成数据搬移的size，</span><br><span class="line">         * 然后函数返回。</span><br><span class="line">	 *</span><br><span class="line">	 * 相关的流程是：各种访存异常处理函数(e.g. do_trap_load_misaligned)-&gt;do_trap_error-&gt;fixup_exception</span><br><span class="line">	 * 在fixup_exception里配置regs-&gt;epc为fixup代码地址(label 10地址)，然后调用</span><br><span class="line">	 * sret跳到对应地址执行。这里怎么和异常恢复结合起来？还会有什么异常？</span><br><span class="line">	 */</span><br><span class="line">	fixup REG_L, t2, (a1), 10f</span><br><span class="line">	fixup REG_S, t2, (a0), 10f</span><br><span class="line">	addi a1, a1, SZREG</span><br><span class="line">	addi a0, a0, SZREG</span><br><span class="line">	bltu a1, t1, 1b</span><br><span class="line">2:</span><br><span class="line">	bltu a1, a3, 5f</span><br><span class="line"></span><br><span class="line">3:</span><br><span class="line">	/* Disable access to user memory */</span><br><span class="line">	csrc CSR_STATUS, t6</span><br><span class="line">	li a0, 0</span><br><span class="line">	ret</span><br><span class="line">4: /* Edge case: unalignment */</span><br><span class="line">	fixup lbu, t2, (a1), 10f</span><br><span class="line">	fixup sb, t2, (a0), 10f</span><br><span class="line">	addi a1, a1, 1</span><br><span class="line">	addi a0, a0, 1</span><br><span class="line">	bltu a1, t0, 4b</span><br><span class="line">        /* 拷贝完前面一截非8Byte对齐的数据，跳到label 1以8Byte为单位复制数据 */</span><br><span class="line">	j 1b</span><br><span class="line">5: /* Edge case: remainder */</span><br><span class="line">	fixup lbu, t2, (a1), 10f</span><br><span class="line">	fixup sb, t2, (a0), 10f</span><br><span class="line">	addi a1, a1, 1</span><br><span class="line">	addi a0, a0, 1</span><br><span class="line">	bltu a1, a3, 5b</span><br><span class="line">	j 3b</span><br><span class="line">ENDPROC(__asm_copy_to_user)</span><br><span class="line">ENDPROC(__asm_copy_from_user)</span><br><span class="line">EXPORT_SYMBOL(__asm_copy_to_user)</span><br><span class="line">EXPORT_SYMBOL(__asm_copy_from_user)</span><br><span class="line">[...]</span><br><span class="line">10:</span><br><span class="line">	/* Disable access to user memory */</span><br><span class="line">	csrs CSR_STATUS, t6</span><br><span class="line">	mv a0, a2</span><br><span class="line">	ret</span><br></pre></td></tr></table></figure>
+
+<h2 id="kprobe实现"><a href="#kprobe实现" class="headerlink" title="kprobe实现"></a>kprobe实现</h2><p> 基本原理是插入一个ebreak指令，ebreak触发kprobe的调用。代码入口在do_trap_break。</p>
+<h2 id="GDB场景"><a href="#GDB场景" class="headerlink" title="GDB场景"></a>GDB场景</h2><p> 执行到ebreak指令的时候，如果在用户态就向用户态发一个SIGTRAP的信号，如果在内核态<br> 并且使能KGDB，就处理相关逻辑。代码入口在do_trap_break。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"># 计算机体系结构</a>
+              <a href="/tags/riscv/" rel="tag"># riscv</a>
+              <a href="/tags/ISA/" rel="tag"># ISA</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/qemu-tcg%E7%BF%BB%E8%AF%91%E6%89%A7%E8%A1%8C%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" rel="prev" title="qemu tcg翻译执行核心逻辑分析">
+      <i class="fa fa-chevron-left"></i> qemu tcg翻译执行核心逻辑分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/qemu-monitor%E4%BB%8B%E7%BB%8D/" rel="next" title="qemu monitor介绍">
+      qemu monitor介绍 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#ebreak%E6%8C%87%E4%BB%A4"><span class="nav-number">1.</span> <span class="nav-text">ebreak指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#BUG-ON%E5%AE%8F%E5%AE%9E%E7%8E%B0"><span class="nav-number">2.</span> <span class="nav-text">BUG_ON宏实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#uaccess%E5%AE%9E%E7%8E%B0"><span class="nav-number">3.</span> <span class="nav-text">uaccess实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kprobe%E5%AE%9E%E7%8E%B0"><span class="nav-number">4.</span> <span class="nav-text">kprobe实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#GDB%E5%9C%BA%E6%99%AF"><span class="nav-number">5.</span> <span class="nav-text">GDB场景</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">181</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">80</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>

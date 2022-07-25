@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文介绍qemu monitor的一些使用方法，使用qemu调试问题的时候可以参考。分析使用 的qemu版本是6.2.0。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="qemu monitor介绍">
+<meta property="og:url" content="http://example.com/qemu-monitor%E4%BB%8B%E7%BB%8D/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文介绍qemu monitor的一些使用方法，使用qemu调试问题的时候可以参考。分析使用 的qemu版本是6.2.0。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-07-25T07:47:29.000Z">
+<meta property="article:modified_time" content="2022-07-25T07:58:29.001Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="软件调试">
+<meta property="article:tag" content="qemu">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/qemu-monitor%E4%BB%8B%E7%BB%8D/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>qemu monitor介绍 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">80</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">181</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/qemu-monitor%E4%BB%8B%E7%BB%8D/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          qemu monitor介绍
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-07-25 15:47:29 / 修改时间：15:58:29" itemprop="dateCreated datePublished" datetime="2022-07-25T15:47:29+08:00">2022-07-25</time>
+            </span>
+
+          
+            <span id="/qemu-monitor%E4%BB%8B%E7%BB%8D/" class="post-meta-item leancloud_visitors" data-flag-title="qemu monitor介绍" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/qemu-monitor%E4%BB%8B%E7%BB%8D/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/qemu-monitor%E4%BB%8B%E7%BB%8D/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文介绍qemu monitor的一些使用方法，使用qemu调试问题的时候可以参考。分析使用 的qemu版本是6.2.0。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="直观使用"><a href="#直观使用" class="headerlink" title="直观使用"></a>直观使用</h2><p> 启动qemu后，ctrl + a + c可以进入monitor的界面，再次ctrl + a + c可以从monitor里退出，<br> 输入help可以列出monitor里可以使用的命令。我们把部分命令的含义直接用注释的形式写到下面，<br> 后面用到再持续补充进来吧。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br></pre></td><td class="code"><pre><span class="line"># QEMU 6.2.0 monitor - type &#x27;help&#x27; for more information</span><br><span class="line">(qemu) help</span><br><span class="line">announce_self [interfaces] [id] -- Trigger GARP/RARP announcements</span><br><span class="line">balloon target -- request VM to change its memory allocation (in MB)</span><br><span class="line">block_job_cancel [-f] device -- stop an active background block operation (use -f</span><br><span class="line">                         if you want to abort the operation immediately</span><br><span class="line">                         instead of keep running until data is in sync)</span><br><span class="line">block_job_complete device -- stop an active background block operation</span><br><span class="line">block_job_pause device -- pause an active background block operation</span><br><span class="line">block_job_resume device -- resume a paused background block operation</span><br><span class="line">block_job_set_speed device speed -- set maximum speed for a background block operation</span><br><span class="line">block_resize device size -- resize a block image</span><br><span class="line">block_set_io_throttle device bps bps_rd bps_wr iops iops_rd iops_wr -- change I/O throttle limits for a block drive</span><br><span class="line">block_stream device [speed [base]] -- copy data from a backing file into a block device</span><br><span class="line">boot_set bootdevice -- define new values for the boot device list</span><br><span class="line">calc_dirty_rate [-r] [-b] second [sample_pages_per_GB] -- start a round of guest dirty rate measurement (using -r to</span><br><span class="line">                         specify dirty ring as the method of calculation and</span><br><span class="line">                         -b to specify dirty bitmap as method of calculation)</span><br><span class="line">change device filename [format [read-only-mode]] -- change a removable medium, optional format</span><br><span class="line">chardev-add args -- add chardev</span><br><span class="line">chardev-change id args -- change chardev</span><br><span class="line">chardev-remove id -- remove chardev</span><br><span class="line">chardev-send-break id -- send a break on chardev</span><br><span class="line">client_migrate_info protocol hostname port tls-port cert-subject -- set migration information for remote display</span><br><span class="line">closefd closefd name -- close a file descriptor previously passed via SCM rights</span><br><span class="line">commit device|all -- commit changes to the disk images (if -snapshot is used) or backing files</span><br><span class="line">cont|c  -- resume emulation</span><br><span class="line">cpu index -- set the default CPU</span><br><span class="line">delvm tag -- delete a VM snapshot from its tag</span><br><span class="line">device_add driver[,prop=value][,...] -- add device, like -device on the command line</span><br><span class="line">device_del device -- remove device</span><br><span class="line">drive_add [-n] [[&lt;domain&gt;:]&lt;bus&gt;:]&lt;slot&gt;</span><br><span class="line">[file=file][,if=type][,bus=n]</span><br><span class="line">[,unit=m][,media=d][,index=i]</span><br><span class="line">[,snapshot=on|off][,cache=on|off]</span><br><span class="line">[,readonly=on|off][,copy-on-read=on|off] -- add drive to PCI storage controller</span><br><span class="line">drive_backup [-n] [-f] [-c] device target [format] -- initiates a point-in-time</span><br><span class="line">                        copy for a device. The device&#x27;s contents are</span><br><span class="line">                        copied to the new image file, excluding data that</span><br><span class="line">                        is written after the command is started.</span><br><span class="line">                        The -n flag requests QEMU to reuse the image found</span><br><span class="line">                        in new-image-file, instead of recreating it from scratch.</span><br><span class="line">                        The -f flag requests QEMU to copy the whole disk,</span><br><span class="line">                        so that the result does not need a backing file.</span><br><span class="line">                        The -c flag requests QEMU to compress backup data</span><br><span class="line">                        (if the target format supports it).</span><br><span class="line"></span><br><span class="line">drive_del device -- remove host block device</span><br><span class="line">drive_mirror [-n] [-f] device target [format] -- initiates live storage</span><br><span class="line">                        migration for a device. The device&#x27;s contents are</span><br><span class="line">                        copied to the new image file, including data that</span><br><span class="line">                        is written after the command is started.</span><br><span class="line">                        The -n flag requests QEMU to reuse the image found</span><br><span class="line">                        in new-image-file, instead of recreating it from scratch.</span><br><span class="line">                        The -f flag requests QEMU to copy the whole disk,</span><br><span class="line">                        so that the result does not need a backing file.</span><br><span class="line"></span><br><span class="line">dump-guest-memory [-p] [-d] [-z|-l|-s|-w] filename [begin length] -- dump guest memory into file &#x27;filename&#x27;.</span><br><span class="line">                        -p: do paging to get guest&#x27;s memory mapping.</span><br><span class="line">                        -d: return immediately (do not wait for completion).</span><br><span class="line">                        -z: dump in kdump-compressed format, with zlib compression.</span><br><span class="line">                        -l: dump in kdump-compressed format, with lzo compression.</span><br><span class="line">                        -s: dump in kdump-compressed format, with snappy compression.</span><br><span class="line">                        -w: dump in Windows crashdump format (can be used instead of ELF-dump converting),</span><br><span class="line">                            for Windows x64 guests with vmcoreinfo driver only.</span><br><span class="line">                        begin: the starting physical address.</span><br><span class="line">                        length: the memory size, in bytes.</span><br><span class="line">eject [-f] device -- eject a removable medium (use -f to force it)</span><br><span class="line">exit_preconfig  -- exit the preconfig state</span><br><span class="line">expire_password protocol time -- set spice/vnc password expire-time</span><br><span class="line">gdbserver [device] -- start gdbserver on given device (default &#x27;tcp::1234&#x27;), stop with &#x27;none&#x27;</span><br><span class="line">getfd getfd name -- receive a file descriptor via SCM rights and assign it a name</span><br><span class="line">gpa2hpa addr -- print the host physical address corresponding to a guest physical address</span><br><span class="line">gpa2hva addr -- print the host virtual address corresponding to a guest physical address</span><br><span class="line">gva2gpa addr -- print the guest physical address corresponding to a guest virtual address</span><br><span class="line">help|? [cmd] -- show the help</span><br><span class="line">hostfwd_add [netdev_id] [tcp|udp]:[hostaddr]:hostport-[guestaddr]:guestport -- redirect TCP or UDP connections from host to guest (requires -net user)</span><br><span class="line">hostfwd_remove [netdev_id] [tcp|udp]:[hostaddr]:hostport -- remove host-to-guest TCP or UDP redirection</span><br><span class="line">i /fmt addr -- I/O port read</span><br><span class="line">info [subcommand] -- show various information about the system state</span><br><span class="line">loadvm tag -- restore a VM snapshot from its tag</span><br><span class="line">log item1[,...] -- activate logging of the specified items              &lt;--- 似乎可以动态的触发某种打印log</span><br><span class="line">logfile filename -- output logs to &#x27;filename&#x27;</span><br><span class="line">memsave addr size file -- save to disk virtual memory dump starting at &#x27;addr&#x27; of size &#x27;size&#x27;</span><br><span class="line">migrate [-d] [-b] [-i] [-r] uri -- migrate to URI (using -d to not wait for completion)</span><br><span class="line">                         -b for migration without shared storage with full copy of disk</span><br><span class="line">                         -i for migration without shared storage with incremental copy of disk (base image shared between src and destination)</span><br><span class="line">                         -r to resume a paused migration</span><br><span class="line">migrate_cancel  -- cancel the current VM migration</span><br><span class="line">migrate_continue state -- Continue migration from the given paused state</span><br><span class="line">migrate_incoming uri -- Continue an incoming migration from an -incoming defer</span><br><span class="line">migrate_pause  -- Pause an ongoing migration (postcopy-only)</span><br><span class="line">migrate_recover uri -- Continue a paused incoming postcopy migration</span><br><span class="line">migrate_set_capability capability state -- Enable/Disable the usage of a capability for migration</span><br><span class="line">migrate_set_parameter parameter value -- Set the parameter for migration</span><br><span class="line">migrate_start_postcopy  -- Followup to a migration command to switch the migration to postcopy mode. The postcopy-ram capability must be set on both source an</span><br><span class="line">d destination before the original migration command .</span><br><span class="line">mouse_button state -- change mouse button state (1=L, 2=M, 4=R)</span><br><span class="line">mouse_move dx dy [dz] -- send mouse move events</span><br><span class="line">mouse_set index -- set which mouse device receives events</span><br><span class="line">nbd_server_add nbd_server_add [-w] device [name] -- export a block device via NBD</span><br><span class="line">nbd_server_remove nbd_server_remove [-f] name -- remove an export previously exposed via NBD</span><br><span class="line">nbd_server_start nbd_server_start [-a] [-w] host:port -- serve block devices on the given host and port</span><br><span class="line">nbd_server_stop nbd_server_stop -- stop serving block devices using the NBD protocol</span><br><span class="line">netdev_add [user|tap|socket|vde|bridge|hubport|netmap|vhost-user],id=str[,prop=value][,...] -- add host network device</span><br><span class="line">netdev_del id -- remove host network device</span><br><span class="line">nmi  -- inject an NMI</span><br><span class="line">o /fmt addr value -- I/O port write</span><br><span class="line">object_add [qom-type=]type,id=str[,prop=value][,...] -- create QOM object</span><br><span class="line">object_del id -- destroy QOM object</span><br><span class="line">pcie_aer_inject_error [-a] [-c] id &lt;error_status&gt; [&lt;tlp header&gt; [&lt;tlp header prefix&gt;]] -- inject pcie aer error</span><br><span class="line">                         -a for advisory non fatal error</span><br><span class="line">                         -c for correctable error</span><br><span class="line">                        &lt;id&gt; = qdev device id</span><br><span class="line">                        &lt;error_status&gt; = error string or 32bit</span><br><span class="line">                        &lt;tlp header&gt; = 32bit x 4</span><br><span class="line">                        &lt;tlp header prefix&gt; = 32bit x 4</span><br><span class="line">pmemsave addr size file -- save to disk physical memory dump starting at &#x27;addr&#x27; of size &#x27;size&#x27;</span><br><span class="line">print|p /fmt expr -- print expression value (use $reg for CPU register access)</span><br><span class="line">qemu-io [-d] [device] &quot;[command]&quot; -- run a qemu-io command on a block device</span><br><span class="line">                        -d: [device] is a device ID rather than a drive ID or node name</span><br><span class="line">qom-get path property -- print QOM property</span><br><span class="line">qom-list path -- list QOM properties</span><br><span class="line">qom-set [-j] path property value -- set QOM property.</span><br><span class="line">                        -j: the value is specified in json format.</span><br><span class="line">quit|q  -- quit the emulator</span><br><span class="line">replay_break icount -- set breakpoint at the specified instruction count</span><br><span class="line">replay_delete_break  -- remove replay breakpoint</span><br><span class="line">replay_seek icount -- replay execution to the specified instruction count</span><br><span class="line">ringbuf_read device size -- Read from a ring buffer character device</span><br><span class="line">ringbuf_write device data -- Write to a ring buffer character device</span><br><span class="line">savevm tag -- save a VM snapshot. If no tag is provided, a new snapshot is created</span><br><span class="line">screendump filename [device [head]] -- save screen from head &#x27;head&#x27; of display device &#x27;device&#x27; into PPM image &#x27;filename&#x27;</span><br><span class="line">sendkey keys [hold_ms] -- send keys to the VM (e.g. &#x27;sendkey ctrl-alt-f1&#x27;, default hold time=100 ms)</span><br><span class="line">set_link name on|off -- change the link status of a network adapter</span><br><span class="line">set_password protocol password action-if-connected -- set spice/vnc password</span><br><span class="line">singlestep [on|off] -- run emulation in singlestep mode or switch to normal mode      &lt;--- 似乎还可以动态的进入和退出singlestep?</span><br><span class="line">snapshot_blkdev [-n] device [new-image-file] [format] -- initiates a live snapshot</span><br><span class="line">                        of device. If a new image file is specified, the</span><br><span class="line">                        new image file will become the new root image.</span><br><span class="line">                        If format is specified, the snapshot file will</span><br><span class="line">                        be created in that format.</span><br><span class="line">                        The default format is qcow2.  The -n flag requests QEMU</span><br><span class="line">                        to reuse the image found in new-image-file, instead of</span><br><span class="line">                        recreating it from scratch.</span><br><span class="line">snapshot_blkdev_internal device name -- take an internal snapshot of device.</span><br><span class="line">                        The format of the image used by device must</span><br><span class="line">                        support it, such as qcow2.</span><br><span class="line"></span><br><span class="line">snapshot_delete_blkdev_internal device name [id] -- delete an internal snapshot of device.</span><br><span class="line">                        If id is specified, qemu will try delete</span><br><span class="line">                        the snapshot matching both id and name.</span><br><span class="line">                        The format of the image used by device must</span><br><span class="line">                        support it, such as qcow2.</span><br><span class="line"></span><br><span class="line">stopcapture capture index -- stop capture</span><br><span class="line">stop|s  -- stop emulation</span><br><span class="line">sum addr size -- compute the checksum of a memory region</span><br><span class="line">sync-profile [on|off|reset] -- enable, disable or reset synchronization profiling. With no arguments, prints whether profiling is on or off.</span><br><span class="line">system_powerdown  -- send system power down event</span><br><span class="line">system_reset  -- reset the system</span><br><span class="line">system_wakeup  -- wakeup guest from suspend</span><br><span class="line">trace-event name on|off [vcpu] -- changes status of a specific trace event (vcpu: vCPU to set, default is all)</span><br><span class="line">watchdog_action [reset|shutdown|poweroff|pause|debug|none] -- change watchdog action</span><br><span class="line">wavcapture path audiodev [frequency [bits [channels]]] -- capture audio to a wave file (default frequency=44100 bits=16 channels=2)</span><br><span class="line">x /fmt addr -- virtual memory dump starting at &#x27;addr&#x27;          &lt;--- 打印虚拟地址上的数据</span><br><span class="line">x_colo_lost_heartbeat  -- Tell COLO that heartbeat is lost,</span><br><span class="line">                        a failover or takeover is needed.</span><br><span class="line">xp /fmt addr -- physical memory dump starting at &#x27;addr&#x27;        &lt;--- 打印物理地址上的数据</span><br></pre></td></tr></table></figure>
+<p> 其中info命令还有自命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line">(qemu) info</span><br><span class="line">info balloon  -- show balloon information</span><br><span class="line">info block [-n] [-v] [device] -- show info of one block device or all block devices (-n: show named nodes; -v: show details)</span><br><span class="line">info block-jobs  -- show progress of ongoing block device operations</span><br><span class="line">info blockstats  -- show block device statistics</span><br><span class="line">info capture  -- show capture information</span><br><span class="line">info chardev  -- show the character devices</span><br><span class="line">info cpus  -- show infos for each CPU                          &lt;--- 打印vCPU的线程id</span><br><span class="line">info dirty_rate  -- show dirty rate information</span><br><span class="line">info dump  -- Display the latest dump status</span><br><span class="line">info history  -- show the command line history</span><br><span class="line">info hotpluggable-cpus  -- Show information about hotpluggable CPUs</span><br><span class="line">info iothreads  -- show iothreads</span><br><span class="line">info irq  -- show the interrupts statistics (if available)</span><br><span class="line">info jit  -- show dynamic compiler info                        &lt;--- 可以查看tcg的相关信息，比如平均TB的平均大小</span><br><span class="line">info kvm  -- show KVM information</span><br><span class="line">info mem  -- show the active virtual memory mappings           &lt;--- dump出当前guest系统中所有虚拟地址到物理地址的映射(dump时刻的进程?)</span><br><span class="line">info memdev  -- show memory backends</span><br><span class="line">info memory-devices  -- show memory devices</span><br><span class="line">info memory_size_summary  -- show the amount of initially allocated and present hotpluggable (if enabled) memory in bytes.</span><br><span class="line">info mice  -- show which guest mouse is receiving events</span><br><span class="line">info migrate  -- show migration status</span><br><span class="line">info migrate_capabilities  -- show current migration capabilities</span><br><span class="line">info migrate_parameters  -- show current migration parameters</span><br><span class="line">info mtree [-f][-d][-o][-D] -- show memory tree (-f: dump flat view for address spaces;-d: dump dispatch tree, valid with -f only);-o: dump region owners/pare</span><br><span class="line">nts;-D: dump disabled regions</span><br><span class="line">info name  -- show the current VM name</span><br><span class="line">info network  -- show the network state</span><br><span class="line">info numa  -- show NUMA information</span><br><span class="line">info opcount  -- show dynamic compiler opcode counters</span><br><span class="line">info pci  -- show PCI info</span><br><span class="line">info pic  -- show PIC state</span><br><span class="line">info profile  -- show profiling information</span><br><span class="line">info qdm  -- show qdev device model list</span><br><span class="line">info qom-tree [path] -- show QOM composition tree</span><br><span class="line">info qtree  -- show device tree</span><br><span class="line">info ramblock  -- Display system ramblock information</span><br><span class="line">info rdma  -- show RDMA state</span><br><span class="line">info registers [-a] -- show the cpu registers (-a: all - show register info for all cpus)     &lt;--- 打印CPU的寄存器值，多核的时候可以加上-a</span><br><span class="line">info replay  -- show record/replay information</span><br><span class="line">info rocker name -- Show rocker switch</span><br><span class="line">info rocker-of-dpa-flows name [tbl_id] -- Show rocker OF-DPA flow tables</span><br><span class="line">info rocker-of-dpa-groups name [type] -- Show rocker OF-DPA groups</span><br><span class="line">info rocker-ports name -- Show rocker ports</span><br><span class="line">info roms  -- show roms</span><br><span class="line">info snapshots  -- show the currently saved VM snapshots</span><br><span class="line">info status  -- show the current VM status (running|paused)</span><br><span class="line">info sync-profile [-m] [-n] [max] -- show synchronization profiling info, up to max entries (default: 10), sorted by total wait time. (-m: sort by mean wait t</span><br><span class="line">ime; -n: do not coalesce objects with the same call site)</span><br><span class="line">info tpm  -- show the TPM device</span><br><span class="line">info trace-events [name] [vcpu] -- show available trace-events &amp; their state (name: event name pattern; vcpu: vCPU to query, default is any)</span><br><span class="line">info usb  -- show guest USB devices</span><br><span class="line">info usbhost  -- show host USB devices</span><br><span class="line">info usernet  -- show user network stack connection states</span><br><span class="line">info uuid  -- show the current VM UUID</span><br><span class="line">info version  -- show the version of QEMU</span><br><span class="line">info vm-generation-id  -- Show Virtual Machine Generation ID</span><br><span class="line">info vnc  -- show the vnc server status</span><br></pre></td></tr></table></figure>
+<p> 需要注意的时候，运行如上命令的时候，qemu上的guest系统还处于活动的状态，可以使用<br> stop|s暂停模拟，用cont｜c继续模拟。</p>
+<h2 id="增加选项"><a href="#增加选项" class="headerlink" title="增加选项"></a>增加选项</h2><p> qemu的源码目录下有一个怎么增加monitor命令的指导：qemu/docs/devel/writing-monitor-commands.rst</p>
+<h2 id="QMP分析和使用"><a href="#QMP分析和使用" class="headerlink" title="QMP分析和使用"></a>QMP分析和使用</h2><p> qemu monitor支持两种模式的对外交互，一种是方便人理解的文本方式，一种是方便代码处理<br> 的json的格式，我们叫后者QMP，叫前者HMP，qemu的官方文档说，代码演进的方向是，HMP<br> 底层都用QMP实现。</p>
+<p> QMP可以直接使用，用户需要使用json格式和qemu monitor交互，基于QMP的工具有virsh/libvirt。</p>
+<h2 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h2><p> ctrl + a + c可以进入monitor HMP的界面，这里对应的代码逻辑是怎么样的。要分析清楚<br> 这个就先要对qemu的线程模型有一定的了解。qemu为每个vCPU创建一个线程，qemu在主线程<br> 里处理IO，qemu还为其他的业务起了相关线程，比如，为虚拟机热迁移起了单独的线程。</p>
+<p> qemu主线程里使用poll fd的方式监控IO，具体编码实现上qemu使用了glib库里提供的事件处理<br> 方式。所以，我们要找见monitor对应的fd是在哪里插入到qemu的事件监控里的。</p>
+<p> qemu启动使用-nographic时，monitor HMP会使用标准输入输出作为用户界面的输入输出，<br> 具体上，把monitor fd插入到qemu事件监控里的代码路径如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">main</span><br><span class="line">  +-&gt; qemu_init</span><br><span class="line">    +-&gt; qemu_create_late_backends</span><br><span class="line">      +-&gt; foreach_device_config</span><br><span class="line">        +-&gt; serial_parse</span><br><span class="line">          +-&gt; qemu_chr_new_mux_mon</span><br><span class="line">            +-&gt; qemu_chr_new_permit_mux_mon</span><br><span class="line">              +-&gt; qemu_chr_new_noreplay</span><br><span class="line">         +-&gt; monitor_init_hmp</span><br><span class="line">	   +-&gt; qemu_char_fe_set_handlers  &lt;--- 这里所谓的前端似乎只是抽象了一个统一的后端配置入口</span><br><span class="line">	     +-&gt; qemu_char_fe_set_handlers_full</span><br><span class="line">	       +-&gt; mux_chr_update_read_handlers</span><br><span class="line">	         +-&gt; qemu_char_fe_set_handlers_full</span><br><span class="line">	           +-&gt; fd_chr_update_read_handlers</span><br><span class="line">		     +-&gt; g_source_attach  &lt;--- 最后在这里加入到事件监控</span><br></pre></td></tr></table></figure>
+
+<p> 在qemu代码里的hmp_info_kvm的函数上打断点，使用gdb运行qemu，在断点处打印调用栈如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">main</span><br><span class="line">  +-&gt; qemu_main_loop</span><br><span class="line">    +-&gt; main_loop_wait</span><br><span class="line">      +-&gt; os_host_main_loop_wait</span><br><span class="line">        +-&gt; glib_pollfds_poll</span><br><span class="line">          +-&gt; g_main_context_dispatch</span><br><span class="line">            +-&gt; fd_chr_read</span><br><span class="line">       +-&gt; mux_chr_read</span><br><span class="line">         +-&gt; monitor_read</span><br><span class="line">           +-&gt; readline_handle_byte</span><br><span class="line">             +-&gt; monitor_command_cb</span><br><span class="line">               +-&gt; handle_hmp_command</span><br><span class="line">                 +-&gt; handle_hmp_command_exec</span><br><span class="line">                   +-&gt; hmp_info_kvm</span><br></pre></td></tr></table></figure>
+<p> 可以看出当monitor上有输入的时候，qemu主线程会poll到相关fd，然后以来glib的事件处理<br> 模型做事件分发处理，然后一路调用下来。</p>
+<p>Note: chardev目录下的abstract class有chardev(char.c)、chardev-fd(char-fd.c)</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E8%B0%83%E8%AF%95/" rel="tag"># 软件调试</a>
+              <a href="/tags/qemu/" rel="tag"># qemu</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/riscv-ebreak%E6%8C%87%E4%BB%A4%E7%9A%84%E4%BD%BF%E7%94%A8/" rel="prev" title="riscv ebreak指令的使用">
+      <i class="fa fa-chevron-left"></i> riscv ebreak指令的使用
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%9B%B4%E8%A7%82%E4%BD%BF%E7%94%A8"><span class="nav-number">1.</span> <span class="nav-text">直观使用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A2%9E%E5%8A%A0%E9%80%89%E9%A1%B9"><span class="nav-number">2.</span> <span class="nav-text">增加选项</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#QMP%E5%88%86%E6%9E%90%E5%92%8C%E4%BD%BF%E7%94%A8"><span class="nav-number">3.</span> <span class="nav-text">QMP分析和使用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">4.</span> <span class="nav-text">代码分析</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">181</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">80</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
