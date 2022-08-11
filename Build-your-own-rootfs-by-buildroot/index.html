@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文简单记录下编译rootfs的过程">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-06-20T15:16:36.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.802Z">
+<meta property="article:modified_time" content="2022-07-26T11:17:40.773Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="软件调试">
 <meta property="article:tag" content="rootfs">
@@ -135,7 +135,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">181</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">182</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -233,7 +233,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2022-07-26 19:17:40" itemprop="dateModified" datetime="2022-07-26T19:17:40+08:00">2022-07-26</time>
               </span>
 
           
@@ -280,11 +280,8 @@
 </li>
 <li><p>make menuconfig to choose BR2_TARGET_ROOTFS_CPIO=y and<br>Compression method to gzip.</p>
 </li>
-<li><p>make menuconfig to choose your arch, e.g. my arch is BR2_aarch64<br>Note: if you choose a wrong arch, after changing to right arch config,</p>
-<pre><code>  you should make clean, than make, otherwise you may meet something
-</code></pre>
-<p>  wrong like: “No working init found”.</p>
-</li>
+<li><p>make menuconfig to choose your arch, e.g. my arch is BR2_aarch64</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"> Note: if you choose a wrong arch, after changing to right arch config,</span><br><span class="line">       you should make clean, than make, otherwise you may meet something</span><br><span class="line">wrong like: &quot;No working init found&quot;.</span><br></pre></td></tr></table></figure></li>
 <li><p>wait and you will find built minirootfs in buildroot/output/images/<br>you can use rootfs.cpio.gz as rootfs here.</p>
 </li>
 </ol>
@@ -405,7 +402,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">181</span>
+          <span class="site-state-item-count">182</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
