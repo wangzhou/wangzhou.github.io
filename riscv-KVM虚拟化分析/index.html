@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析Linux内核里KVM相关的逻辑，体系架构基于riscv。具体调试的时候，我们 使用了两层的qemu模型，第一层qemu使能了riscv的h扩展，第二层qemu使用kvm启动。 全文使用从上到下的思路分析，如果需要了解相关的硬件特性可以直接跳到最后。 使用v5.19-rc8内核代码、6.2.0 qemu代码作为分析代码。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="riscv KVM虚拟化分析">
+<meta property="og:url" content="http://example.com/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析Linux内核里KVM相关的逻辑，体系架构基于riscv。具体调试的时候，我们 使用了两层的qemu模型，第一层qemu使能了riscv的h扩展，第二层qemu使用kvm启动。 全文使用从上到下的思路分析，如果需要了解相关的硬件特性可以直接跳到最后。 使用v5.19-rc8内核代码、6.2.0 qemu代码作为分析代码。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-09-01T13:25:16.000Z">
+<meta property="article:modified_time" content="2022-09-01T13:43:48.298Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="QEMU">
+<meta property="article:tag" content="虚拟化">
+<meta property="article:tag" content="riscv">
+<meta property="article:tag" content="KVM">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>riscv KVM虚拟化分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">81</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">184</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          riscv KVM虚拟化分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-09-01 21:25:16 / 修改时间：21:43:48" itemprop="dateCreated datePublished" datetime="2022-09-01T21:25:16+08:00">2022-09-01</time>
+            </span>
+
+          
+            <span id="/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="riscv KVM虚拟化分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析Linux内核里KVM相关的逻辑，体系架构基于riscv。具体调试的时候，我们 使用了两层的qemu模型，第一层qemu使能了riscv的h扩展，第二层qemu使用kvm启动。 全文使用从上到下的思路分析，如果需要了解相关的硬件特性可以直接跳到最后。 使用v5.19-rc8内核代码、6.2.0 qemu代码作为分析代码。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="内核kvm基本框架"><a href="#内核kvm基本框架" class="headerlink" title="内核kvm基本框架"></a>内核kvm基本框架</h2><p> kvm的入口函数在体系构架相关的代码里，riscv在arch/riscv/kvm/main.c里，riscv_kvm_init<br> 直接调用到KVM的总入口函数kvm_init，kvm_init创建一个/dev/kvm的字符设备，随后所有<br> 的kvm相关的操作都依赖这个字符设备。</p>
+<p> kvm_init的大概逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">kvm_init</span><br><span class="line">      /*</span><br><span class="line">       * 以riscv为例, 主要是做一些基本的硬件检测，比较重要的是gstage mode和vmid</span><br><span class="line">       * 的检测。riscv里的两级地址翻译，第一级叫VS stage，第二级叫G stage，这里</span><br><span class="line">       * 检测的gstage mode就是第二级翻译的配置。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; kvm_arch_init</span><br><span class="line">  [...]</span><br><span class="line">      /* 注册/dev/kvm的字符设备 */</span><br><span class="line">  +-&gt; misc_register</span><br><span class="line">  +-&gt; kvm_preempt_ops.sched_in = kvm_sched_in;</span><br><span class="line">  +-&gt; kvm_preempt_ops.sched_out = kvm_sched_out;</span><br></pre></td></tr></table></figure>
+<p> /dev/kvm这个字符设备只定义了对应的ioctl，这个ioctl支持的最主要的功能是创建一个虚拟机。<br> 我们看下KVM_CREATE_VM的逻辑:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">kvm_dev_ioctl_create_vm</span><br><span class="line">  +-&gt; kvm_create_vm</span><br><span class="line">        /* 分配gstage的pgd，vmid，guest的timer */</span><br><span class="line">    +-&gt; kvm_arch_init_vm</span><br><span class="line">      /*</span><br><span class="line">       * 这个ioctl会创建一个匿名文件，ioctl返回值是文件的fd, 这个fd就代表新创建的虚拟机，</span><br><span class="line">       * 这个fd只实现了ioctl和release回调，release就是销毁虚拟机，ioctl用来配置虚拟机</span><br><span class="line">       * 的各种资源，比如创建虚拟机的CPU(KVM_CREATE_VCPU)、给虚拟机配置内存(KVM_SET_USER_MEMORY_REGION)</span><br><span class="line">       * 等等。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; file = anon_inode_getfile(&quot;kvm-vm&quot;, &amp;kvm_vm_fops, kvm, O_RDWR)</span><br></pre></td></tr></table></figure>
+<p> 创建虚拟机的CPU的基本逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">kvm_vm_ioctl_create_vcpu</span><br><span class="line">      /*</span><br><span class="line">       * riscv的实现在arch/riscv/kvm/vcpu.c</span><br><span class="line">       * 把HSTAUS_SPV, HSTATUS_SPVP, HSTATUS_VTW配置到虚拟机vcpu的软件结构里，</span><br><span class="line">       * 这里SPV比较有意思，虚拟机启动的时候，会先根据如上软件结构里的HSTATUS</span><br><span class="line">       * 更新hstatus寄存器，然后sret跳转到虚拟机启动的第一条指令，sret会根据SPV</span><br><span class="line">       * 寄存器的值配置机器的V状态，这里SPV是1，sret指令会先把V状态配置成1，然后</span><br><span class="line">       * 跳到虚拟机启动的第一条指令。这里描述的是虚拟机最开始启动时候的逻辑。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; kvm_arch_vcpu_create</span><br><span class="line">        /* 配置vcpu的timer，实现为配置一个hrtimer，在定时到时，注入时钟中断 */</span><br><span class="line">    +-&gt; kvm_riscv_vcpu_timer_init</span><br><span class="line">    +-&gt; kvm_riscv_rest_vcpu</span><br><span class="line">          /* 软件之前配置好的信息，在这个函数里写到硬件里 */</span><br><span class="line">      +-&gt; kvm_arch_vcpu_load</span><br><span class="line">        +-&gt; csr_write更新CSR寄存器</span><br><span class="line">        +-&gt; kvm_riscv_gstage_update_hgatp  更新hgatp</span><br><span class="line">        +-&gt; kvm_riscv_vcpu_timer_restore   更新htimedelta</span><br><span class="line">        /*</span><br><span class="line">         * 为每个vcpu创建一个匿名的fd，这个fd实现的回调函数有：release、ioctl和mmap，</span><br><span class="line">         * ioctl提供vcpu的控制接口，比如，运行vcpu(KVM_RUN)等等。</span><br><span class="line">         */</span><br><span class="line">  +-&gt; create_vcpu_fd</span><br></pre></td></tr></table></figure>
+<p> 给虚拟机配置内存:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">/* kvm_userspace_mem是从用户态传进来的虚拟机内存的配置信息 */</span><br><span class="line">struct kvm_userspace_memory_region kvm_userspace_mem;</span><br><span class="line"></span><br><span class="line">kvm_vm_ioctl_set_memory_region(kvm, &amp;kvm_userspace_mem)</span><br><span class="line">  +-&gt; kvm_set_memory_region</span><br><span class="line">    +-&gt; __kvm_set_memory_region</span><br><span class="line">      +-&gt; kvm_prepare_memory_region</span><br><span class="line">            /* arch/riscv/kvm/mmu.c */</span><br><span class="line">        +-&gt; kvm_arch_prepare_memory_region</span><br><span class="line">              /*</span><br><span class="line">               * 虚拟机的物理地址是host的用户态分配的一段虚拟内存，这里面有三个</span><br><span class="line">               * 地址: 1. 这段虚拟地址的va；2. 这段虚拟地址对应的物理地址；3. 虚拟机</span><br><span class="line">               * 的物理地址(gpa)，这三个地址对应的实际内存是相同的，但是各自的数值</span><br><span class="line">               * 是不同的。实际上，第2级翻译是gpa-&gt;pa，但是host上申请到的va在host</span><br><span class="line">               * S mode上的翻译是va-&gt;pa(页表基地址是satp)，所以，我们就要把gpa-&gt;pa</span><br><span class="line">               * 的映射插到第2级翻译对应的页表里(hgatp)。</span><br><span class="line">               * </span><br><span class="line">               * 我们自然会联想第2级翻译缺页在哪里处理，这个逻辑单独在下面看。</span><br><span class="line">               */</span><br><span class="line">          +-&gt; gstage_ioremap</span><br><span class="line">                /* 配置第二级的页表 */</span><br><span class="line">            +-&gt; gstage_set_pte</span><br><span class="line">      +-&gt; kvm_create_memslot</span><br><span class="line">      +-&gt; kvm_commit_memory_region</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+<p> 我们先看下vcpu run的逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">kvm_vcpu_ioctl</span><br><span class="line">  +-&gt; case KVM_RUN</span><br><span class="line">    +-&gt; kvm_arch_vcpu_ioctl_run</span><br><span class="line">          /* arch/riscv/kvm/vcpu.c */</span><br><span class="line">      +-&gt; kvm_riscv_vcpu_enter_exit</span><br><span class="line">            /* arch/riscv/kvm/vcpu_switch.S */</span><br><span class="line">        +-&gt; __kvm_riscv_switch_to</span><br></pre></td></tr></table></figure>
+<p> __kvm_riscv_switch_to里把S mode的相关寄存器保存起来，换上VS状态的寄存器，然后sret<br> 跳到vcpu代码入口运行。vcpu的初始状态在如上vcpu create的逻辑中配置到vcpu的软件结构，<br> 通过这里的__kvm_riscv_switch_to配置到硬件CSR寄存器。</p>
+<p>第2级翻译缺页的逻辑可以从vcpu_switch.S里的__kvm_riscv_switch_to入手看，这个函数<br>是vcpu运行的入口函数，在投入运行前，这个函数里把__kvm_switch_return这个函数的地址<br>配置给了stvec，当vcpu运行出现异常时，就会跳到__kvm_switch_return继续执行，这样就会<br>从上面的kvm_riscv_vcpu_enter_exit出来，继续执行kvm_riscv_vcpu_exit, 第2级缺页异常<br>在这个函数里处理：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">kvm_riscv_vcpu_exit</span><br><span class="line">  +-&gt; gstage_page_fault</span><br><span class="line">        /*</span><br><span class="line">         * 这个函数里会用host va(不是gpa)，判断是不是有合法的vma存在，如果有合法</span><br><span class="line">         * 的vma存在，就可以分配内存，并且创建第二级页表，创建第2级map的时候使用</span><br><span class="line">         * gpa-&gt;pa</span><br><span class="line">         */</span><br><span class="line">    +-&gt; kvm_riscv_gstage_map</span><br><span class="line">      [...]</span><br></pre></td></tr></table></figure>
+
+<p>如上是虚拟机进入以及运行的逻辑，在用户态看，就是进入一个ioctl，停在里面运行代码，<br>直到运行不下去了，ioctl就返回了，返回值以及ioctl的输出参数携带退出的原因和参数。<br>从kvm内部看，虚拟机退出是他执行指令的时候遇到了异常或者中断，异常或中断处理后从ioctl<br>返回到qemu线程的用户态。触发虚拟机退出的源头包括外设的MMIO访问，在构建虚拟机的地址空间<br>时，没有对外设的MMIO gpa对第二级映射，这样第二级翻译的时候就会触发缺页异常，kvm的<br>处理缺页的代码处理完缺页后就会退出虚拟机(vcpu run ioctl返回)。发生异常的指令的PC<br>保存在sepc里，qemu会再次通过vcpu run ioctl进来，然后通过sret从sepc处继续运行。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">/* arch/riscv/kvm/vcpu.c */</span><br><span class="line">kvm_arch_vcpu_ioctl_run</span><br><span class="line">      /* 这里一进来run vcpu就处理MMIO，可能是上次时MMIO原因退出的，这样当然要接着MMIO的上下文继续跑 */</span><br><span class="line">  +-&gt; if (run-&gt;exit_reason == KVM_EXIT_MMIO)</span><br><span class="line">              kvm_riscv_vcpu_mmio_return(vcpu, vcpu-&gt;run)</span><br><span class="line">      /* 投入运行虚拟机, 异常后也从这里退出来 */</span><br><span class="line">  +-&gt; kvm_riscv_vcpu_enter_exit</span><br><span class="line">      /* 处理异常*/</span><br><span class="line">  +-&gt; kvm_riscv_vcpu_exit</span><br><span class="line">    +-&gt; gstage_page_fault</span><br><span class="line">      +-&gt; emulate_load</span><br><span class="line">            /* 在这里配置退出条件 */</span><br><span class="line">        +-&gt; run-&gt;exit_reason = KVM_EXIT_MMIO</span><br></pre></td></tr></table></figure>
+
+<p>随后独立考虑中断虚拟化。</p>
+<h2 id="qemu-riscv-H扩展基本逻辑"><a href="#qemu-riscv-H扩展基本逻辑" class="headerlink" title="qemu riscv H扩展基本逻辑"></a>qemu riscv H扩展基本逻辑</h2><p> qemu支持riscv H扩展的基本逻辑主要集中在中断和异常的处理逻辑，新增寄存器支持，以及<br> 新增虚拟化相关指令的支持。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">riscv_cpu_do_interrupt</span><br><span class="line">      /* 从V状态进入HS，会把sxxx寄存器保存到vsxxx，把xxx_hs推到sxxx里 */</span><br><span class="line">  +-&gt; riscv_cpu_swap_hypervisor_regs(env)</span><br><span class="line">      /* 保存当前状态 */</span><br><span class="line">  +-&gt; env-&gt;hstatus = set_field(env-&gt;hstatus, HSTATUS_SPVP, env-&gt;priv);</span><br><span class="line">      /* 保存当前V状态 */</span><br><span class="line">  +-&gt; env-&gt;hstatus = set_field(env-&gt;hstatus, HSTATUS_SPV, riscv_cpu_virt_enabled(env));</span><br><span class="line">      /* 保存异常gpa地址 */</span><br><span class="line">  +-&gt; htval = env-&gt;guest_phys_fault_addr;</span><br><span class="line">      /* 后面可以看到cause, 异常pc, tval都是靠S mode寄存器报给软件的, 最后把模式切到S mode */</span><br><span class="line">  +-&gt; riscv_cpu_set_mode(env, PRV_S);</span><br></pre></td></tr></table></figure>
+<p> 在sret/mret指令里会处理V状态以及寄存器的倒换：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">helper_sret</span><br><span class="line">    /* 在H扩展打开的分支里会有如下的硬件操作 */</span><br><span class="line">  +-&gt; prev_priv = get_field(mstatus, MSTATUS_SPP);</span><br><span class="line">  +-&gt; prev_virt = get_field(hstatus, HSTATUS_SPV);</span><br><span class="line">  +-&gt; hstatus = set_field(hstatus, HSTATUS_SPV, 0);</span><br><span class="line">  +-&gt; mstatus = set_field(mstatus, MSTATUS_SPP, 0);</span><br><span class="line">  +-&gt; mstatus = set_field(mstatus, SSTATUS_SIE, get_field(mstatus, SSTATUS_SPIE));</span><br><span class="line">  +-&gt; mstatus = set_field(mstatus, SSTATUS_SPIE, 1);</span><br><span class="line">  +-&gt; env-&gt;mstatus = mstatus;</span><br><span class="line">  +-&gt; env-&gt;hstatus = hstatus;</span><br><span class="line">      /* 如果之前是V状态使能的，这里要做寄存器的倒换: 把S mode寄存器保存到xxx_hs，把vsxxx寄存器存到S mode寄存器里 */</span><br><span class="line">  +-&gt; riscv_cpu_swap_hypervisor_regs(env);</span><br><span class="line">      /* 使能V状态 */</span><br><span class="line">  +-&gt; riscv_cpu_set_virt_enabled(env, prev_virt);</span><br></pre></td></tr></table></figure>
+<p> 新增了vsxxx以及hxxx寄存器的访问代码。新增加的虚拟化相关的指令大概分两类，一类是<br> 和虚拟化相关的TLB指令，一类是虚拟化相关的访存指令，可以直接查看他们的qemu实现,<br> TLB相关的指令依然是刷新全部TLB，访存相关的指令和普通访存指令的实现基本一样，不同<br> 的是在mem_idx上增加了TB_FLAGS_PRIV_HYP_ACCESS_MASK，表示要做两级地址翻译。</p>
+<h2 id="qemu-kvm的基本逻辑"><a href="#qemu-kvm的基本逻辑" class="headerlink" title="qemu kvm的基本逻辑"></a>qemu kvm的基本逻辑</h2><p> <span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcWVtdS10Y2clRTclQkYlQkIlRTglQUYlOTElRTYlODklQTclRTglQTElOEMlRTYlQTAlQjglRTUlQkYlODMlRTklODAlQkIlRTglQkUlOTElRTUlODglODYlRTYlOUUlOTAv">qemu tcg翻译执行核心逻辑分析<i class="fa fa-external-link-alt"></i></span>已经介绍了虚拟机启动的相关逻辑，从qemu构架上看<br> kvm和tcg处于同一个层面上, 都是cpu模拟的一种加速器。</p>
+<p> 虚拟机初始化逻辑:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">/* accel/kvm/kvm-all.c */</span><br><span class="line">kvm_init</span><br><span class="line">  +-&gt; qemu_open_old(&quot;/dev/kvm&quot;, O_RDWR)</span><br><span class="line">      /* 创建虚拟机 */</span><br><span class="line">  +-&gt; kvm_ioctl(s, KVM_CREATE_VM, type);</span><br><span class="line">      /* 虚拟机内存配置入口 */</span><br><span class="line">  +-&gt; kvm_memory_listener_register</span><br><span class="line">    +-&gt; kvm_region_add</span><br><span class="line">      +-&gt; kvm_set_phys_mem</span><br><span class="line">        +-&gt; kvm_set_user_memory_region</span><br><span class="line">          +-&gt; kvm_vm_ioctl(s, KVM_SET_USER_MEMORY_REGION, &amp;mem)</span><br></pre></td></tr></table></figure>
+<p> kvm vcpu线程启动的逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">riscv_cpu_realize</span><br><span class="line">  +-&gt; qemu_init_vcpu(cs)</span><br><span class="line">        /* kvm对应的回调函数在：accel/kvm/kvm-accel-ops.c: kvm_vcpu_thread_fn */</span><br><span class="line">    +-&gt; cpus_accel-&gt;create_vcpu_thread(cpu)</span><br><span class="line">        (kvm_vcpu_thread_fn)</span><br><span class="line">      +-&gt; kvm_init_vcpu</span><br><span class="line">        +-&gt; kvm_get_vcpu</span><br><span class="line">              /* 创建vcpu */</span><br><span class="line">          +-&gt; kvm_vm_ioctl(s, KVM_CREATE_VCPU, (void *)vcpu_id)</span><br><span class="line">      +-&gt; kvm_cpu_exec(cpu)</span><br><span class="line">            /* 运行vcpu */</span><br><span class="line">        +-&gt; kvm_vcpu_ioctl(cpu, KVM_RUN, 0)</span><br></pre></td></tr></table></figure>
+<h2 id="riscv-H扩展spec分析"><a href="#riscv-H扩展spec分析" class="headerlink" title="riscv H扩展spec分析"></a>riscv H扩展spec分析</h2><p> riscv的H扩展增加了CPU的状态，增加了一个隐式的V状态，当V=0的时候，CPU的U/M状态还和<br> 之前是一样的，S状态处在HS状态，当V=1的时候，CPU原来的U/S状态变成了VU/VS状态。<br> V状态在中断或异常时由硬件改变，还有一个改变的地方是sret/mret指令。具体的变化逻辑<br> 是: 1. 当在V状态trap进HS时，硬件会把V配置成0; 2. CPU trap进入M状态，硬件会把V配置成0;<br> 3. sret返回时, 恢复到之前的V状态；4. mret返回时, 恢复到之前的V状态。这里说的之前<br> 的V状态，riscv的hstatus寄存器上的SPV(Supervisor Previous Virtualization mode)表示<br> “之前的V状态”，上述的sret和mret从这个寄存器中得到之前的V状态。如前所述，kvm在启动<br> 虚拟机之前会配置hstatus的SPV为1，这样使用sret启动虚拟机后，V状体被置为1。</p>
+<p> 增加了hypervisor和guest对应的两组寄存器，其中hypervisor对应的寄存器有: hstatus, hedeleg,<br> hideleg, hvip, hip, hie, hgeip, hgeie, henvcfg, henvcfgh, hounteren, htimedelta, htimedeltah,<br> htval, htinst, hgatp, guest对应的寄存器有：vsstatus, vsip, vsie, vstvec, vsscratch, vsepc,<br> vscause, vstval, vsatp。</p>
+<p> 对于这些系统寄存器，我们可以大概分为两类，一类静态配置的，一类是系统运行时会改变的，<br> 比如，hedeleg/hideleg表示是否要把HS的中断继续委托到VS去处理，这个就会提前静态配置好，<br> 比如像hip/hie这种中断相关的寄存器，就可以灵活配置。这些寄存器具体使用的时候的行为<br> 比较有意思，VS在实际运行的时候会把配置的值copy到S mode的寄存器上，在退出V状态的时候<br> 再把S mode的寄存器上的值保存会VS状态的寄存器上，不过要让guest内核可以直接运行到KVM上，<br> 原来使用的寄存器名字也是不能改变的。当系统从V状态切到HS时，V被配置成0，同时把之前<br> 保存的S mode寄存器copy到S mode寄存器上，HS工作的时候使用S mode寄存器，同时使用hypervisor<br> 寄存器里的静态配置信息，当从HS离开的时候，硬件会把当前S mode寄存器里的值保存到硬件里。</p>
+<p> 所以，从总体上看，不管是在HS还是VS，实际运行的时候使用的都是S mode的寄存器。当HS是处理<br> hypervisor的业务时，使用hypervisor相关寄存器里的定义。</p>
+<p> 新增加的虚拟化相关的指令大概分两类，一类是和虚拟化相关的TLB指令，一类是虚拟化相关的访存指令。<br> 虚拟化扩展和TLB相关的指令有：hfence.vvma和hfence.gvma，虚拟化相关的访存指令有：hlv.xxx, hsv.xxx，<br> 这些指令提供在U/M/HS下的带两级地址翻译的访存功能，也就是虽然V状态没有使能，用这些指令依然可以<br> 得到gva两级翻译后的pa。</p>
+<h2 id="运行情况跟踪"><a href="#运行情况跟踪" class="headerlink" title="运行情况跟踪"></a>运行情况跟踪</h2><ol>
+<li><p>在第二层qemu的启动命令里加–trace “kvm_*”跟踪第二层qemu中kvm相关的配置，主要是<br>一些kvm相关的ioctl。</p>
+</li>
+<li><p>在第一层qemu的启动命令里加-d int，观察第一层qemu上虚拟化相关的各种异常，实际<br>上我们用第一层qemu模拟host机器，这里就是观察host机器在虚拟化下的各种异常。</p>
+</li>
+<li><p>在启动虚拟机的时候，kvm是把代码直接放到host机器上跑，tcg里-d参数的那些调试手段<br>都起不上用处了，但是，guest的主要代码是直接运行在host机器上的，我们这里使用两层<br>qemu，所以，guest的主要代码会跑在第一层qemu上，在第一层qemu加上-d选项是可以看到<br>guest中运行的指令的。</p>
+<p>如下是在第一层qemu上增加-d cpu,in_asm，kvm启动guest内核的一段log，我们hack了下<br>cpu的打印，只保留了V状态、pc和hstatus，不然一层qemu的启动就会慢的要命，不过，<br>即使这样，两层qemu完全启动的全部log也有5G大小，我们把注释写到log内部。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br></pre></td><td class="code"><pre><span class="line">----------------</span><br><span class="line">IN: </span><br><span class="line">Priv: 1; Virt: 0</span><br><span class="line">0xffffffff800155d8:  02153c23          sd              ra,56(a0)      &lt;---- __kvm_riscv_switch_to对应的汇编</span><br><span class="line">0xffffffff800155dc:  04253023          sd              sp,64(a0)            这个是kvm为guest指令指令准备环境。</span><br><span class="line">0xffffffff800155e0:  04353423          sd              gp,72(a0)</span><br><span class="line">0xffffffff800155e4:  04453823          sd              tp,80(a0)</span><br><span class="line">0xffffffff800155e8:  f920              sd              s0,112(a0)</span><br><span class="line">0xffffffff800155ea:  fd24              sd              s1,120(a0)</span><br><span class="line">0xffffffff800155ec:  e54c              sd              a1,136(a0)</span><br><span class="line">0xffffffff800155ee:  e950              sd              a2,144(a0)</span><br><span class="line">0xffffffff800155f0:  ed54              sd              a3,152(a0)</span><br><span class="line">0xffffffff800155f2:  f158              sd              a4,160(a0)</span><br><span class="line">0xffffffff800155f4:  f55c              sd              a5,168(a0)</span><br><span class="line">0xffffffff800155f6:  0b053823          sd              a6,176(a0)</span><br><span class="line">0xffffffff800155fa:  0b153c23          sd              a7,184(a0)</span><br><span class="line">0xffffffff800155fe:  0d253023          sd              s2,192(a0)</span><br><span class="line">0xffffffff80015602:  0d353423          sd              s3,200(a0)</span><br><span class="line">0xffffffff80015606:  0d453823          sd              s4,208(a0)</span><br><span class="line">0xffffffff8001560a:  0d553c23          sd              s5,216(a0)</span><br><span class="line">0xffffffff8001560e:  0f653023          sd              s6,224(a0)</span><br><span class="line">0xffffffff80015612:  0f753423          sd              s7,232(a0)</span><br><span class="line">0xffffffff80015616:  0f853823          sd              s8,240(a0)</span><br><span class="line">0xffffffff8001561a:  0f953c23          sd              s9,248(a0)</span><br><span class="line">0xffffffff8001561e:  11a53023          sd              s10,256(a0)</span><br><span class="line">0xffffffff80015622:  11b53423          sd              s11,264(a0)</span><br><span class="line">0xffffffff80015626:  46853283          ld              t0,1128(a0)</span><br><span class="line">0xffffffff8001562a:  47053303          ld              t1,1136(a0)</span><br><span class="line">0xffffffff8001562e:  6d853383          ld              t2,1752(a0)</span><br><span class="line">0xffffffff80015632:  00000e97          auipc           t4,0            # 0xffffffff80015632</span><br><span class="line">0xffffffff80015636:  0bae8e93          addi            t4,t4,186</span><br><span class="line">0xffffffff8001563a:  46053f03          ld              t5,1120(a0)</span><br><span class="line">0xffffffff8001563e:  100292f3          csrrw           t0,sstatus,t0</span><br><span class="line"></span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff800155d8</span><br><span class="line"> hstatus  0000000200000000</span><br><span class="line">----------------</span><br><span class="line">IN: </span><br><span class="line">Priv: 1; Virt: 0</span><br><span class="line">0xffffffff80015642:  60031373          csrrw           t1,0x600,t1    &lt;---- 更新hstatus, SPV配置为1，为sret切入V状态做准备。</span><br><span class="line"></span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff80015642</span><br><span class="line"> hstatus  0000000200000000</span><br><span class="line">----------------</span><br><span class="line">IN: </span><br><span class="line">Priv: 1; Virt: 0</span><br><span class="line">0xffffffff80015646:  106393f3          csrrw           t2,scounteren,t2</span><br><span class="line"></span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff80015646</span><br><span class="line"> hstatus  00000002002001c0                                            &lt;---- SPV已经为1</span><br><span class="line">----------------</span><br><span class="line">IN: </span><br><span class="line">Priv: 1; Virt: 0</span><br><span class="line">0xffffffff8001564a:  105e9ef3          csrrw           t4,stvec,t4</span><br><span class="line"></span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff8001564a</span><br><span class="line"> hstatus  00000002002001c0</span><br><span class="line">----------------</span><br><span class="line">IN: </span><br><span class="line">Priv: 1; Virt: 0</span><br><span class="line">0xffffffff8001564e:  14051e73          csrrw           t3,sscratch,a0</span><br><span class="line"></span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff8001564e</span><br><span class="line"> hstatus  00000002002001c0</span><br><span class="line">----------------</span><br><span class="line">IN: </span><br><span class="line">Priv: 1; Virt: 0</span><br><span class="line">0xffffffff80015652:  141f1073          csrrw           zero,sepc,t5</span><br><span class="line"></span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff80015652</span><br><span class="line"> hstatus  00000002002001c0</span><br><span class="line">----------------</span><br><span class="line">IN: </span><br><span class="line">Priv: 1; Virt: 0</span><br><span class="line">0xffffffff80015656:  12553c23          sd              t0,312(a0)</span><br><span class="line">0xffffffff8001565a:  14653023          sd              t1,320(a0)</span><br><span class="line">0xffffffff8001565e:  02753023          sd              t2,32(a0)</span><br><span class="line">0xffffffff80015662:  01c53823          sd              t3,16(a0)</span><br><span class="line">0xffffffff80015666:  01d53c23          sd              t4,24(a0)</span><br><span class="line">0xffffffff8001566a:  36853083          ld              ra,872(a0)</span><br><span class="line">0xffffffff8001566e:  37053103          ld              sp,880(a0)</span><br><span class="line">0xffffffff80015672:  37853183          ld              gp,888(a0)</span><br><span class="line">0xffffffff80015676:  38053203          ld              tp,896(a0)</span><br><span class="line">0xffffffff8001567a:  38853283          ld              t0,904(a0)</span><br><span class="line">0xffffffff8001567e:  39053303          ld              t1,912(a0)</span><br><span class="line">0xffffffff80015682:  39853383          ld              t2,920(a0)</span><br><span class="line">0xffffffff80015686:  3a053403          ld              s0,928(a0)</span><br><span class="line">0xffffffff8001568a:  3a853483          ld              s1,936(a0)</span><br><span class="line">0xffffffff8001568e:  3b853583          ld              a1,952(a0)</span><br><span class="line">0xffffffff80015692:  3c053603          ld              a2,960(a0)</span><br><span class="line">0xffffffff80015696:  3c853683          ld              a3,968(a0)</span><br><span class="line">0xffffffff8001569a:  3d053703          ld              a4,976(a0)</span><br><span class="line">0xffffffff8001569e:  3d853783          ld              a5,984(a0)</span><br><span class="line">0xffffffff800156a2:  3e053803          ld              a6,992(a0)</span><br><span class="line">0xffffffff800156a6:  3e853883          ld              a7,1000(a0)</span><br><span class="line">0xffffffff800156aa:  3f053903          ld              s2,1008(a0)</span><br><span class="line">0xffffffff800156ae:  3f853983          ld              s3,1016(a0)</span><br><span class="line">0xffffffff800156b2:  40053a03          ld              s4,1024(a0)</span><br><span class="line">0xffffffff800156b6:  40853a83          ld              s5,1032(a0)</span><br><span class="line">0xffffffff800156ba:  41053b03          ld              s6,1040(a0)</span><br><span class="line">0xffffffff800156be:  41853b83          ld              s7,1048(a0)</span><br><span class="line">0xffffffff800156c2:  42053c03          ld              s8,1056(a0)</span><br><span class="line">0xffffffff800156c6:  42853c83          ld              s9,1064(a0)</span><br><span class="line">0xffffffff800156ca:  43053d03          ld              s10,1072(a0)</span><br><span class="line">0xffffffff800156ce:  43853d83          ld              s11,1080(a0)</span><br><span class="line">0xffffffff800156d2:  44053e03          ld              t3,1088(a0)</span><br><span class="line">0xffffffff800156d6:  44853e83          ld              t4,1096(a0)</span><br><span class="line">0xffffffff800156da:  45053f03          ld              t5,1104(a0)</span><br><span class="line">0xffffffff800156de:  45853f83          ld              t6,1112(a0)</span><br><span class="line">0xffffffff800156e2:  3b053503          ld              a0,944(a0)</span><br><span class="line">0xffffffff800156e6:  10200073          sret                          &lt;---- 配置V状态，跳到sepc，即guest内核首地址。</span><br><span class="line"></span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff80015656</span><br><span class="line"> hstatus  00000002002001c0</span><br><span class="line">----------------</span><br><span class="line">IN: </span><br><span class="line">Priv: 1; Virt: 1</span><br><span class="line">0x0000000080000000:  5a4d              addi            s4,zero,-13   &lt;---- guest内核首地址，第二层qemu没有配置bios，直接跑内核。</span><br><span class="line">0x0000000080000002:  0ca0106f          j               4298            # 0x800010cc  &lt;--- 跳转到了第2个4K页面上，触发了第二级地址翻译异常。</span><br><span class="line">                                                                                          后面是退出到kvm里解决地址异常，退出到HS mode，</span><br><span class="line"> V      =   1                                                                             V状态清0。(todo: 需要确定下)</span><br><span class="line"> pc       0000000080000000</span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff800156ec</span><br><span class="line"> hstatus  00000002002001c0</span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff800156f0</span><br><span class="line"> hstatus  00000002002001c0</span><br><span class="line"> V      =   0</span><br><span class="line"> pc       ffffffff80015780</span><br><span class="line"> hstatus  00000002002001c0</span><br><span class="line"> V      =   0</span><br><span class="line">[...]</span><br></pre></td></tr></table></figure></li>
+</ol>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"># 虚拟化</a>
+              <a href="/tags/riscv/" rel="tag"># riscv</a>
+              <a href="/tags/KVM/" rel="tag"># KVM</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E6%9E%84%E5%BB%BAriscv%E4%B8%A4%E5%B1%82qemu%E7%9A%84%E6%AD%A5%E9%AA%A4/" rel="prev" title="构建riscv两层qemu的步骤">
+      <i class="fa fa-chevron-left"></i> 构建riscv两层qemu的步骤
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E6%A0%B8kvm%E5%9F%BA%E6%9C%AC%E6%A1%86%E6%9E%B6"><span class="nav-number">1.</span> <span class="nav-text">内核kvm基本框架</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu-riscv-H%E6%89%A9%E5%B1%95%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">2.</span> <span class="nav-text">qemu riscv H扩展基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu-kvm%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">3.</span> <span class="nav-text">qemu kvm的基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#riscv-H%E6%89%A9%E5%B1%95spec%E5%88%86%E6%9E%90"><span class="nav-number">4.</span> <span class="nav-text">riscv H扩展spec分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%90%E8%A1%8C%E6%83%85%E5%86%B5%E8%B7%9F%E8%B8%AA"><span class="nav-number">5.</span> <span class="nav-text">运行情况跟踪</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">184</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">81</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
