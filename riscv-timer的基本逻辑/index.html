@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文梳理riscv上timer的基本软硬件逻辑，硬件模型基于qemu，使用的qemu版本是6.2.0， 内核代码分析使用的版本是v5.12-rc8。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2022-08-11T13:08:08.000Z">
-<meta property="article:modified_time" content="2022-09-07T11:06:31.018Z">
+<meta property="article:modified_time" content="2022-09-25T12:30:31.086Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="QEMU">
 <meta property="article:tag" content="计算机体系结构">
@@ -136,7 +136,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">186</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">188</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -234,7 +234,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-09-07 19:06:31" itemprop="dateModified" datetime="2022-09-07T19:06:31+08:00">2022-09-07</time>
+                <time title="修改时间：2022-09-25 20:30:31" itemprop="dateModified" datetime="2022-09-25T20:30:31+08:00">2022-09-25</time>
               </span>
 
           
@@ -285,6 +285,10 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">riscv_aclint_mtimer_write</span><br><span class="line">  +-&gt; riscv_aclint_mtimer_write_timecmp</span><br><span class="line">    +-&gt; ns_diff = muldiv64(diff, NANOSECONDS_PER_SECOND, timebase_freq)</span><br></pre></td></tr></table></figure>
 <p> 如上，使用传进来的timecmp值，计算出timer中断间隔的实际值，然后在host上启动一个<br> 定时器来做模拟，timebase_freq是mtime寄存器作为counter的频率，所以实际时间的计算<br> 就是：(mtimecmp - 上一个中断点的mtime值) * 1/timebase_freq * NANOSECONDS_PER_SECOND，<br> 单位是ns，就是上面muldiv64函数的计算结果。所以，虚拟机看到的时间和实际时间是一样的。</p>
 <h2 id="Linux内核逻辑"><a href="#Linux内核逻辑" class="headerlink" title="Linux内核逻辑"></a>Linux内核逻辑</h2><p> 内核timer初始化在：arch/riscv/kernel/time.c, time_init<br> 内核相关驱动的位置在：drivers/clocksource/timer-riscv.c</p>
+<p> 如上的timer驱动里会注册timer中断的处理函数riscv_timer_interrupt, 这个函数会进一步<br> 调用clock_event_device里的event_handler回调函数，但是这个回调函数并不是在驱动里<br> 直接提供的。</p>
+<p> event_handler的注册逻辑是通过这个驱动里注册的cpu hotplu回调函数riscv_timer_starting_cpu<br> 完成的，大概的调用逻辑如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">start_kernel</span><br><span class="line">  +-&gt; time_init</span><br><span class="line">    +-&gt; timer_probe</span><br><span class="line">      +-&gt; cpuhp_setup_state</span><br><span class="line">        +-&gt; __cpuhp_setup_state</span><br><span class="line">          +-&gt; __cpuhp_setup_state_cpuslocked</span><br><span class="line">            +-&gt; cpuhp_issue_call</span><br><span class="line">              +-&gt; cpuhp_invoke_callback</span><br><span class="line">                +-&gt; riscv_timer_starting_cpu</span><br><span class="line">                  +-&gt; clockevents_config_and_register</span><br><span class="line">                    +-&gt; clockevents_register_device</span><br><span class="line">                      +-&gt; tick_check_new_device</span><br><span class="line">                        +-&gt; tick_setup_device</span><br><span class="line">                          +-&gt; tick_setup_periodic</span><br><span class="line">			        /* event_handler回调 */</span><br><span class="line">			    +-&gt; tick_handle_periodic</span><br></pre></td></tr></table></figure>
+<p> tick_handle_periodic就是每次时钟中断时要运行的逻辑，相关逻辑已经和调度有关系，<br> 在另外讲调度的文章里独立分析吧。</p>
 
     </div>
 
@@ -400,7 +404,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">186</span>
+          <span class="site-state-item-count">188</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
