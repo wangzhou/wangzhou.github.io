@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析riscv构架下，中断和异常在各个特权级下的委托关系。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="riscv中断异常委托关系分析">
+<meta property="og:url" content="http://example.com/riscv%E4%B8%AD%E6%96%AD%E5%BC%82%E5%B8%B8%E5%A7%94%E6%89%98%E5%85%B3%E7%B3%BB%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析riscv构架下，中断和异常在各个特权级下的委托关系。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-10-19T08:15:21.000Z">
+<meta property="article:modified_time" content="2022-10-19T08:18:16.114Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="riscv">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/riscv%E4%B8%AD%E6%96%AD%E5%BC%82%E5%B8%B8%E5%A7%94%E6%89%98%E5%85%B3%E7%B3%BB%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>riscv中断异常委托关系分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">82</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">190</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/riscv%E4%B8%AD%E6%96%AD%E5%BC%82%E5%B8%B8%E5%A7%94%E6%89%98%E5%85%B3%E7%B3%BB%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          riscv中断异常委托关系分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-10-19 16:15:21 / 修改时间：16:18:16" itemprop="dateCreated datePublished" datetime="2022-10-19T16:15:21+08:00">2022-10-19</time>
+            </span>
+
+          
+            <span id="/riscv%E4%B8%AD%E6%96%AD%E5%BC%82%E5%B8%B8%E5%A7%94%E6%89%98%E5%85%B3%E7%B3%BB%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="riscv中断异常委托关系分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/riscv%E4%B8%AD%E6%96%AD%E5%BC%82%E5%B8%B8%E5%A7%94%E6%89%98%E5%85%B3%E7%B3%BB%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/riscv%E4%B8%AD%E6%96%AD%E5%BC%82%E5%B8%B8%E5%A7%94%E6%89%98%E5%85%B3%E7%B3%BB%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析riscv构架下，中断和异常在各个特权级下的委托关系。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p> 在H扩展使能的情况下，我们要考虑M/HS/VS这三种模式下的中断异常委托关系。其中，medeleg/mideleg<br> 把中断异常委托到HS处理，hedeleg/hideleg把中断异常委托到VS处理。</p>
+<p> medeleg/mideleg在opensbi里配置，代码在：opensbi/lib/sbi/sbi_hart.c: delegate_traps</p>
+<p> hedeleg/hideleg在内核的KVM代码里配置，路径是：linux/arch/riscv/kvm/main.c: kvm_arch_hardware_enable<br> 在vcpu start的时候，会调用如上函数，配置hedeleg/hideleg，在vcpu disable的时候，<br> 把hedeleg/hideleg清0。</p>
+<h2 id="medeleg-mideleg的逻辑"><a href="#medeleg-mideleg的逻辑" class="headerlink" title="medeleg/mideleg的逻辑"></a>medeleg/mideleg的逻辑</h2><p> 如果没有S mode，没有必要做委托相关的配置了，直接返回。S mode的几种中断被委托到S mode:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">MIP_SSIP</span><br><span class="line">MIP_STIP</span><br><span class="line">MIP_SEIP</span><br><span class="line">MIP_LCOFIP (如果支持PMU中断)</span><br></pre></td></tr></table></figure>
+<p> 如下异常委托到S mode处理:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">MISALIGNED_FETCH</span><br><span class="line">BREAKPOINT</span><br><span class="line">USER_ECALL</span><br><span class="line">FETCH_PAGE_FAULT</span><br><span class="line">LOAD_PAGE_FAULT</span><br><span class="line">STORE_PAGE_FAULT</span><br></pre></td></tr></table></figure>
+<p> 上面是没有H扩展的情况，如果平台支持H扩展，再把如下的异常委托到S mode处理。可以<br> 看出，这些都是CPU运行在VS时的异常，有和第二级地址翻译相关的异常以及从VS发起的ECALL，<br> 这些本来就应该在HS处理，比如在只有host的情况，没有错误的情况下，访问一个物理地址<br> 是一定会成功的，但是，在虚拟机的内核里，访问虚拟机物理地址(IPA)的时候还要进过IPA到PA<br> 的地址翻译，如果没有分配PA，就会陷入HS的缺页异常里处理缺页，同时VS模式下也可以发<br> 出ECALL，这个ECALL需要到HS下去处理。</p>
+<p> 如果有H扩展，如下的异常和上面的异常都被委托到HS模式处理。但是，如果CPU运行在VS，<br> 显然vcpu也是需要上面的异常支持的，这里的逻辑在内核KVM里处理。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">VIRTUAL_SUPERVISOR_ECALL</span><br><span class="line">FETCH_GUEST_PAGE_FAULT</span><br><span class="line">LOAD_GUEST_PAGE_FAULT</span><br><span class="line">VIRTUAL_INST_FAULT</span><br><span class="line">STORE_GUEST_PAGE_FAULT</span><br></pre></td></tr></table></figure>
+
+<h2 id="hedeleg-hideleg的逻辑"><a href="#hedeleg-hideleg的逻辑" class="headerlink" title="hedeleg/hideleg的逻辑"></a>hedeleg/hideleg的逻辑</h2><p> vcpu开始运行之前，把如下异常和中断委托到VS模式下处理, vcpu退出运行的时候，需要把<br> hedeleg/hideleg清空，这个动作在：linux/arch/riscv/kvm/main.c: kvm_arch_hardware_disable。</p>
+<p> 这个逻辑是很自然的，上面M mode下已经把需要在S mode处理的中断和异常委托在S mode下<br> 处理，如果没有H扩展，这些异常和中断就在host的内核态处理，如果有H扩展，那么在内核<br> KVM启动vcpu之前，继续把这些异常和中断委托到VS，这样CPU在运行虚拟机代码时，如果发生<br> 如下的异常和中断，就会使用VS模式定义的那些异常中断上下文寄存器在VS模式下处理这些<br> 异常和中断，当虚拟机退出时，把到VS模式的这些委托去掉，再发生这样的异常和中断，就<br> 在HS模式下处理。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">INST_MISALIGNED</span><br><span class="line">BREAKPOINT</span><br><span class="line">SYSCALL</span><br><span class="line">INST_PAGE_FAULT</span><br><span class="line">LOAD_PAGE_FAULT</span><br><span class="line">STORE_PAGE_FAULT</span><br><span class="line"></span><br><span class="line">VS_SOFT</span><br><span class="line">VS_TIMER</span><br><span class="line">VS_EXT</span><br></pre></td></tr></table></figure>
+
+<p> 我们可以从具体一个异常的角度再看看，比如一个user mode ECALL异常，当没有H扩展时，<br> 异常的处理使用S mode的那组CSR寄存器，当有H扩展时，在虚拟机里，用户态触发的ECALL<br> 在VS模式处理，使用VS模式的那组寄存器，VS模式CSR寄存器在vcpu启动之前已经都切到S<br> mode的CSR寄存器上，所以，直接使用S mode的寄存器就好。</p>
+<h2 id="M-mode处理的异常和中断"><a href="#M-mode处理的异常和中断" class="headerlink" title="M mode处理的异常和中断"></a>M mode处理的异常和中断</h2><p> 除了如上委托到VS/HS模式的异常中断，其他没有委托的都要在M模式处理。我们把opensbi<br> 上定义的异常和中断类似都列出来，一个一个具体看下，如下用“&lt;—”标注的异常或者中断<br> 是在M mode处理的。可以看到在M mode处理的异常，要不就是没法挽救的异常，要不就是本来<br> 就应该在M mode处理的异常。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">MISALIGNED_FETCH	0x0</span><br><span class="line">FETCH_ACCESS		0x1      &lt;--- 取指令异常，没有对齐</span><br><span class="line">ILLEGAL_INSTRUCTION	0x2	 &lt;--- 非法指令异常</span><br><span class="line">BREAKPOINT		0x3</span><br><span class="line">MISALIGNED_LOAD		0x4      &lt;--- 读地址不对齐</span><br><span class="line">LOAD_ACCESS		0x5      &lt;--- PMP读异常</span><br><span class="line">MISALIGNED_STORE	0x6      &lt;--- 写地址不对齐</span><br><span class="line">STORE_ACCESS		0x7      &lt;--- PMP写异常</span><br><span class="line">USER_ECALL		0x8</span><br><span class="line">SUPERVISOR_ECALL	0x9      &lt;--- S mode ECALL异常</span><br><span class="line">VIRTUAL_SUPERVISOR_ECALL0xa</span><br><span class="line">MACHINE_ECALL		0xb      &lt;--- M mode ECALL异常</span><br><span class="line">FETCH_PAGE_FAULT	0xc</span><br><span class="line">LOAD_PAGE_FAULT		0xd</span><br><span class="line">STORE_PAGE_FAULT	0xf</span><br><span class="line">FETCH_GUEST_PAGE_FAULT	0x14</span><br><span class="line">LOAD_GUEST_PAGE_FAULT	0x15</span><br><span class="line">VIRTUAL_INST_FAULT	0x16</span><br><span class="line">STORE_GUEST_PAGE_FAULT	0x17</span><br><span class="line"></span><br><span class="line">IRQ_S_SOFT			1</span><br><span class="line">IRQ_VS_SOFT			2</span><br><span class="line">IRQ_M_SOFT			3   &lt;---</span><br><span class="line">IRQ_S_TIMER			5</span><br><span class="line">IRQ_VS_TIMER			6</span><br><span class="line">IRQ_M_TIMER			7   &lt;---</span><br><span class="line">IRQ_S_EXT			9</span><br><span class="line">IRQ_VS_EXT			10</span><br><span class="line">IRQ_M_EXT			11  &lt;---</span><br><span class="line">IRQ_S_GEXT			12  &lt;--- (guest external interrupts at HS-level)</span><br><span class="line">IRQ_PMU_OVF			13</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/riscv/" rel="tag"># riscv</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/riscv-aclint%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" rel="prev" title="riscv aclint逻辑分析">
+      <i class="fa fa-chevron-left"></i> riscv aclint逻辑分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/opensbi%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" rel="next" title="opensbi逻辑分析">
+      opensbi逻辑分析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#medeleg-mideleg%E7%9A%84%E9%80%BB%E8%BE%91"><span class="nav-number">2.</span> <span class="nav-text">medeleg&#x2F;mideleg的逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#hedeleg-hideleg%E7%9A%84%E9%80%BB%E8%BE%91"><span class="nav-number">3.</span> <span class="nav-text">hedeleg&#x2F;hideleg的逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#M-mode%E5%A4%84%E7%90%86%E7%9A%84%E5%BC%82%E5%B8%B8%E5%92%8C%E4%B8%AD%E6%96%AD"><span class="nav-number">4.</span> <span class="nav-text">M mode处理的异常和中断</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">190</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">82</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
