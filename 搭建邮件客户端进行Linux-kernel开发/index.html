@@ -205,7 +205,7 @@
     <link itemprop="mainEntityOfPage" href="http://example.com/%E6%90%AD%E5%BB%BA%E9%82%AE%E4%BB%B6%E5%AE%A2%E6%88%B7%E7%AB%AF%E8%BF%9B%E8%A1%8CLinux-kernel%E5%BC%80%E5%8F%91/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="image" content="/images/yase.jpg">
       <meta itemprop="name" content="Sherlock Wang">
       <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
@@ -291,7 +291,7 @@
 
 <p>配置好后每次可以先fetchmail, 然后用mutt -f ~/Mail/mbox打开邮件查看。</p>
 <p>到现在就基本可以命令行浏览，收发邮件了。但是如果你一下订阅了几个邮件列表，想<br>分类管理邮件，下面给一个简单的示范：</p>
-<p>想单独管理下来自<span class="exturl" data-url="bWFpbHRvOiYjeDZjOyYjMTA1OyYjMTEwOyYjMTE3OyYjMTIwOyYjeDJkOyYjeDcwOyYjeDYzOyYjMTA1OyYjeDQwOyYjeDc2OyYjMTAzOyYjMTAxOyYjMTE0OyYjeDJlOyYjeDZiOyYjMTAxOyYjeDcyOyYjMTEwOyYjeDY1OyYjeDZjOyYjNDY7JiN4NmY7JiN4NzI7JiMxMDM7">&#x6c;&#105;&#110;&#117;&#120;&#x2d;&#x70;&#x63;&#105;&#x40;&#x76;&#103;&#101;&#114;&#x2e;&#x6b;&#101;&#x72;&#110;&#x65;&#x6c;&#46;&#x6f;&#x72;&#103;<i class="fa fa-external-link-alt"></i></span> 邮件列表里的邮件。先在家目录的Mail下<br>创建一个文件保存邮件，这里我们创建一个叫pci-mbox的文件。在.procmailrc文件中添加<br>一下几行：</p>
+<p>想单独管理下来自<span class="exturl" data-url="bWFpbHRvOiYjMTA4OyYjMTA1OyYjMTEwOyYjMTE3OyYjeDc4OyYjeDJkOyYjMTEyOyYjOTk7JiMxMDU7JiN4NDA7JiN4NzY7JiMxMDM7JiMxMDE7JiMxMTQ7JiN4MmU7JiMxMDc7JiN4NjU7JiN4NzI7JiN4NmU7JiN4NjU7JiMxMDg7JiN4MmU7JiMxMTE7JiMxMTQ7JiN4Njc7">&#108;&#105;&#110;&#117;&#x78;&#x2d;&#112;&#99;&#105;&#x40;&#x76;&#103;&#101;&#114;&#x2e;&#107;&#x65;&#x72;&#x6e;&#x65;&#108;&#x2e;&#111;&#114;&#x67;<i class="fa fa-external-link-alt"></i></span> 邮件列表里的邮件。先在家目录的Mail下<br>创建一个文件保存邮件，这里我们创建一个叫pci-mbox的文件。在.procmailrc文件中添加<br>一下几行：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">:0</span><br><span class="line">* ^Cc:.*linux-pci@vger.kernel.org</span><br><span class="line">pci-mbox</span><br></pre></td></tr></table></figure>
 <p>之后再fetchmail，来自pci邮件列表中的邮件就自动保存在~/Mail/pci-mbox中了。</p>
 <p>注意：</p>
@@ -402,6 +402,8 @@
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.jpg">
   <p class="site-author-name" itemprop="name">Sherlock Wang</p>
   <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
 </div>
@@ -427,9 +429,6 @@
   </nav>
 </div>
   <div class="links-of-author motion-element">
-      <span class="links-of-author-item">
-        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
-      </span>
       <span class="links-of-author-item">
         <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
       </span>

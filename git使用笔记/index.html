@@ -206,7 +206,7 @@
     <link itemprop="mainEntityOfPage" href="http://example.com/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="image" content="/images/yase.jpg">
       <meta itemprop="name" content="Sherlock Wang">
       <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
     </span>
@@ -308,7 +308,7 @@
 <h2 id="chapter-15"><a href="#chapter-15" class="headerlink" title="chapter 15"></a>chapter 15</h2><p> git pull/push<br> git push 有时无法成功，可能是因为git push对应的git仓库不是bare的，直接推送会<br> 改变工作区。这可以配置对应的远程仓库：git config receive.denyCurrentBranch ignore<br> 这时可以成功push</p>
 <h2 id="chapter-16"><a href="#chapter-16" class="headerlink" title=" chapter 16"></a> chapter 16</h2><p> -other<br> git commit –amend –author=’your name <email-box>‘ 可以修改commit中author一行的内容</email-box></p>
 <p> patch的subject这一行有时不只是[PATCH], 比如在询问意见时可以是[PATCH RFC ***], 在第3版<br> patch时subject可以是[PATCH v3 <em><strong>]. 如何改变subject这一行的内容：可以在生成patch<br> 的时候加–subject-prefix=”</strong></em>“, 比如, git format-patch -s -2 –subject-prefix=”PATCH RFC”<br> 生成的patch subject为：[PATCH RFC 0/3], [PATCH RFC 1/3], [PATCH RFC 2/3], [PATCH RFC 3/3]</p>
-<p> git send-email 使用git send-email发送patches, 组成的patches是一个系列的。<br> 用git format-patch生成patches, 然后一个个用普通邮箱发出，给出的patches是一个个分裂的。<br> git send-email *.patch 即可把当前目录里的patch都发送出去，而且git send-email提供一个<br> 对话是的发送过程，只要在过程中填入发送的邮箱即可。对于cc的邮箱可以在一开始的命令中给出：<br> git send-email *.patch --cc=<span class="exturl" data-url="bWFpbHRvOiYjeDc5OyYjMTExOyYjeDc1OyYjeDcyOyYjeDVmOyYjeDY1OyYjeDZkOyYjOTc7JiN4Njk7JiMxMDg7JiM5NTsmIzk4OyYjMTExOyYjMTIwOyYjeDQwOyYjNDk7JiM1MDsmI3gzNjsmI3gyZTsmIzk5OyYjMTExOyYjeDZkOw==">&#x79;&#111;&#x75;&#x72;&#x5f;&#x65;&#x6d;&#97;&#x69;&#108;&#95;&#98;&#111;&#120;&#x40;&#49;&#50;&#x36;&#x2e;&#99;&#111;&#x6d;<i class="fa fa-external-link-alt"></i></span></p>
+<p> git send-email 使用git send-email发送patches, 组成的patches是一个系列的。<br> 用git format-patch生成patches, 然后一个个用普通邮箱发出，给出的patches是一个个分裂的。<br> git send-email *.patch 即可把当前目录里的patch都发送出去，而且git send-email提供一个<br> 对话是的发送过程，只要在过程中填入发送的邮箱即可。对于cc的邮箱可以在一开始的命令中给出：<br> git send-email *.patch --cc=<span class="exturl" data-url="bWFpbHRvOiYjMTIxOyYjeDZmOyYjMTE3OyYjMTE0OyYjeDVmOyYjMTAxOyYjeDZkOyYjeDYxOyYjMTA1OyYjeDZjOyYjeDVmOyYjOTg7JiN4NmY7JiMxMjA7JiM2NDsmI3gzMTsmIzUwOyYjNTQ7JiN4MmU7JiM5OTsmIzExMTsmI3g2ZDs=">&#121;&#x6f;&#117;&#114;&#x5f;&#101;&#x6d;&#x61;&#105;&#x6c;&#x5f;&#98;&#x6f;&#120;&#64;&#x31;&#50;&#54;&#x2e;&#99;&#111;&#x6d;<i class="fa fa-external-link-alt"></i></span></p>
 <p> Message-ID to be used as In-Reply-To?</p>
 <h2 id="git-pull-note"><a href="#git-pull-note" class="headerlink" title="git pull note"></a>git pull note</h2><ol>
 <li><p>git repo A:<br>branch: master, test</p>
@@ -481,6 +481,8 @@
 
       <div class="site-overview-wrap sidebar-panel">
         <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.jpg">
   <p class="site-author-name" itemprop="name">Sherlock Wang</p>
   <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
 </div>
@@ -506,9 +508,6 @@
   </nav>
 </div>
   <div class="links-of-author motion-element">
-      <span class="links-of-author-item">
-        <a href="/wangzhou89@126.com" title="E-Mail → wangzhou89@126.com"><i class="fab fa-envelope fa-fw"></i>E-Mail</a>
-      </span>
       <span class="links-of-author-item">
         <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
       </span>
