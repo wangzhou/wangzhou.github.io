@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析riscv内存管理相关的指令，主要包括，内存序、TLB无效化以及cache无效化 的相关指令。分析使用的内核版本是v6.0，qemu版本是7.1.50，opensbi的版本是v1.1, riscv privilige ISA的版本是20211203，CMO的版本是20220513。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="riscv内存管理相关指令整理">
+<meta property="og:url" content="http://example.com/riscv%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%95%B4%E7%90%86/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析riscv内存管理相关的指令，主要包括，内存序、TLB无效化以及cache无效化 的相关指令。分析使用的内核版本是v6.0，qemu版本是7.1.50，opensbi的版本是v1.1, riscv privilige ISA的版本是20211203，CMO的版本是20220513。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-11-10T12:22:30.000Z">
+<meta property="article:modified_time" content="2022-11-11T00:58:51.373Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="riscv">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/riscv%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%95%B4%E7%90%86/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>riscv内存管理相关指令整理 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">83</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">193</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/riscv%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%95%B4%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.jpg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          riscv内存管理相关指令整理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-11-10 20:22:30" itemprop="dateCreated datePublished" datetime="2022-11-10T20:22:30+08:00">2022-11-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-11-11 08:58:51" itemprop="dateModified" datetime="2022-11-11T08:58:51+08:00">2022-11-11</time>
+              </span>
+
+          
+            <span id="/riscv%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%95%B4%E7%90%86/" class="post-meta-item leancloud_visitors" data-flag-title="riscv内存管理相关指令整理" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/riscv%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%95%B4%E7%90%86/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/riscv%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%95%B4%E7%90%86/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析riscv内存管理相关的指令，主要包括，内存序、TLB无效化以及cache无效化 的相关指令。分析使用的内核版本是v6.0，qemu版本是7.1.50，opensbi的版本是v1.1, riscv privilige ISA的版本是20211203，CMO的版本是20220513。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="涉及的指令"><a href="#涉及的指令" class="headerlink" title="涉及的指令"></a>涉及的指令</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">+-------------+-------------------+----------------------------+</span><br><span class="line">|memory order:| fence fence.i     |                            |</span><br><span class="line">|	      | sfence.w.inval    |                            |</span><br><span class="line">|             | sfence.inval.ir   |                            |</span><br><span class="line">+-------------+-------------------+----------------------------+</span><br><span class="line">|TLB invalid: | sfence.vma        |    hfence.vvma hfence.gvma |</span><br><span class="line">|             | sinval.vma        |                            |</span><br><span class="line">+-------------+-------------------+----------------------------+</span><br><span class="line">|cache      : | CMO extension                                  |</span><br><span class="line">+-------------+-------------------+----------------------------+</span><br></pre></td></tr></table></figure>
+<p>如上是rv里和内存管理相关的指令一个总结，虚拟化相关的放在了右边，cache无效化相关<br>的指令在rv上在一个独立的扩展里介绍的：<span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3Jpc2N2L3Jpc2N2LUNNT3M=">https://github.com/riscv/riscv-CMOs<i class="fa fa-external-link-alt"></i></span></p>
+<p>下面我们逐条指令分析下：(先不考虑虚拟化相关的指令)</p>
+<h2 id="内存序指令"><a href="#内存序指令" class="headerlink" title="内存序指令"></a>内存序指令</h2><ul>
+<li><p>fence</p>
+<p>fence指令是RV的基本指令，定义在非特权ISA spec里。fence是数据访问的fence指令，<br>通过参数可以控制fence指令制造出的约束。</p>
+</li>
+<li><p>fence.i</p>
+<p>RV协议在Zifencei扩展里定义fence.i, Zifencei在RV的非特权级ISA定义里。fence.i只是<br>对单核起作用，它保证是本核指令改动和CPU取指令之间的顺序，比如，软件改动了指令<br>序列，希望CPU可以fetch改动后的指令，就必须加一个fence.i指令，这个指令确保CPU<br>之前对指令的改动已经生效。</p>
+<p>协议里对多核的描述是，改动指令的核需要先执行一个fence指令，然后在其他核上均执行<br>一个fence.i指令，才能保证如上的语意。软件上可以看到的一个场景是进程迁移的场景，<br>一个进程开始在核A上，修改了自己的将要执行的指令，然后迁移到核B上去继续执行修改<br>后的指令，在迁移之前就需要执行fence指令，再在核B上执行fence.i。</p>
+<p>内核里主要是在arch/riscv/mm/cacheflush.c里使用fence.i，里面的使用方式叫remote<br>fence.i，就是多核的时候，触发其他核上执行fence.i，目前是用IPI实现的。单核调用<br>fence.i的场景没有发现。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">flush_icache_all</span><br><span class="line">      /*</span><br><span class="line">       * 如果有SBI的只是，那么走这个分支，其中会发S mode ecall把remote fence.i</span><br><span class="line">       * 发到opensbi处理。下面的remote sfence.vma也是一样的处理方式，我们在下面</span><br><span class="line">       * 展开说明opensbi里的处理方式。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; sbi_remote_fence_i</span><br><span class="line">      /*</span><br><span class="line">       * 如果不支持SBI，在kernel(S mode)就可以直接发IPI，触发其它核执行fence.i,</span><br><span class="line">       * 内核的IPI机制细节待分析。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; on_each_cpu(ipi_remote_fence_i, NULL, 1)</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="TLB无效化指令"><a href="#TLB无效化指令" class="headerlink" title="TLB无效化指令"></a>TLB无效化指令</h2><ul>
+<li><p>sfence.vma</p>
+<p>sfence.vma是定义在RV特权级ISA里的指令，我们可以简单把它理解成带barrier的tlb无效<br>化指令。</p>
+<p>所谓barrier，保证的是修改页表和CPU做page walk的顺序，这两个操作之间需要加sfence.vma，<br>保证CPU后面做page walk的时候拿到的时候修改之后的页表。</p>
+<p>这个指令支队单核起作用，多核之间做页表和tlb的同步在RV上需要多条指令完成，显然<br>目前的做法，效率是不高的。多核之间做页表和tlb同步的常见是很常见的，比如，多线程<br>共用一个虚拟地址空间，而且多个线程跑到多个核上，那么一个核修改了页表，其他核上<br>的tlb就需要做无效化。RV协议上给出的方案是，修改页表的核修改页表后执行fence，这个<br>保证叫所有核看见页表的修改，然后发IPI给其它核，其他核上的IPI处理函数执行sfence.vma，<br>做完后通知修改页表的核。RV协议上叫这个过程是：模拟TLB shutdown。</p>
+</li>
+<li><p>sinval.vma</p>
+<p>sinval.vma和sfence.vmao功能类似，区别在于sinval.vma不带barrier。</p>
+<p>sfence.vma的使用集中在内核arch/riscv/mm/tlbflush.c，分为local和remote的使用方式，<br>local就是在单核上使用，remote就是多核之间使用，做多核的页表和TLB同步。我们这里<br>只看下remote sfence.vma的实现。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">flush_tlb_all</span><br><span class="line">  +-&gt; sbi_remote_sfence_vma</span><br><span class="line">    +-&gt; __sbi_rfence(SBI_EXT_RFENCE_REMOTE_SFENCE_VMA, cpu_mask, start, size, 0, 0)</span><br><span class="line">          /*</span><br><span class="line">           * sbi的协议这里改过，前一个是v0.1的版本，最新的基于v0.2的版本，这里就是</span><br><span class="line">           * 内核和BIOS的接口，接口表现为一个S mode的ecall请求。</span><br><span class="line">           */</span><br><span class="line">      +-&gt; __sbi_rfence_v02</span><br></pre></td></tr></table></figure>
+<p>下面是opensbi里的实现：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">/* opensbi的C语言部分的入口，核启动时会调用sbi_init做初始化，其中包括ipi和tlb的初始化 */</span><br><span class="line">sbi_init</span><br><span class="line">  +-&gt; init_coldboot</span><br><span class="line">        /* lib/sbi/sbi_tlb.c */</span><br><span class="line">    +-&gt; sbi_ipi_init</span><br><span class="line">        /*</span><br><span class="line">         * 初始化一个核上处理tlb的相关资源，主要包括一个fifo队列，以及发送、处理</span><br><span class="line">         * 和同步要用的回调函数。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; sbi_tlb_init</span><br><span class="line"></span><br><span class="line">/*</span><br><span class="line"> * 如上内核里来的S mode ecall情况对应opensbi里的处理流程如下, _trap_handler是</span><br><span class="line"> * opensbi里异常处理的入口。</span><br><span class="line"> */</span><br><span class="line">_trap_handler </span><br><span class="line">      /* lib/sbi/sbi_trap.c */</span><br><span class="line">  +-&gt; sbi_trap_handler</span><br><span class="line">        /*</span><br><span class="line">         * M mode中断处理入口，这里是处理remote sfence.vma的入口，发送remote</span><br><span class="line">         * sfence.vma的核走的是下面sbi_ecall_handler的流程。最下面我们用一个图</span><br><span class="line">         * 说明下整个逻辑。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; sbi_trap_noaia_irq</span><br><span class="line">      +-&gt; sbi_ipi_process</span><br><span class="line">        +-&gt; ipi_ops-&gt;process          &lt;---- tlb_process</span><br><span class="line">        /* lib/sbi/sbi_ecall.c */</span><br><span class="line">    +-&gt; sbi_ecall_handler</span><br><span class="line">          /* 对应的rfence handler在sbi_ecall_replace.c里注册 */</span><br><span class="line">      +-&gt; ext-&gt;handler  &lt;---- sbi_ecall_rfence_handler</span><br><span class="line">            /* 如上的函数处理SBI里定义的全部RFENCE请求，我们这里只看sfence.vma */</span><br><span class="line">        +-&gt; sbi_tlb_request</span><br><span class="line">          +-&gt; sbi_ipi_send_many</span><br><span class="line">            +-&gt; sbi_ipi_send</span><br><span class="line">                  /* 使用上面sbi_init流程里注册的回调函数 */</span><br><span class="line">              +-&gt; ipi_ops-&gt;update      &lt;---- tlb_update</span><br><span class="line">              +-&gt; ipi_ops-&gt;send	&lt;---- mswi_ipi_send </span><br><span class="line">              +-&gt; ipi_ops-&gt;sync	&lt;---- tlb_sync</span><br></pre></td></tr></table></figure>
+<p>我们画一个示意图说明问题：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">kernel:</span><br><span class="line"></span><br><span class="line">           |  core 0                     core 1           core 2</span><br><span class="line">           |</span><br><span class="line">           |  remote sfence.vma</span><br><span class="line">           v</span><br><span class="line">opensbi:  ----------------------------------------------------------------------</span><br><span class="line">           ^</span><br><span class="line">           |  _trap_handler</span><br><span class="line">           |  |              触发核间中断</span><br><span class="line">           |  v  update/send  --------&gt;  _trap_handler</span><br><span class="line">           |                             |</span><br><span class="line">           |                             v</span><br><span class="line">           |     sync         &lt;--------     process(sfenc.vma and update flag)</span><br><span class="line">           |      |</span><br><span class="line">           +------+</span><br></pre></td></tr></table></figure>
+<p>总结下，opensbi完全在M mode模拟了TLB的多核广播，从内核视角看，core0发起remote<br>sfence.vma，这个调用返回时，已经完成多核之间的TLB同步。</p>
+</li>
+</ul>
+<h2 id="cache相关指令"><a href="#cache相关指令" class="headerlink" title="cache相关指令"></a>cache相关指令</h2><p>   todo</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" rel="tag"># 内存管理</a>
+              <a href="/tags/riscv/" rel="tag"># riscv</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/opensbi%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" rel="prev" title="opensbi逻辑分析">
+      <i class="fa fa-chevron-left"></i> opensbi逻辑分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/Linux-initramfs%E5%88%86%E6%9E%90/" rel="next" title="Linux initramfs分析">
+      Linux initramfs分析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%B6%89%E5%8F%8A%E7%9A%84%E6%8C%87%E4%BB%A4"><span class="nav-number">1.</span> <span class="nav-text">涉及的指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E5%BA%8F%E6%8C%87%E4%BB%A4"><span class="nav-number">2.</span> <span class="nav-text">内存序指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TLB%E6%97%A0%E6%95%88%E5%8C%96%E6%8C%87%E4%BB%A4"><span class="nav-number">3.</span> <span class="nav-text">TLB无效化指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#cache%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4"><span class="nav-number">4.</span> <span class="nav-text">cache相关指令</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.jpg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">193</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">83</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
