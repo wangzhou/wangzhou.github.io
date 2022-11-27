@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文介绍在qemu里增加一个虚拟设备的步骤。本文会以一个PCIe DMA engine设备为 例来介绍，我们定义这个设备的软硬件接口，并且按照这样的定义在qemu里实现这个 设备，最后我们实现这个设备的Linux内核驱动。使用qemu可以方便的调试Linux内核， 有了自定义的qemu设备，使用qemu调试与设备有关的问题也会变得比较方便。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-09-17T14:56:05.000Z">
-<meta property="article:modified_time" content="2022-08-17T02:11:42.063Z">
+<meta property="article:modified_time" content="2022-11-27T09:34:53.498Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="QEMU">
 <meta property="article:tag" content="虚拟化">
@@ -233,7 +233,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-08-17 10:11:42" itemprop="dateModified" datetime="2022-08-17T10:11:42+08:00">2022-08-17</time>
+                <time title="修改时间：2022-11-27 17:34:53" itemprop="dateModified" datetime="2022-11-27T17:34:53+08:00">2022-11-27</time>
               </span>
 
           
@@ -335,7 +335,7 @@
 <p> 我们可以在启动qemu的时候带上–trace “smmuv3_*”，这样可以打开qemu smmuv3的trace，<br> 观察到smmuv3这个模拟设备内部的详细运行情况。我们也可以给DMA engine这个设备用类似<br> 的方法加上trace。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"># echo 128 &gt; copy_size </span><br><span class="line">[  161.037614] dma_engine 0000:00:04.0: input size: 80</span><br><span class="line">smmuv3_config_cache_miss Config cache MISS for sid=0x20 (hits=0, misses=1, hit rate=0)</span><br><span class="line">smmuv3_find_ste sid=0x20 features:0x1, sid_split:0x8</span><br><span class="line">smmuv3_find_ste_2lvl strtab_base:0x4000000042c79000 l1ptr:0x42c79000 l1_off:0x0, l2ptr:0x7cc60000 l2_off:0x20 max_l2_ste:511</span><br><span class="line">smmuv3_get_ste STE addr: 0x7cc60800</span><br><span class="line">smmuv3_get_cd CD addr: 0x43bb4000</span><br><span class="line">smmuv3_decode_cd oas=44</span><br><span class="line">smmuv3_decode_cd_tt TT[0]:tsz:16 ttb:0x43dd5000 granule_sz:12 had:0</span><br><span class="line">smmuv3_translate_success smmuv3-iommu-memory-region-32-4 sid=0x20 iova=0xffffe900 translated=0x427ff900 perm=0x1</span><br><span class="line">smmuv3_config_cache_hit Config cache HIT for sid=0x20 (hits=1, misses=1, hit rate=50)</span><br><span class="line">smmuv3_translate_success smmuv3-iommu-memory-region-32-4 sid=0x20 iova=0xffffe980 translated=0x427ff980 perm=0x2</span><br><span class="line">smmuv3_cmdq_consume prod=42 cons=40 prod.wrap=0 cons.wrap=0</span><br><span class="line">smmuv3_cmdq_opcode &lt;--- SMMU_CMD_TLBI_NH_VA</span><br><span class="line">smmuv3_s1_range_inval vmid=0 asid=1 addr=0xffffe000 tg=1 num_pages=0x1 ttl=3 leaf=1</span><br><span class="line">smmuv3_cmdq_consume prod=42 cons=41 prod.wrap=0 cons.wrap=0</span><br><span class="line">smmuv3_cmdq_opcode &lt;--- SMMU_CMD_SYNC</span><br><span class="line">smmuv3_cmdq_consume_out prod:42, cons:42, prod_wrap:0, cons_wrap:0 </span><br><span class="line">smmuv3_write_mmio addr: 0x98 val:0x2a size: 0x4(0)</span><br><span class="line">smmuv3_read_mmio addr: 0x9c val:0x2a size: 0x4(0)</span><br><span class="line">[  161.043200] dma_engine 0000:00:04.0: dma engine test sucessed!</span><br></pre></td></tr></table></figure>
 <p> 如上的日志，smmuv3前缀的是qemu的trace，时间戳开头的是内核驱动的打印。</p>
-<p>[1] <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIvd2FuZ3pob3UvcWVtdS9ibG9iL2RtYV9lbmdpbmVfc2FtcGxlL2h3L21pc2MvZG1hX2VuZ2luZS5j">https://github/wangzhou/qemu/blob/dma_engine_sample/hw/misc/dma_engine.c<i class="fa fa-external-link-alt"></i></span><br>[2] <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIvd2FuZ3pob3UvbGludXgvdHJlZS9kbWFfZW5naW5lX2RlbW8vZHJpdmVycy9taXNjL2RtYV9lbmdpbmU=">https://github/wangzhou/linux/tree/dma_engine_demo/drivers/misc/dma_engine<i class="fa fa-external-link-alt"></i></span></p>
+<p>[1]<span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3FlbXUvYmxvYi80NjEyMTEzZGEwMjcxNmU4YzU2OTMwZTg4Y2E4YTE0MmUxODBmMTc1L2h3L21pc2MvZG1hX2VuZ2luZS5j">https://github.com/wangzhou/qemu/blob/4612113da02716e8c56930e88ca8a142e180f175/hw/misc/dma_engine.c<i class="fa fa-external-link-alt"></i></span><br>[2]<span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L2xpbnV4L2Jsb2IvODc2OTU2OTVlNGQzZWE3MmU2MGQ5YzVkYTVmYzU4MDRhZTcxZmI0OC9kcml2ZXJzL21pc2MvZG1hX2VuZ2luZS9kbWFfZW5naW5lLmM=">https://github.com/wangzhou/linux/blob/87695695e4d3ea72e60d9c5da5fc5804ae71fb48/drivers/misc/dma_engine/dma_engine.c<i class="fa fa-external-link-alt"></i></span></p>
 
     </div>
 
