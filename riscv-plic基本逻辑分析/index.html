@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析riscv下plic中断控制器的基本逻辑，分析基于plic-1.0.0_rc5, qemu代码基于v7.1.50, Linux内核代码基于v6.1。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="riscv plic基本逻辑分析">
+<meta property="og:url" content="http://example.com/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析riscv下plic中断控制器的基本逻辑，分析基于plic-1.0.0_rc5, qemu代码基于v7.1.50, Linux内核代码基于v6.1。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/plic_hardware.png">
+<meta property="og:image" content="http://example.com/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/plic_flow.png">
+<meta property="article:published_time" content="2022-12-19T07:43:24.000Z">
+<meta property="article:modified_time" content="2022-12-19T15:12:01.773Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="中断">
+<meta property="article:tag" content="riscv">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/plic_hardware.png">
+
+<link rel="canonical" href="http://example.com/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>riscv plic基本逻辑分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">83</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">195</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          riscv plic基本逻辑分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-12-19 15:43:24 / 修改时间：23:12:01" itemprop="dateCreated datePublished" datetime="2022-12-19T15:43:24+08:00">2022-12-19</time>
+            </span>
+
+          
+            <span id="/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="riscv plic基本逻辑分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析riscv下plic中断控制器的基本逻辑，分析基于plic-1.0.0_rc5, qemu代码基于v7.1.50, Linux内核代码基于v6.1。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="plic基本设计"><a href="#plic基本设计" class="headerlink" title="plic基本设计"></a>plic基本设计</h2><p> plic(platform-level interrupt controller)是riscv上一个核外中断控制器，这个中断<br> 控制器的spec不到20页，设计的很简单，只支持线中断。</p>
+<p> riscv上有一堆中断控制器，clint/aclint/plic/aplic/aia。clint/aclint是核内的中断<br> 控制器，plic是一个简易的核外中断控制器，aplic是advanced plic，但是实际上aplic是<br> AIA定义的一部分，协议上aplic和plic没有兼容性上的联系。本文我们只分析plic的逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+------+     +--------+    M-mode irq   +--------------+</span><br><span class="line">| uart |----&gt;|  plic  |----------------&gt;| riscv hart0  |</span><br><span class="line">+------+     |        |                 |              |</span><br><span class="line">             |        |    S-mode irq   |              |</span><br><span class="line">        ----&gt;|        |----------------&gt;|              |</span><br><span class="line">             |        |----+            +--------------+</span><br><span class="line">        ----&gt;|        |---+| M-mode irq +--------------+</span><br><span class="line">             |        |--+|+-----------&gt;| riscv hart1  |</span><br><span class="line">        ----&gt;|        |-+||  S-mode irq |              |</span><br><span class="line">             +--------+ ||+------------&gt;|              |</span><br><span class="line">                        ||              |              |</span><br><span class="line">                        ||              +--------------+</span><br><span class="line">                        ||  M-mode irq  +--------------+</span><br><span class="line">                        |+-------------&gt;| riscv hartN  |</span><br><span class="line">                        |   S-mode irq  |              |</span><br><span class="line">                        +--------------&gt;|              |</span><br><span class="line">                                        |              |</span><br><span class="line">                                        +--------------+</span><br></pre></td></tr></table></figure>
+<p> 如上是plic以及相关外设和cpu hart的拓扑结构，我们用一个uart示意下外设, 其它外设<br> 接入的逻辑和uart是一样的。对于一个riscv hart，plic有两个输出，分别接hart的M mode<br> 外部中断和S mode外部中断。外设的中断线固定的接入plic上的一个输入管脚。</p>
+<p> 外设的中断信号通过plic中的各种逻辑后上报到riscv hart，plic的协议里甚至给了一个plic的硬件逻辑原理图：<br> <img src="/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/plic_hardware.png" alt="PLIC硬件实现框图"></p>
+<p> 结合如上的硬件实现框图和plic spec里的描述，我们很容易了解到plic内部的控制逻辑是<br> 怎么样的。简单的讲，plic的逻辑分gateway和core两大部分，gateway控制着外设的中断<br> 信号能否进来plic，core是plic具体的处理逻辑，大的逻辑上看，外设的中断信息可能被<br> 送到任意hart的外部中断输入管脚上，但是具体会送到哪个hart的哪个外部中断输入管脚上<br> 就要看plic的配置。</p>
+<p> plic上的几个关键的定义有，中断ID(Interrupt Identifier)，中断通知(Interrupt Notification)，<br> 中断ID区分不同外设的中断，不同外设的中断会固定接到不同的中断ID上，这个定义会在机器<br> 硬件描述信息中体现，比如，描述在DTS里。plic为它支持的每个中断设置一个pending bit,<br> 用这个pending bit表示对应外设触发了相关的中断，plic spec里叫这个是Interrupt Notification,<br> 注意，每个外设的中断在plic里也只能pending一个，这个设计就有点简单了。plic有target<br> context的概念，简单看就是一个core上，M mode外部中断是一个target context，S mode<br> 外部中断是一个target context，前面说过，理论上每个输入plic的中断都可以输出到任何<br> 一个core的任何一个target context上，plic可以通过下面的enable register使能和关闭<br> 相关的输出路径，可见enable register是一个中断源和target context相乘之积大小的配置表。</p>
+<p> plic中的配置全部通过MMIO接口进行，所支持的中断的pending和enable也都全部在MMIO配置，<br> 这种设计真是简单粗暴啊。我们下面把每个寄存器的定义展开，进一步说明plic：</p>
+<ul>
+<li><p>priority register</p>
+<p>针对每个中断源的优先级配置，每个中断源都可以配置一个优先级。</p>
+</li>
+<li><p>pending bits register</p>
+<p>针对每个中断源的配置。</p>
+</li>
+<li><p>enable register</p>
+<p>如上提到的，每个中断源在每个target context下都有一个enable bit去配置。</p>
+</li>
+<li><p>threadhold register</p>
+<p>针对每个target context的配置，当中断源的priority数值大于target context的数值时，<br>这个中断源的中断才能报给对应的target context。</p>
+</li>
+<li><p>claim register</p>
+<p>针对每个target context的配置，target context从claim寄存器中读到中断ID号。</p>
+</li>
+<li><p>complete register</p>
+<p>针对每个target context的配置，target context通过这个寄存器告诉plic中断已经处理，<br>plic在这之后才会打开gateway，叫后面的中断进来。</p>
+</li>
+</ul>
+<p> plic spec上给了中断流程:<br> <img src="/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/plic_flow.png" alt="PLIC中断处理流程"></p>
+<h2 id="qemu-virt平台的定义"><a href="#qemu-virt平台的定义" class="headerlink" title="qemu virt平台的定义"></a>qemu virt平台的定义</h2><p> plic的qemu代码在qemu/hw/intc/sifive_plic.c，在qemu virt平台里有调用plic的创建函数<br> sifive_plic_create。</p>
+<p> virt平台在创建串口的时候，把串口中断接到了plic上，中断ID是10:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">serial_mm_init(system_memory, memmap[VIRT_UART0].base,</span><br><span class="line">    0, qdev_get_gpio_in(DEVICE(mmio_irqchip), UART0_IRQ), 399193,</span><br><span class="line">    serial_hd(0), DEVICE_LITTLE_ENDIAN);</span><br></pre></td></tr></table></figure>
+<p> 这个和uart的DTS节点是相匹配的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">create_fdt_uart</span><br><span class="line">      /* 先看不是AIA的情况 */</span><br><span class="line">  +-&gt; qemu_fdt_setprop_cells(mc-&gt;fdt, name, &quot;interrupts&quot;, UART0_IRQ, 0x4);</span><br></pre></td></tr></table></figure>
+<p> 启动qemu后可以得到这样的中断信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"># cat /proc/interrupts </span><br><span class="line">           CPU0       </span><br><span class="line">  1:          0  SiFive PLIC  33 Edge      virtio0</span><br><span class="line">  2:         86  SiFive PLIC  10 Edge      ttyS0</span><br><span class="line">  3:          0  SiFive PLIC  11 Edge      101000.rtc</span><br><span class="line">  5:      13798  RISC-V INTC   5 Edge      riscv-timer</span><br><span class="line">IPI0:         0  Rescheduling interrupts</span><br><span class="line">IPI1:         0  Function call interrupts</span><br><span class="line">IPI2:         0  CPU stop interrupts</span><br><span class="line">IPI3:         0  IRQ work interrupts</span><br><span class="line">IPI4:         0  Timer broadcast interrupts</span><br></pre></td></tr></table></figure>
+
+<h2 id="内核实现"><a href="#内核实现" class="headerlink" title="内核实现"></a>内核实现</h2><p> plic的Linux内核驱动在: linux/drivers/irqchip/irq-sifive-plic.c</p>
+<p> [to do]</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"># 中断</a>
+              <a href="/tags/riscv/" rel="tag"># riscv</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/riscv-AIA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" rel="prev" title="riscv AIA逻辑分析">
+      <i class="fa fa-chevron-left"></i> riscv AIA逻辑分析
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#plic%E5%9F%BA%E6%9C%AC%E8%AE%BE%E8%AE%A1"><span class="nav-number">1.</span> <span class="nav-text">plic基本设计</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu-virt%E5%B9%B3%E5%8F%B0%E7%9A%84%E5%AE%9A%E4%B9%89"><span class="nav-number">2.</span> <span class="nav-text">qemu virt平台的定义</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E6%A0%B8%E5%AE%9E%E7%8E%B0"><span class="nav-number">3.</span> <span class="nav-text">内核实现</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">195</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">83</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
