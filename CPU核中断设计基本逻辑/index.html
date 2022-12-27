@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文梳理CPU核在中断上的高层逻辑，分析围绕软硬件接口，而不关注硬件内部的实现 逻辑。本文是高层逻辑上的分析，不会涉及具体体系架构上的中断设计，如果有必要， 我们用riscv作为具体体系构架分析具体内容。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CPU核中断设计基本逻辑">
+<meta property="og:url" content="http://example.com/CPU%E6%A0%B8%E4%B8%AD%E6%96%AD%E8%AE%BE%E8%AE%A1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文梳理CPU核在中断上的高层逻辑，分析围绕软硬件接口，而不关注硬件内部的实现 逻辑。本文是高层逻辑上的分析，不会涉及具体体系架构上的中断设计，如果有必要， 我们用riscv作为具体体系构架分析具体内容。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-12-27T09:45:24.000Z">
+<meta property="article:modified_time" content="2022-12-27T10:14:00.404Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="中断">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/CPU%E6%A0%B8%E4%B8%AD%E6%96%AD%E8%AE%BE%E8%AE%A1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>CPU核中断设计基本逻辑 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">85</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">197</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/CPU%E6%A0%B8%E4%B8%AD%E6%96%AD%E8%AE%BE%E8%AE%A1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CPU核中断设计基本逻辑
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2022-12-27 17:45:24 / 修改时间：18:14:00" itemprop="dateCreated datePublished" datetime="2022-12-27T17:45:24+08:00">2022-12-27</time>
+            </span>
+
+          
+            <span id="/CPU%E6%A0%B8%E4%B8%AD%E6%96%AD%E8%AE%BE%E8%AE%A1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" class="post-meta-item leancloud_visitors" data-flag-title="CPU核中断设计基本逻辑" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/CPU%E6%A0%B8%E4%B8%AD%E6%96%AD%E8%AE%BE%E8%AE%A1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/CPU%E6%A0%B8%E4%B8%AD%E6%96%AD%E8%AE%BE%E8%AE%A1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文梳理CPU核在中断上的高层逻辑，分析围绕软硬件接口，而不关注硬件内部的实现 逻辑。本文是高层逻辑上的分析，不会涉及具体体系架构上的中断设计，如果有必要， 我们用riscv作为具体体系构架分析具体内容。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>CPU根据一条一条指令执行程序，如果没有外界刺激CPU就这样周而复始的运行下去。可以看到<br>这样的程序CPU总是按照预定的程序同步的执行下去。</p>
+<p>CPU在设计的时候会预留一些外部信号的输入接口，并从硬件上定义当这些接口有信号时CPU<br>的执行行为。一般的，当这些接口上有信号时，CPU把执行流跳到预定义的指令地址。</p>
+<p>CPU执行被外部信号中断，进而跳到预定义地址执行指令，这个行为看似受到硬件或者外部<br>信号的配置，其实实际上所有控制的主体其实还是软件。软件决定当一个外部信号发生时CPU<br>的所有行为。</p>
+<p>当我们仔细观察“软件”这个概念，就会发现CPU上可能分时运行着多个软件，比如CPU上可能<br>一段时间在运行BISO的代码，一段时间在运行Host内核的代码，一段时间在运行Guest内核的<br>代码，一段时间在运行用户态的代码。这些代码，有些在逻辑上都是相互隔离的软件。</p>
+<p>我们从原始需求上去看CPU需要被中断这个诉求，实际上这些需求并不来自硬件，而是真实的<br>来自CPU上运行的各种软件。比如，BIOS在处理一些任务的时候需要一个精确的计时器，CPU<br>用指令轮询的办法没法做精确的计时，这样BIOS就需要设置一个计时器，当计时器时间到了时，<br>发中断中断当前CPU，需要注意的是，这个中断是发给BIOS这个软件的，CPU架构设计上要通过<br>各种软硬件设计保证如上的中断可以发给BIOS。</p>
+<p>我们再看一个例子，比如CPU上运行很多虚拟机，每个虚拟机上都要收自己虚拟机上的外设的<br>中断。每个虚拟机运行的时候，都可以配置当外设中断到来时CPU的处理行为。但是，不论是<br>BIOS的例子还是虚拟机的例子，其中的一个关键问题是中断怎么投递到相应的软件上下文上。</p>
+<p>我们再把这个问题打开看下，CPU在一个时间只能运行一个软件，而特定的中断要投递到特定<br>的软件上，这就要CPU核在收到中断时硬件内部有一套调度算法，把特定的中断调度到特定的<br>软件上下文:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">         +----------------------+</span><br><span class="line">         |                CPU   |</span><br><span class="line">         |+--------------+      |</span><br><span class="line">--------&gt;|| irq schedule |      |</span><br><span class="line">         |+--------------+      |</span><br><span class="line">         |                      |</span><br><span class="line">         |                      |</span><br><span class="line">         +----------------------+</span><br></pre></td></tr></table></figure>
+<p>我们可以看下硬件的这个调度算法大概是怎么样的，把外界想要中断的CPU特权级叫做target_irq_level，<br>把CPU当前运行的特权级叫做current_cpu_run_level。一般的，不同的软件运行在不同的CPU<br>特权级，运行在相同特权级的相同软件的不同实例(比如，不同虚拟机)需要用新硬件变量标记。<br>下面我们用中断发给特权级或者发给特权级上的软件实例来描述问题。</p>
+<p>当target_irq_level就是current_cpu_run_level时，这个表示外界想要中断的软件山下文<br>目前正在运行，硬件直接中断当前的上下文就好。</p>
+<p>当target_irq_level不是current_cpu_run_level时，表示外界想要中断的上下文不在线，<br>如果target_irq_level比current_cpu_run_level高，CPU需要直接陷入到高特权级处理对应<br>的中断，如果target_irq_level比current_cpu_run_level低，那么中断可以被记录在CPU里，<br>等到CPU切换到中断目标特权级时再处理中断。</p>
+<p>在如上的逻辑上，我们还要叠加上多实例的逻辑，这样才能和实际的软件使用场景相吻合。<br>以target_irq_level就是current_cpu_run_level为例，就是在中断目标特权级的基础上增加<br>了软件实例这个新变量，也就是说中断的发送目标是某个特权级上运行的一个软件实例，虽然<br>CPU可能正在对应的特权级上运行，但是，不一定运行的是目标软件实例，这样，硬件就需要<br>完成两个动作，一是有办法识别当前运行的软件实例是否是中断的目标实例，如果正好就是，<br>直接中断当前软件就好，二是如果需要中断的实例和当前实例不一样，这个中断怎么处理，<br>思路和特权级的处理基本一致，就是记录起来，但是软件实例的上下文完全可能是记录在<br>软件上的，而且软件实例一般是由比当前特权级高的特权级管理的，那么把这个中断报给<br>高特权级是一种合理的选择。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"># 计算机体系结构</a>
+              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"># 中断</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" rel="prev" title="riscv plic基本逻辑分析">
+      <i class="fa fa-chevron-left"></i> riscv plic基本逻辑分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/riscv-qemu-virt%E5%B9%B3%E5%8F%B0CPU%E6%8B%93%E6%89%91%E5%88%86%E6%9E%90/" rel="next" title="riscv qemu virt平台CPU拓扑分析">
+      riscv qemu virt平台CPU拓扑分析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">197</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">85</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2022</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
