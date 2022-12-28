@@ -23,15 +23,15 @@
     var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="本文梳理riscv上timer的基本软硬件逻辑，硬件模型基于qemu，使用的qemu版本是6.2.0， 内核代码分析使用的版本是v5.12-rc8。">
+  <meta name="description" content="本文梳理riscv上timer的基本软硬件逻辑，硬件模型基于qemu，使用的qemu版本是6.2.0， 内核代码分析使用的版本是v5.12-rc8。本文尽可能多的梳理riscv上timer相关的内容，需要独立描述的会在文中指出来。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="riscv timer的基本逻辑">
 <meta property="og:url" content="http://example.com/riscv-timer%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/index.html">
 <meta property="og:site_name" content="Sherlock&#39;s blog">
-<meta property="og:description" content="本文梳理riscv上timer的基本软硬件逻辑，硬件模型基于qemu，使用的qemu版本是6.2.0， 内核代码分析使用的版本是v5.12-rc8。">
+<meta property="og:description" content="本文梳理riscv上timer的基本软硬件逻辑，硬件模型基于qemu，使用的qemu版本是6.2.0， 内核代码分析使用的版本是v5.12-rc8。本文尽可能多的梳理riscv上timer相关的内容，需要独立描述的会在文中指出来。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2022-08-11T13:08:08.000Z">
-<meta property="article:modified_time" content="2022-09-25T12:30:31.086Z">
+<meta property="article:modified_time" content="2022-12-28T12:36:50.453Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="QEMU">
@@ -234,7 +234,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-09-25 20:30:31" itemprop="dateModified" datetime="2022-09-25T20:30:31+08:00">2022-09-25</time>
+                <time title="修改时间：2022-12-28 20:36:50" itemprop="dateModified" datetime="2022-12-28T20:36:50+08:00">2022-12-28</time>
               </span>
 
           
@@ -259,7 +259,7 @@
   </span>
   
   
-            <div class="post-description">本文梳理riscv上timer的基本软硬件逻辑，硬件模型基于qemu，使用的qemu版本是6.2.0， 内核代码分析使用的版本是v5.12-rc8。</div>
+            <div class="post-description">本文梳理riscv上timer的基本软硬件逻辑，硬件模型基于qemu，使用的qemu版本是6.2.0， 内核代码分析使用的版本是v5.12-rc8。本文尽可能多的梳理riscv上timer相关的内容，需要独立描述的会在文中指出来。</div>
 
         </div>
       </header>
@@ -274,8 +274,10 @@
 <p> timer相关的寄存器以及寄存器域段有: mip/mie里和timer相关的域段，mtime以及mtimecmp。<br> mie里有控制timer中断使能的bit: MTIE/STIE，控制M mode和S mode timer interrupter是否<br> 使能，mip里有表示是否存在pending的timer中断的bit: MTIP/STIP。</p>
 <p> mtime是一个可读可写的计数器，其中的数值以一定的时间间隔递增，计数器计满后会回绕，<br> mtimecmp寄存器里的数值用来和mtime做比较，当mtime的值大于等于mtimecmp的值，并且<br> MTIE使能时，M mode timer中断被触发。</p>
 <p> 软件可以在timer中断处理函数里，更新mtimecmp的值，从而维持一个固定周期的时钟中断，<br> 一般这个中断就是Linux内核的时钟中断。软件可以写STIP触发一个S mode timer中断。</p>
-<p> NOTE: sstc</p>
-<h2 id="qemu逻辑"><a href="#qemu逻辑" class="headerlink" title="qemu逻辑"></a>qemu逻辑</h2><p> qemu中的aclint和plic的代码路径分别在：hw/intc/riscv_aclint.c和hw/intc/sifive_plic.c。<br> 这里我们只关注和timer相关的部分，可以看到在riscv_aclint.c里只有M mode timer中断的<br> 触发代码。</p>
+<p> aclint上把mtime以及mtimecmp抽象成一个M mode timer这样的设备，mtime和mtimecmp是这个<br> 设备上的MMIO接口，一个M mode timer上有一个mtime，一个M mode timer为服务的每个hart<br> 设置一个mtimecmp。aclint协议上描述，一个系统可能会有多个M mode timer设备，这样做<br> 的目的是在CPU存在分层拓扑的时候，比如CPU cluster/node/socket时，一组CPU可以和一个<br> M mode timer做在一起，方便这一组CPU的功耗管理。在系统中有多个M mode timer时，需要<br> 做多个mtime数值上的同步，使得多个mtime之间的误差在一定范围之内。</p>
+<p> alint只定义了M mode timer, riscv的sstc扩展定义了S mode下的timer。对于S mode timer，<br> sstc只在每个hart上增加了stimecmp寄存器，当time计数值大于等于stimecmp时触发S mode<br> timer中断，stimecmp是一个CSR寄存器。从timer整体定义上看，riscv这里定义的比较乱，<br> M mode timer抽象成一个外设，接口是MMIO，但是S mode timer却改成了CSR，而且sstc还<br> 修改了riscv特权级spec里的一些系统寄存器的定义，mip.STIP这个域段在stimecmp有无时，<br> 读写属性是不一样的，当支持S mode但是没有实现stimecmp时，mip.STIP是读写的，写这个<br> bit会触发S mode timer中断，当实现stimecmp时，mip.STIP是只读的。这样的实现意味着，<br> 在有S mode timer的系统上，将无法使用M mode timer从M mode通过mip.STIP触发S mode<br> timer中断，相关的软件方案需要随之变动。sstc里还有虚拟化相关的描述，这些需要在独立<br> 文档中描述。</p>
+<p> riscv上还定义了一个用户态可以访问的计数器RDTIME，这个计数器从开机起就以一定的频率<br> 一直递增。</p>
+<h2 id="qemu逻辑-M-mode-timer"><a href="#qemu逻辑-M-mode-timer" class="headerlink" title="qemu逻辑 - M mode timer"></a>qemu逻辑 - M mode timer</h2><p> qemu中的aclint和plic的代码路径分别在：hw/intc/riscv_aclint.c和hw/intc/sifive_plic.c。<br> 这里我们只关注和timer相关的部分，可以看到在riscv_aclint.c里只有M mode timer中断的<br> 触发代码。</p>
 <p> 在qemu上跑内核的时候，发现总是一个M mode timer中断跟着一个S mode timer中断，然后<br> 再跟一个S mode ecall。qemu里并没有触发S mode timer的代码，可以猜测S mode timer中断<br> 是在opensbi里触发的。</p>
 <p> 整个逻辑是：当mtime大于等于mtimecmp时触发一个M mode中断，opensbi里的中断处理逻辑<br> 会写STIP，由于S mode time中断已经被委托到S mode处理，在M mode返回S mode后，S mode<br> timer中断就会被触发。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">/* opensbi/lib/sbi/sbi_trap.c */</span><br><span class="line">sbi_trap_handler</span><br><span class="line">  +-&gt; sbi_trap_noaia/ais_irq</span><br><span class="line">    +-&gt; sbi_timer_process</span><br><span class="line">          /* 如果没有SSTC特性，才这样处理 */ </span><br><span class="line">      +-&gt; csr_set(CSR_MIP, MIP_STIP)</span><br></pre></td></tr></table></figure>
@@ -284,6 +286,11 @@
 <p> 说到虚拟机的timer，就有一个问题要问，虚拟机里的时间和真实世界里的时间数值上一样么？<br> 我们看下aclint驱动配置timecmp时，qemu里的timer中断定时是怎么处理里。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">riscv_aclint_mtimer_write</span><br><span class="line">  +-&gt; riscv_aclint_mtimer_write_timecmp</span><br><span class="line">    +-&gt; ns_diff = muldiv64(diff, NANOSECONDS_PER_SECOND, timebase_freq)</span><br></pre></td></tr></table></figure>
 <p> 如上，使用传进来的timecmp值，计算出timer中断间隔的实际值，然后在host上启动一个<br> 定时器来做模拟，timebase_freq是mtime寄存器作为counter的频率，所以实际时间的计算<br> 就是：(mtimecmp - 上一个中断点的mtime值) * 1/timebase_freq * NANOSECONDS_PER_SECOND，<br> 单位是ns，就是上面muldiv64函数的计算结果。所以，虚拟机看到的时间和实际时间是一样的。</p>
+<h2 id="qemu逻辑-S-mode-timer"><a href="#qemu逻辑-S-mode-timer" class="headerlink" title="qemu逻辑 - S mode timer"></a>qemu逻辑 - S mode timer</h2><p> qemu里S mode timer的代码在：target/riscv/time_helper.c，stimecmp是CSR寄存器，所以<br> stimecmp的访问代码在: target/riscv/csr.c。</p>
+<p> 可以看到stimecmp的读写逻辑和timecmp的读写逻辑基本上是一致的，而时钟源都使用一样的<br> QEMU_CLOCK_VIRTUAL。具体的看，针对sstc，qemu在time_helper.c里实现了hw/intc/riscv_alint.c<br> 里很多一样的逻辑，通过CPU env里的rdtime_fn_arg/rdtime_fn拿到riscv_alint.c里定义<br> 的和时钟源相关的信息，比如，timebase_freq。</p>
+<h2 id="qemu逻辑-RDTIME"><a href="#qemu逻辑-RDTIME" class="headerlink" title="qemu逻辑 - RDTIME"></a>qemu逻辑 - RDTIME</h2><p> 这个寄存器在U mode也可以访问，所以具体实现也是qemu user mode和system mode各自支持的。</p>
+<p> qemu user mode下的实现，直接使用host上的特性tick执行实现，这样的实现感觉真心<br> 没有什么实用价值。</p>
+<p> system mode下的实现，RDTIME的时钟源也是QEMU_CLOCK_VIRTUAL，读相关的CSR直接得到<br> 计算后的计数值，数值上和如上M/S mode timer计数器的值是一样，表示自系统启动以来<br> 的一个计数值。所以，这个值和墙上时钟还是不一样的，墙上时钟在系统关机后会使用主板<br> 上的纽扣电池继续运行。</p>
 <h2 id="Linux内核逻辑"><a href="#Linux内核逻辑" class="headerlink" title="Linux内核逻辑"></a>Linux内核逻辑</h2><p> 内核timer初始化在：arch/riscv/kernel/time.c, time_init<br> 内核相关驱动的位置在：drivers/clocksource/timer-riscv.c</p>
 <p> 如上的timer驱动里会注册timer中断的处理函数riscv_timer_interrupt, 这个函数会进一步<br> 调用clock_event_device里的event_handler回调函数，但是这个回调函数并不是在驱动里<br> 直接提供的。</p>
 <p> event_handler的注册逻辑是通过这个驱动里注册的cpu hotplu回调函数riscv_timer_starting_cpu<br> 完成的，大概的调用逻辑如下：</p>
@@ -390,7 +397,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E7%A1%80%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基础逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu%E9%80%BB%E8%BE%91"><span class="nav-number">2.</span> <span class="nav-text">qemu逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E5%86%85%E6%A0%B8%E9%80%BB%E8%BE%91"><span class="nav-number">3.</span> <span class="nav-text">Linux内核逻辑</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E7%A1%80%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基础逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu%E9%80%BB%E8%BE%91-M-mode-timer"><span class="nav-number">2.</span> <span class="nav-text">qemu逻辑 - M mode timer</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu%E9%80%BB%E8%BE%91-S-mode-timer"><span class="nav-number">3.</span> <span class="nav-text">qemu逻辑 - S mode timer</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu%E9%80%BB%E8%BE%91-RDTIME"><span class="nav-number">4.</span> <span class="nav-text">qemu逻辑 - RDTIME</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E5%86%85%E6%A0%B8%E9%80%BB%E8%BE%91"><span class="nav-number">5.</span> <span class="nav-text">Linux内核逻辑</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
