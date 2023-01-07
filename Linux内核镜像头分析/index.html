@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析Linux内核镜像中Image头部格式的一些相关问题，使用的硬件构架是riscv， 分析中使用的内核版本使用v6.1">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux内核镜像头分析">
+<meta property="og:url" content="http://example.com/Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析Linux内核镜像中Image头部格式的一些相关问题，使用的硬件构架是riscv， 分析中使用的内核版本使用v6.1">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://example.com/Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E5%88%86%E6%9E%90/PE_COFF_head.png">
+<meta property="article:published_time" content="2023-01-07T13:07:42.000Z">
+<meta property="article:modified_time" content="2023-01-07T13:16:15.745Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta property="article:tag" content="opensbi">
+<meta property="article:tag" content="uboot">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://example.com/Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E5%88%86%E6%9E%90/PE_COFF_head.png">
+
+<link rel="canonical" href="http://example.com/Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux内核镜像头分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">86</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">198</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux内核镜像头分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-01-07 21:07:42 / 修改时间：21:16:15" itemprop="dateCreated datePublished" datetime="2023-01-07T21:07:42+08:00">2023-01-07</time>
+            </span>
+
+          
+            <span id="/Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="Linux内核镜像头分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">本文分析Linux内核镜像中Image头部格式的一些相关问题，使用的硬件构架是riscv， 分析中使用的内核版本使用v6.1</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="Linux内核镜像头部格式"><a href="#Linux内核镜像头部格式" class="headerlink" title="Linux内核镜像头部格式"></a>Linux内核镜像头部格式</h2><p> Linux内核镜像的格式和启动它的bootloader有一定的关系。如果bootloader只是简单的跳到<br> 内核Image的第一条指令开始执行，那么内核Image直接从开始放指令就可以，如果bootloader<br> 对内核Image有一定的要求，一般是Image的头部符合一定的格式，那么内核Image就必须按照<br> 相关的格式排布，这意味着这样的bootloader可以解析内核Image的格式，内核的入口地址也<br> 不一定是内核Image的首地址。</p>
+<p> Linux和windows上程序的格式是不一样的，Linux是ELF格式、windows上是PE/COFF格式，这里<br> 说的是应用程序，我们看下Linux内核的Image。编译Linux内核的log可以看见，编译内核时<br> 先生成vmlinux，然后用objcopy生成Image，vmlinux是ELF格式，bootloader需要理解ELF<br> 才能引导Linux内核，所以还要把ELF转变成bootloader可以理解的二进制格式。</p>
+<p> 如上，如果bootloader直接从第一条指令执行，直接把内核的入口地址放在Image的开始就<br> 可以，现在可以看到opensbi就是这样的简单bootloader。对于有些复杂的bootloader，比如<br> uboot或者UEFI，它们支持的启动方式更多，有的启动方式对被启动的Image的格式就有约束。</p>
+<p> UEFI中使用的EFI启动方式，uboot也支持这种启动方式。这种启动方式一开始在UEFI/windows<br> 中使用，Image head要求是PE/COFF格式的，Linux内核为了支持EFI启动，Image head也要<br> 是PE/COFF格式。</p>
+<p> PE/COFF格式的head大概是这样的:<br> <img src="/Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E5%88%86%E6%9E%90/PE_COFF_head.png" alt="PE/COFF head"></p>
+<p> 其中，开头两个字节的二进制编码必须是0x5A4D，对应的ascii字符就是‘MZ’，0x3C偏移处<br> 是真实PE头在Image中的偏移，PE/COFF的格式为了兼容DOS的格式，在真实PE头前加了如上<br> 的DOS head、DOS STUB。AddressOfEntryPoint处放Image的入口信息，内容是入口地址相对<br> Image起始的偏移。</p>
+<p> 下面具体看下riscv内核Image开始部分的代码。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">#ifdef CONFIG_EFI</span><br><span class="line">        /*</span><br><span class="line">         * This instruction decodes to &quot;MZ&quot; ASCII required by UEFI.</span><br><span class="line">         */</span><br><span class="line">        c.li s4,-13</span><br><span class="line">        j _start_kernel</span><br><span class="line">#else</span><br><span class="line">        /* jump to start kernel */</span><br><span class="line">        j _start_kernel</span><br><span class="line">        /* reserved */</span><br><span class="line">        .word 0</span><br><span class="line">#endif</span><br></pre></td></tr></table></figure>
+<p> 编译好的riscv的Image要么支持EFI启动要么不支持。支持EFI启动的Image一开始放了一条<br> 指令，这条指令的二进制编码就是0x5A4D，后面在DOS head的空间直接放了一条跳转指令，<br> 这样EFI的内核Image也兼容了类似opensbi这种直接从Image第一条指令启动的bootloader，<br> c.li s4,-13这样的指令不会有什么副作用，第二条指令就直接跳到_start_kernel了，如果<br> bootloader按照EFI启动，会从PE头里的AddressOfEntryPoint域段得到入口地址，根本不会<br> 去执行j _start_kernel指令。</p>
+<p> 对于EFI的Image，直接在如下的地方把这个PE头塞进来:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">#ifdef CONFIG_EFI</span><br><span class="line">	.word pe_head_start - _start</span><br><span class="line">pe_head_start:</span><br><span class="line"></span><br><span class="line">	__EFI_PE_HEADER</span><br><span class="line">#else</span><br><span class="line">	.word 0</span><br><span class="line">#endif</span><br></pre></td></tr></table></figure>
+<p> 可以看到宏__EFI_PE_HEADER把PE头加了进来，AddressOfEntryPoint放的是__efistub_efi_pe_entry<br> 的偏移，所以EFI内核的代码执行路径和非EFI内核在这里还是不同的。</p>
+<p> riscv上的__efistub_efi_pe_entry是定义在drivers/firmware/efi/libstub/efi-stub-entry.c里<br> 的efi_pe_entry这个函数，在编译的时候给这个函数加上了__efistub_这个前缀：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">/* drivers/firmware/efi/libstub/Makefile */</span><br><span class="line">STUBCOPY_FLAGS-$(CONFIG_RISCV)  += --prefix-alloc-sections=.init \</span><br><span class="line">                                   --prefix-symbols=__efistub_</span><br></pre></td></tr></table></figure>
+
+<h2 id="opensbi启动内核"><a href="#opensbi启动内核" class="headerlink" title="opensbi启动内核"></a>opensbi启动内核</h2><p> 如上，opensbi只是简单跳到被启动对象的起始地址。</p>
+<h2 id="uboot启动内核"><a href="#uboot启动内核" class="headerlink" title="uboot启动内核"></a>uboot启动内核</h2><p> Linux内核已经支持EFI方式启动，当初的内核patch的链接是<span class="exturl" data-url="aHR0cHM6Ly9sd24ubmV0L0FydGljbGVzLzgxMzU4OS8=">https://lwn.net/Articles/813589/<i class="fa fa-external-link-alt"></i></span><br> 这个patch是使用uboot + qemu来测试EFI启动的。</p>
+<p> 用这个命令可以启动uboot:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">qemu-system-riscv64 -m 256m -machine virt -nographic -kernel path_to_u-boot/u-boot</span><br></pre></td></tr></table></figure>
+<p> 启动的效果大概是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line">OpenSBI v1.1</span><br><span class="line">   ____                    _____ ____ _____</span><br><span class="line">  / __ \                  / ____|  _ \_   _|</span><br><span class="line"> | |  | |_ __   ___ _ __ | (___ | |_) || |</span><br><span class="line"> | |  | | &#x27;_ \ / _ \ &#x27;_ \ \___ \|  _ &lt; | |</span><br><span class="line"> | |__| | |_) |  __/ | | |____) | |_) || |_</span><br><span class="line">  \____/| .__/ \___|_| |_|_____/|____/_____|</span><br><span class="line">        | |</span><br><span class="line">        |_|</span><br><span class="line"></span><br><span class="line">Platform Name             : riscv-virtio,qemu</span><br><span class="line">Platform Features         : medeleg</span><br><span class="line">Platform HART Count       : 1</span><br><span class="line">Platform IPI Device       : aclint-mswi</span><br><span class="line">Platform Timer Device     : aclint-mtimer @ 10000000Hz</span><br><span class="line">Platform Console Device   : uart8250</span><br><span class="line">Platform HSM Device       : ---</span><br><span class="line">Platform Reboot Device    : sifive_test</span><br><span class="line">Platform Shutdown Device  : sifive_test</span><br><span class="line">Firmware Base             : 0x80000000</span><br><span class="line">Firmware Size             : 288 KB</span><br><span class="line">Runtime SBI Version       : 1.0</span><br><span class="line"></span><br><span class="line">Domain0 Name              : root</span><br><span class="line">Domain0 Boot HART         : 0</span><br><span class="line">Domain0 HARTs             : 0*</span><br><span class="line">Domain0 Region00          : 0x0000000002000000-0x000000000200ffff (I)</span><br><span class="line">Domain0 Region01          : 0x0000000080000000-0x000000008007ffff ()</span><br><span class="line">Domain0 Region02          : 0x0000000000000000-0xffffffffffffffff (R,W,X)</span><br><span class="line">Domain0 Next Address      : 0x0000000080200000</span><br><span class="line">Domain0 Next Arg1         : 0x000000008fe00000</span><br><span class="line">Domain0 Next Mode         : S-mode</span><br><span class="line">Domain0 SysReset          : yes</span><br><span class="line"></span><br><span class="line">Boot HART ID              : 0</span><br><span class="line">Boot HART Domain          : root</span><br><span class="line">Boot HART Priv Version    : v1.12</span><br><span class="line">Boot HART Base ISA        : rv64imafdch</span><br><span class="line">Boot HART ISA Extensions  : time,sstc</span><br><span class="line">Boot HART PMP Count       : 16</span><br><span class="line">Boot HART PMP Granularity : 4</span><br><span class="line">Boot HART PMP Address Bits: 54</span><br><span class="line">Boot HART MHPM Count      : 16</span><br><span class="line">Boot HART MIDELEG         : 0x0000000000001666</span><br><span class="line">Boot HART MEDELEG         : 0x0000000000f0b509</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">U-Boot 2023.01-rc4-00059-g8d6cbf5e6b (Jan 05 2023 - 15:59:10 +0800)</span><br><span class="line"></span><br><span class="line">CPU:   rv64imafdch_zicsr_zifencei_zihintpause_zba_zbb_zbc_zbs_sstc</span><br><span class="line">Model: riscv-virtio,qemu</span><br><span class="line">DRAM:  256 MiB</span><br><span class="line">Core:  25 devices, 12 uclasses, devicetree: board</span><br><span class="line">Flash: 32 MiB</span><br><span class="line">Loading Environment from nowhere... OK</span><br><span class="line">In:    serial@10000000</span><br><span class="line">Out:   serial@10000000</span><br><span class="line">Err:   serial@10000000</span><br><span class="line">Net:   No ethernet found.</span><br><span class="line">Working FDT set to 8f734950</span><br><span class="line">Hit any key to stop autoboot:  0 </span><br><span class="line">=&gt; </span><br></pre></td></tr></table></figure>
+<p> (todo: 怎么继续启动内核)</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"># Linux内核</a>
+              <a href="/tags/opensbi/" rel="tag"># opensbi</a>
+              <a href="/tags/uboot/" rel="tag"># uboot</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/riscv-qemu-virt%E5%B9%B3%E5%8F%B0CPU%E6%8B%93%E6%89%91%E5%88%86%E6%9E%90/" rel="prev" title="riscv qemu virt平台CPU拓扑分析">
+      <i class="fa fa-chevron-left"></i> riscv qemu virt平台CPU拓扑分析
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E5%86%85%E6%A0%B8%E9%95%9C%E5%83%8F%E5%A4%B4%E9%83%A8%E6%A0%BC%E5%BC%8F"><span class="nav-number">1.</span> <span class="nav-text">Linux内核镜像头部格式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#opensbi%E5%90%AF%E5%8A%A8%E5%86%85%E6%A0%B8"><span class="nav-number">2.</span> <span class="nav-text">opensbi启动内核</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#uboot%E5%90%AF%E5%8A%A8%E5%86%85%E6%A0%B8"><span class="nav-number">3.</span> <span class="nav-text">uboot启动内核</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">198</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">86</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
