@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文是学习linux kernel中PCI子系统代码的一个笔记。PCI子系统的代码最主要的就是 实现整个PCI树的枚举和资源的分配。本文先总体介绍，然后主要分析pci_create_root_bus 函数，该函数实现pci_bus结构和pci_host_bridge结构的分配。本文分析的代码版本为内核 3.18-rc1">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-07-11T15:48:09.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.826Z">
+<meta property="article:modified_time" content="2023-01-15T08:08:52.800Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="PCIe">
 <meta name="twitter:card" content="summary">
@@ -134,7 +134,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">199</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">200</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -232,7 +232,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-01-15 16:08:52" itemprop="dateModified" datetime="2023-01-15T16:08:52+08:00">2023-01-15</time>
               </span>
 
           
@@ -271,34 +271,14 @@
         <p> 本文是学习linux kernel中PCI子系统代码的一个笔记。PCI子系统的代码最主要的就是<br> 实现整个PCI树的枚举和资源的分配。本文先总体介绍，然后主要分析pci_create_root_bus<br> 函数，该函数实现pci_bus结构和pci_host_bridge结构的分配。本文分析的代码版本为内核<br> 3.18-rc1</p>
 <p> pci_scan_root_bus()完成整个PCI树的枚举和资源分配。主要实现在下面的三个函数中：<br>    –&gt;pci_create_root_bus()<br>    –&gt;pci_scan_child_bus(b)<br>    –&gt;pci_assign_unassigned_bus_resources(b)</p>
 <p> pci_create_root_bus 建立相应的数据结构pci_bus, pci_host_bridge等<br> pci_scan_child_bus 枚举整个pci总线上的设备<br> pci_assign_unassigned_bus_resources 分配总线资源</p>
-<p> 下面直观的给出PCI(PCIe)硬件和软件的相互对应，也可以看出软件对硬件是怎么做抽象的。<br> 硬件结构:<br>        |   root bus: 0   —-&gt;  struct pci_bus<br>        |<br>    +—————-+        —-&gt;  struct pci_host_bridge<br>    | pcie root port |        —-&gt;  struct pci_dev<br>    +—————-+<br>        |   bus: 1        —-&gt;  struct pci_bus<br>        |<br>    +—————-+<br>    | pcie net cards |        —-&gt;  struct pci_dev<br>    +—————-+</p>
+<p> 下面直观的给出PCI(PCIe)硬件和软件的相互对应，也可以看出软件对硬件是怎么做抽象的。<br> 硬件结构:<br> <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">	|   root bus: 0   ----&gt;  struct pci_bus</span><br><span class="line">	|</span><br><span class="line">+----------------+        ----&gt;  struct pci_host_bridge</span><br><span class="line">| pcie root port |        ----&gt;  struct pci_dev</span><br><span class="line">+----------------+        </span><br><span class="line">	|   bus: 1        ----&gt;  struct pci_bus</span><br><span class="line">	|</span><br><span class="line">+----------------+</span><br><span class="line">| pcie net cards |        ----&gt;  struct pci_dev</span><br><span class="line">+----------------+</span><br></pre></td></tr></table></figure></p>
 <p>先从硬件的角度说明PCIe总线系统的工作大致流程。PCIe总线系统是一个局部总线系统，<br>目的在于沟通内存和外设的存储空间。总结起来完成: 1. CPU访问外设的存储空间；2.<br>外设访问系统内存空间。一般介绍PCIe的时候说的RC，switch, EP，这里以arm Soc为例说明.<br>一般的, RC可以理解成PCIe host bridge, 有时也叫PCIe控制器，完成CPU域地址到PCI域<br>地址的转换，RC在Soc的内部。switch是一个独立的器件，和RC的接口相连，提供扩展。EP<br>是具有PCIe接口的网卡，SATA控制器等。PCI中还有一个概念是PCI桥, 实际的PCI桥存在<br>PCI总线中(不是PCIe总线), 完成系统的扩展，和host桥不同的是，PCI桥没有地址翻译的功能.<br>PCI总线中的switch每个端口相当于一个PCI桥(虚拟PCI桥), 完成PCI桥类似的功能。</p>
 <p>每个PCI设备，包括host桥、PCI桥和PCI设备都有一个配置空间。PCIe中，这个配置空间的<br>大小是4K。CPU和外设根据配置空间的一些寄存器, 访问相应的地址。关键的寄存器有:<br>BAR, mem base/limit, I/O base/limit. mem base/limit, I/O base/limit指定当前PCI桥<br>mem空间和I/O空间的起始和大小, 在PCI桥中使用. BAR指示的是PCI设备的mem空间和I/O空间.<br>比如, 下图中PCIe net card的BAR空间(BAR指示的一段地址), 就可以存放网卡本身的寄存器.<br>一般情况, PCI桥的BAR是用不到的.</p>
-<pre><code>        +----------------+ ----&gt; PCIe host bridge
-        | pcie root port |
-        +----------------+ ----&gt; in Soc
-            |
---------------------------------------------------- ----&gt; switch
-|            +----------------+                |
-|            |   pci bridge   |                |
-|            +----------------+                |
-|                |                         |
-|         -------------------------------         |
-|         |                             |         |
-| +----------------+       +----------------+ |
-| |   pci bridge   |       |   pci bridge   | |
-| +----------------+       +----------------+ |
----------------------------------------------------
-          |
-  +----------------+
-  |  PCIe net card |
-  +----------------+
-</code></pre>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">                +----------------+ ----&gt; PCIe host bridge</span><br><span class="line">                | pcie root port |</span><br><span class="line">                +----------------+ ----&gt; in Soc</span><br><span class="line">                        |</span><br><span class="line">--------------------------------------------------- ----&gt; switch</span><br><span class="line">|                    +----------------+           |</span><br><span class="line">|                    |   pci bridge   |           |</span><br><span class="line">|                    +----------------+           |</span><br><span class="line">|                            |                    |</span><br><span class="line">|         -------------------------------         |</span><br><span class="line">|         |                             |         |</span><br><span class="line">| +----------------+           +----------------+ |</span><br><span class="line">| |   pci bridge   |           |   pci bridge   | |</span><br><span class="line">| +----------------+           +----------------+ |</span><br><span class="line">---------------------------------------------------</span><br><span class="line">          |</span><br><span class="line">  +----------------+</span><br><span class="line">  |  PCIe net card |</span><br><span class="line">  +----------------+</span><br></pre></td></tr></table></figure>
+
 <p>整个pci枚举的过程最主要的就是配置pci桥和pci设备的BAR和mem、I/O base/limit<br>下面以此为主线分析整个pci枚举的过程。</p>
 <p>在分析代码之前，先介绍基本的数据结构。代码围绕这些数据结构构成。<br>这几个核心的数据结构是: struct pci_bus, struct pci_dev, struct pci_host_bridge<br>每一个pci总线对应一个struct pci_bus结构，每一个pci设备(可以是host bridge,<br>普通pci device)对应一个pci_dev, 一个pci host bridge对应一个pci_host_bridge,<br>一般一个pci总线体系中有一个pci host bridge, 这一个pci总线系统也叫一个pci domain,<br>各个pci domain不可以直接相互访问。有些时候一个系统会有多个pcie root port, 这时<br>每个root port和下面的pci device组成各自的pci domain, 下面介绍各个结构中关键条目。</p>
-<p>struct pci_bus:<br>    /* 指向该总线上游的pci桥的pci_dev结构 */<br>    struct pci_dev    <em>self;<br>    /</em> 存储该总线的mem、I/O，prefetch mem等资源。由总线上游pci桥的<br>     * pci_dev结构中的resource中的第PCI_BRIDGE_RESOURCES到<br>     * PCI_BRIDGE_RESOURCES + PCI_BRIDGE_RESOURCE_NUM -1个元素复制得到<br>     * 发生于pci_scan_bridge()<br>     *           –&gt;pci_add_new_bus()<br>     *              –&gt;pci_alloc_child_bus()<br>     */<br>    struct resource *resource[PCI_BRIDGE_RESOURCE_NUM];<br>    struct list_head resources;</p>
-<p>struct pci_host_bridge:<br>    /* 整个pci系统的mem, I/O资源作为一个个链表元素 */<br>    struct list_head windows;</p>
-<p>struct pci_dev:<br>    /* 若该设备是pci桥，指向该桥的下游总线 */<br>    struct pci_bus    <em>subordinate;<br>    /</em> 存该pci设备的BAR等资源, 在__pci_read_base()中初始化<br>     * pci_scan_device()<br>     *    –&gt; pci_setup_device() …<br>     *        –&gt; __pci_read_base<br>     * still do know where to init resource[PCI_BRIDGE_RESOURCES] ?<br>     */<br>    struct resource resource[DEVICE_COUNT_RESOURCE];</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">struct pci_bus:</span><br><span class="line">        /* 指向该总线上游的pci桥的pci_dev结构 */</span><br><span class="line">        struct pci_dev *self;</span><br><span class="line">        /* 存储该总线的mem、I/O，prefetch mem等资源。由总线上游pci桥的</span><br><span class="line">         * pci_dev结构中的resource中的第PCI_BRIDGE_RESOURCES到</span><br><span class="line">         * PCI_BRIDGE_RESOURCES + PCI_BRIDGE_RESOURCE_NUM -1个元素复制得到</span><br><span class="line">         * 发生于pci_scan_bridge()</span><br><span class="line">         *           --&gt;pci_add_new_bus()</span><br><span class="line">         *              --&gt;pci_alloc_child_bus()</span><br><span class="line">         */</span><br><span class="line">        struct resource *resource[PCI_BRIDGE_RESOURCE_NUM];</span><br><span class="line">        struct list_head resources;</span><br><span class="line"></span><br><span class="line">struct pci_host_bridge:</span><br><span class="line">        /* 整个pci系统的mem, I/O资源作为一个个链表元素 */</span><br><span class="line">        struct list_head windows;</span><br><span class="line"></span><br><span class="line">struct pci_dev:</span><br><span class="line">        /* 若该设备是pci桥，指向该桥的下游总线 */</span><br><span class="line">        struct pci_bus *subordinate;</span><br><span class="line">        /* 存该pci设备的BAR等资源, 在__pci_read_base()中初始化</span><br><span class="line">         * pci_scan_device() </span><br><span class="line">         *    --&gt; pci_setup_device() ...</span><br><span class="line">         *        --&gt; __pci_read_base</span><br><span class="line">         * still do know where to init resource[PCI_BRIDGE_RESOURCES] ?</span><br><span class="line">         */</span><br><span class="line">        struct resource resource[DEVICE_COUNT_RESOURCE];</span><br></pre></td></tr></table></figure>
 
     </div>
 
@@ -413,7 +393,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">199</span>
+          <span class="site-state-item-count">200</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

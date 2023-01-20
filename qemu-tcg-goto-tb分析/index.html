@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="分析goto tb什么要在一个page内，使用的qemu代码的版本是v7.1.50，分析基于riscv构架。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="qemu tcg goto_tb分析">
+<meta property="og:url" content="http://example.com/qemu-tcg-goto-tb%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="分析goto tb什么要在一个page内，使用的qemu代码的版本是v7.1.50，分析基于riscv构架。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-01-20T09:38:26.000Z">
+<meta property="article:modified_time" content="2023-01-20T09:42:23.526Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="QEMU">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://example.com/qemu-tcg-goto-tb%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>qemu tcg goto_tb分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">86</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">200</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://example.com/qemu-tcg-goto-tb%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          qemu tcg goto_tb分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-01-20 17:38:26 / 修改时间：17:42:23" itemprop="dateCreated datePublished" datetime="2023-01-20T17:38:26+08:00">2023-01-20</time>
+            </span>
+
+          
+            <span id="/qemu-tcg-goto-tb%E5%88%86%E6%9E%90/" class="post-meta-item leancloud_visitors" data-flag-title="qemu tcg goto_tb分析" title="阅读次数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span class="leancloud-visitors-count"></span>
+            </span>
+  
+  <span class="post-meta-item">
+    
+      <span class="post-meta-item-icon">
+        <i class="far fa-comment"></i>
+      </span>
+      <span class="post-meta-item-text">Valine：</span>
+    
+    <a title="valine" href="/qemu-tcg-goto-tb%E5%88%86%E6%9E%90/#valine-comments" itemprop="discussionUrl">
+      <span class="post-comments-count valine-comment-count" data-xid="/qemu-tcg-goto-tb%E5%88%86%E6%9E%90/" itemprop="commentCount"></span>
+    </a>
+  </span>
+  
+  
+            <div class="post-description">分析goto tb什么要在一个page内，使用的qemu代码的版本是v7.1.50，分析基于riscv构架。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="goto-tb分析"><a href="#goto-tb分析" class="headerlink" title="goto tb分析"></a>goto tb分析</h2><p> <span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcWVtdS10Y2clRTglQjclQjMlRTglQkQlQUMlRTclOUElODQlRTUlQTQlODQlRTclOTAlODYv">qemu tcg跳转的处理<i class="fa fa-external-link-alt"></i></span>中分析了qemu<br> 中模拟跳转的逻辑，其中提到了chained tb的概念，chained tb中有一个限制，这个在它<br> 的代码实现里看出来：两个chained tb对应的guest指令需要在同一个guest的page里。下面<br> 分析这样限制的原因。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"> VA1 ---&gt; +---------------+ </span><br><span class="line">          |               |</span><br><span class="line">          |               |  map1</span><br><span class="line">          |               | ----------+</span><br><span class="line">          |               |           |</span><br><span class="line">          |               |           |</span><br><span class="line"> VA2 ---&gt; +---------------+           |        +---------------+ &lt;--- PA1</span><br><span class="line">          |               |           |        |               |</span><br><span class="line">          |               |  map2     +------&gt; |               |</span><br><span class="line">          |               | ------+            |               |</span><br><span class="line">          |               |       |            |               |</span><br><span class="line">          |               |  map3 |            |               |</span><br><span class="line">          +---------------+ ----+ |            +---------------+ &lt;--- PA2</span><br><span class="line">                                | |            |               |</span><br><span class="line">                                | +----------&gt; |               |</span><br><span class="line">                                |              |               |</span><br><span class="line">                                |              |               |</span><br><span class="line">                                |              |               |</span><br><span class="line">                                |              +---------------+ &lt;--- PA3</span><br><span class="line">                                |              |               |</span><br><span class="line">                                +------------&gt; |               |</span><br><span class="line">                                               |               |</span><br><span class="line">                                               |               |</span><br><span class="line">                                               |               |</span><br><span class="line">                                               +---------------+</span><br><span class="line">tb1 key: pa1</span><br><span class="line">+-------+ &lt;---------------------+   &lt;------ htable</span><br><span class="line">|       |                       |</span><br><span class="line">|       |                       |</span><br><span class="line">+-------+                       |</span><br><span class="line">    |                           |</span><br><span class="line">    |                           |</span><br><span class="line">    |                           |</span><br><span class="line">    v tb2 key: pa2              |</span><br><span class="line">+-------+ &lt;-------------+       |</span><br><span class="line">|       |               |       |</span><br><span class="line">|       |               |       |</span><br><span class="line">+-------+               |       |</span><br><span class="line">                        |       |</span><br><span class="line">                        |       |</span><br><span class="line">tb_jmp_cache key: va    |       |</span><br><span class="line">+--------------------------------------------------------------+</span><br><span class="line">|                      va2     va1                             |</span><br><span class="line">+--------------------------------------------------------------+</span><br></pre></td></tr></table></figure>
+<p> qemu在翻译执行的时候，对于tb有两个cache，首先所有生成的tb都会放到htable这个哈希表，<br> 这个是我们这里说的第一个cache，这个哈希表的key是guest代码块的起始pa以及一些其它的<br> flag，另外一个cache叫tb_jmp_cache，这个是很简单的用guest代码块的起始va做key(这个<br> cache和本文分析的问题无关，对于它的分析，我们单独放到最后)。</p>
+<p> htable用pa以及flag做key，在翻译执行的时候首先会用va查tlb得到pa，如果tlb里没有缓存，<br> 那就触发page table walk或者取指令异常，终归是要把pa找到并填到tlb里。</p>
+<p> 当程序运行时，一段代码的位置，从va看是不变的，但是代码的物理存储位置可能是变化的，<br> 比如上图中从map2到map3映射的改变。从htable的设计上看，当这种映射关系改变的时候，<br> 旧映射对应的tb就应该从htable里删掉。</p>
+<p> chained tb还需要面对的一个问题是，如果被指向的tb对应的guest指令被修改了怎么办，<br> 比如，上面tb2对应的guest指令被修改了，之前得到tb2显然是不能用了。qemu使用了一个叫<br> PageDesc的软件结构管理guest的物理内存，管理的单位是guest的页大小，一个PageDesc<br> 对应一个guest页，PageDesc记录着相关guest页对应的所有tb，理论上看，如果一个guest<br> 页上的指令有修改，qemu只要找到修改的guest指令对应的tb块，把这个tb块从chained tb<br> 的链条里移除就好。说说容易，真实做起来比较复杂，qemu这里做了两个事情，一个是只要<br> 看到有guest指令被修改，就把这一页上的指令对应的tb都移除，第二个就是goto_tb对应的<br> guest指令只能在一页，这样，把整个页对应的tb都移除，就把chained tb链条里的两个tb<br> 一下都移除了。</p>
+<p> PageDesc初始化的地方是page_init函数，可以看出相关的位置是各种tcg资源初始化的地方:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">/* accel/tcg/tcg-all.c */</span><br><span class="line">tcg_init_machine</span><br><span class="line">  +-&gt; page_init</span><br><span class="line">        /*</span><br><span class="line">         * 这个函数里初始化PageDesc的各级表项的配置，它和页表类似的用一个多级表</span><br><span class="line">         * 管理整个物理地址空间。</span><br><span class="line">         *</span><br><span class="line">         * 对于riscv 44bit的物理地址空间来说，如果一个PageDesc管理4KB的页面，</span><br><span class="line">         * 整个物理地址空间的管理分为两级，第二级一项管理1K个页面，那么第一级有</span><br><span class="line">         * 44 - 12 - 10 = 22，2 ^ 22项。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; page_table_config_init</span><br><span class="line">  +-&gt; tb_htable_init</span><br><span class="line">      /* tcg后端翻译需要的资源 */</span><br><span class="line">  +-&gt; tcg_init</span><br></pre></td></tr></table></figure>
+<p> 通过物理地址找见PageDesc的函数：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">page_find_alloc</span><br></pre></td></tr></table></figure>
+<p> 把一个tb加入到一个PageDesc里：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">tb_page_add </span><br><span class="line">      /*</span><br><span class="line">       * 把tb插入first_tb指向的链表的第一个节点，n是1表示有指令跨域了一个page，</span><br><span class="line">       * 那么就要在两个page对应的PageDesc中都要做记录。</span><br><span class="line">       *</span><br><span class="line">       * 实际上在riscv的qemu tcg模型里，只有一种跨page边界的情况，我们把这个逻辑</span><br><span class="line">       * 独立放到下面。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; tb-&gt;page_next[n] = p-&gt;first_tb</span><br><span class="line">  +-&gt; p-&gt;first_tb = tb | n</span><br><span class="line">      /*</span><br><span class="line">       * 如果是第一次给这个PageDesc加tb，就是这个page上的指令第一次翻译出tb块，</span><br><span class="line">       * 把对应page的dirty bit清理(初始化)下。</span><br><span class="line">       *</span><br><span class="line">       * 如下的dirty bit和qemu里虚拟机的热迁移有关系。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; tlb_protect_code(page_addr)</span><br><span class="line">        /* softmmu/physmem.c */</span><br><span class="line">    +-&gt; cpu_physical_memory_test_and_clear_dirty</span><br></pre></td></tr></table></figure>
+<p> 从PageDesc里去掉一个tb，直接从链表里去掉对应的tb即可：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tb_page_remove(p, tb)</span><br></pre></td></tr></table></figure>
+<p> PageDesc里tb被去掉的调用路径：(to do test)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">store_helper</span><br><span class="line">  +--&gt; notdirty_write(env_cpu(env), addr, size, full, retaddr);</span><br><span class="line">    +-&gt; tb_invalidate_phys_page_fast(pages, ram_addr, size, retaddr);</span><br><span class="line">      +-&gt; tb_invalidate_phys_page_range__locked</span><br><span class="line">        +-&gt; tb_phys_invalidate__locked(tb);</span><br><span class="line">          +-&gt; do_tb_phys_invalidate(tb, true);</span><br><span class="line">            +-&gt; qht_remove(&amp;tb_ctx.htable, tb, h)</span><br></pre></td></tr></table></figure>
+
+<p> 我们可以把gdb的断点设在tb_invalidate_phys_page_range__locked上，然后运行一段自修改<br> 代码(<span class="exturl" data-url="aHR0cHM6Ly85dG81YW5zd2VyLmNvbS9ob3ctdG8td3JpdGUtc2VsZi1tb2RpZnlpbmctY29kZS1pbi1j">自修改代码可以参考这里<i class="fa fa-external-link-alt"></i></span>)，看看实际运行的效果。</p>
+<h2 id="指令垮页分析"><a href="#指令垮页分析" class="headerlink" title="指令垮页分析"></a>指令垮页分析</h2><p> 实际上，在riscv 7.1.50的qemu tcg模拟中，只有一个4B指令跨越页边界这一种情况存在了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">riscv_tr_translate_insn</span><br><span class="line">  [...]</span><br><span class="line">  /* Only the first insn within a TB is allowed to cross a page boundary. */  </span><br><span class="line">  if (ctx-&gt;base.is_jmp == DISAS_NEXT) &#123;                                       </span><br><span class="line">      /*</span><br><span class="line">       *  pc_first       pc_next</span><br><span class="line">       *      |            |</span><br><span class="line">       *  |   v       |    v      |</span><br><span class="line">       *  +-----------+-----------+</span><br><span class="line">       *  |   Page    |   Page    |</span><br><span class="line">       *</span><br><span class="line">       */</span><br><span class="line">      if (!is_same_page(&amp;ctx-&gt;base, ctx-&gt;base.pc_next)) &#123;                     </span><br><span class="line">          ctx-&gt;base.is_jmp = DISAS_TOO_MANY;                                  </span><br><span class="line">      &#125; else &#123;                                                                </span><br><span class="line">          unsigned page_ofs = ctx-&gt;base.pc_next &amp; ~TARGET_PAGE_MASK;          </span><br><span class="line">          /*</span><br><span class="line">           *  pc_first pc_next</span><br><span class="line">           *      |    |</span><br><span class="line">           *  |   v    v  |           |</span><br><span class="line">           *  +-----------+-----------+</span><br><span class="line">           *  |   Page    |   Page    |</span><br><span class="line">           *</span><br><span class="line">           *  这里就是pc_next为页尾 - 2Byte的情况，这种情况下，如果pc_next指向</span><br><span class="line">           *  的指令是一个2B的压缩编码指令，最后这个指令还可以放到当前tb，如果是</span><br><span class="line">           *  一个4B的普通指令，那么pc_next + len就到了下一个页里，需要结束当前</span><br><span class="line">           *  tb。</span><br><span class="line">           *</span><br><span class="line">           *  对于下个4B编码的指令，下次翻译先取16bit，得到是一个32bit指令后再</span><br><span class="line">           *  再把后16bit取出来，前端翻译后走到上面第一个分支里，发现已经跨越了</span><br><span class="line">           *  页边界，于是停止当前tb的翻译，这个tb里只翻译了一个跨越页边界的32bit</span><br><span class="line">           *  指令。</span><br><span class="line">           */ </span><br><span class="line">          if (page_ofs &gt; TARGET_PAGE_SIZE - MAX_INSN_LEN) &#123;                   </span><br><span class="line">              uint16_t next_insn = cpu_lduw_code(env, ctx-&gt;base.pc_next);     </span><br><span class="line">              int len = insn_len(next_insn);                                  </span><br><span class="line">              if (!is_same_page(&amp;ctx-&gt;base, ctx-&gt;base.pc_next + len)) &#123;       </span><br><span class="line">                  ctx-&gt;base.is_jmp = DISAS_TOO_MANY;                          </span><br><span class="line">              &#125;                                                               </span><br><span class="line">          &#125;                                                                   </span><br><span class="line">      &#125;                                                                       </span><br><span class="line">   &#125;                                                                           </span><br></pre></td></tr></table></figure>
+
+<h2 id="tb-jmp-cache分析"><a href="#tb-jmp-cache分析" class="headerlink" title="tb_jmp_cache分析"></a>tb_jmp_cache分析</h2><p> tb_jmp_cache用va做key是存在问题的，一个系统里可能有相同的va映射到不同的pa，比如，<br> 两个进程的va相同，映射的pa就可能不同。所以，要保证在tb_jmp_cache里，va只唯一映射<br> 一个pa，这个在user mode似乎没有问题，在system mode的完整逻辑还有待分析。(todo)</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    打赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/git-submodule%E7%9A%84%E4%BD%BF%E7%94%A8/" rel="prev" title="git submodule的使用">
+      <i class="fa fa-chevron-left"></i> git submodule的使用
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    <div class="comments" id="valine-comments"></div>
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#goto-tb%E5%88%86%E6%9E%90"><span class="nav-number">1.</span> <span class="nav-text">goto tb分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8C%87%E4%BB%A4%E5%9E%AE%E9%A1%B5%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">指令垮页分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#tb-jmp-cache%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">tb_jmp_cache分析</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">200</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">86</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+
+<script>
+NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
+  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
+    var GUEST = ['nick', 'mail', 'link'];
+    var guest = 'nick,mail,link';
+    guest = guest.split(',').filter(item => {
+      return GUEST.includes(item);
+    });
+    new Valine({
+      el         : '#valine-comments',
+      verify     : false,
+      notify     : false,
+      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
+      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
+      placeholder: "Share your comment",
+      avatar     : 'mm',
+      meta       : guest,
+      pageSize   : '10' || 10,
+      visitor    : true,
+      lang       : 'zh-cn' || 'zh-cn',
+      path       : location.pathname,
+      recordIP   : false,
+      serverURLs : ''
+    });
+  }, window.Valine);
+});
+</script>
+
+</body>
+</html>
