@@ -31,7 +31,7 @@
 <meta property="og:description" content="介绍linux内核模块的编译步骤">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-07-17T03:21:03.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.818Z">
+<meta property="article:modified_time" content="2023-01-30T05:38:47.556Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="Linux内核">
 <meta name="twitter:card" content="summary">
@@ -232,7 +232,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-01-30 13:38:47" itemprop="dateModified" datetime="2023-01-30T13:38:47+08:00">2023-01-30</time>
               </span>
 
           
@@ -268,50 +268,50 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p> <br>linux模块编译, 采用源码树外编译的方式</p>
-<hr>
-<ol>
+        <h2 id="采用源码树外编译的方式"><a href="#采用源码树外编译的方式" class="headerlink" title="采用源码树外编译的方式"></a>采用源码树外编译的方式</h2><ol>
 <li><p>编写模块代码：hello.c[1]</p>
 </li>
 <li><p>在同一目录下编写Makefile[2]</p>
 </li>
-<li><p>在同一目录下编译：<br>    make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- -C /vm/wangzhou/linux-iks  M=<code>pwd</code> modules<br>    ARCH：平台, CROSS_COMPILE：交叉编译器, -C：kernel源码路径, M=：module<br>    代码的路径, modules：指明编译模块<br>    (注：这里编译arm平台下的module)</p>
+<li><p>在同一目录下编译：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- -C /vm/wangzhou/linux-iks  M=`pwd` modules</span><br></pre></td></tr></table></figure>
+<p>ARCH：平台, CROSS_COMPILE：交叉编译器, -C：kernel源码路径, M=：module代码的路径,<br>modules：指明编译模块。这里编译arm平台下的module</p>
 </li>
 <li><p>在hello.c同一目录下将会生成hello.ko</p>
 </li>
 </ol>
 <h2 id="在kernel的源码树中编译"><a href="#在kernel的源码树中编译" class="headerlink" title="在kernel的源码树中编译"></a>在kernel的源码树中编译</h2><ol>
-<li>把写好的模块代码放入源码树的一个目录：linux-src/drivers/char/hello.c</li>
-</ol>
-<ol start="2">
-<li>在…/char/下的Makefile中加入：obj-m += hello.o<br>    可以看到Makefile中的项目多是：<br>    obj-$(CONFIG_VIRTIO_CONSOLE)+= virtio_console.o</li>
-</ol>
-<p>    obj-$(CONFIG_RAW_DRIVER)        += raw.o</p>
-<p>     …</p>
-<ol start="3">
-<li>在linux-src/下：<br>    make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- zImage -j 8 modules<br>    内核中所有配置成模块的程序将得到编译, 本例子上在linux-src/drivers/ch<br>    ar/下将会看到编译好的hello.ko</li>
+<li><p>把写好的模块代码放入源码树的一个目录：linux-src/drivers/char/hello.c</p>
+</li>
+<li><p>在…/char/下的Makefile中加入：obj-m += hello.o</p>
+<p>可以看到Makefile中的项目多是: obj-$(CONFIG_VIRTIO_CONSOLE)+= virtio_console.o</p>
+</li>
+<li><p>在linux-src/下：</p>
+<p>make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- zImage -j 8 modules<br>内核中所有配置成模块的程序将得到编译, 本例子上在linux-src/drivers/char/下将会<br>看到编译好的hello.ko</p>
+</li>
 </ol>
 <h2 id="模块由多个文件组成，放在一个目录里编译"><a href="#模块由多个文件组成，放在一个目录里编译" class="headerlink" title="模块由多个文件组成，放在一个目录里编译"></a>模块由多个文件组成，放在一个目录里编译</h2><ol>
-<li><p>把文件夹放在源码树的一个目录下：<br>   linux-src/drivers/char/hello/hello.c  …hello/add.c[3]<br>   为了测试的目的, 需要在hello.c中加入调用add()的语句…</p>
+<li><p>把文件夹放在源码树的一个目录下：</p>
+<p>linux-src/drivers/char/hello/hello.c  …hello/add.c[3]<br>为了测试的目的, 需要在hello.c中加入调用add()的语句…</p>
 </li>
-<li><p>在…/char/的Makefile文件中加：obj-m += hello/ 表示该module在hello目<br>   录下</p>
+<li><p>在…/char/的Makefile文件中加：obj-m += hello/ 表示该module在hello目录下</p>
 </li>
 <li><p>在…/hello/下创建Makefile文件[4]</p>
 </li>
 <li><p>同上面第三步, 在hello/下会生成hello_add.ko模块</p>
 </li>
 </ol>
-<h2 id="利用Kconfig图形化配置kernel、module"><a href="#利用Kconfig图形化配置kernel、module" class="headerlink" title="利用Kconfig图形化配置kernel、module: "></a>利用Kconfig图形化配置kernel、module: </h2><p> 用make menuconfig可以图形化配置kernel。<br> 可以使用下面的方式, 把自己写的module加入配置菜单：</p>
+<h2 id="利用Kconfig图形化配置kernel、module"><a href="#利用Kconfig图形化配置kernel、module" class="headerlink" title="利用Kconfig图形化配置kernel、module: "></a>利用Kconfig图形化配置kernel、module: </h2><p> 用make menuconfig可以图形化配置kernel。可以使用下面的方式, 把自己写的module加入<br> 配置菜单：</p>
 <ol>
-<li><p>把…/char/下的Makefile中之前加的行修改成：<br>   obj-${CONFIG_HELLO_ADD} += hello/ 表示在最后在.config文件中显示的配置项是CONFIG_HELLO_ADD</p>
+<li><p>把…/char/下的Makefile中之前加的行修改成：<br>obj-${CONFIG_HELLO_ADD} += hello/ 表示在最后在.config文件中显示的配置项是CONFIG_HELLO_ADD</p>
 </li>
-<li><p>把…/char/hello/下的Makefile修改成：<br>   obj-${CONFIG_HELLO_ADD} += hello_add.o<br>   hello_add-objs := hello.o add.o</p>
+<li><p>把…/char/hello/下的Makefile修改成：<br>obj-${CONFIG_HELLO_ADD} += hello_add.o<br>hello_add-objs := hello.o add.o</p>
+<p>可以看到, 编译时会根据CONFIG_HELLO_ADD的值去决定编译成什么, 下面要说的Kconfig<br>即用来设置CONFIG_HELLO_ADDde值</p>
 </li>
-</ol>
-<p>   可以看到, 编译时会根据CONFIG_HELLO_ADD的值去决定编译成什么, 下面要说的Kconfig<br>   即用来设置CONFIG_HELLO_ADDde值<br>   <br>3. 在…/char/下的Kconfig文件中加入：</p>
+<li><p>在…/char/下的Kconfig文件中加入：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">config HELLO_ADD</span><br><span class="line">	tristate &quot;HELLO_ADD MODUEL(try the Kconfig)&quot;</span><br><span class="line">	default n</span><br><span class="line">	help</span><br><span class="line">	  something about help information of hello_add module</span><br></pre></td></tr></table></figure>
-<p> tristate表示可以配置成n, y, m三种状态(不编译，直接编译入kernel，编译成module),<br> 后面的字符串最后会显示到菜单上, default 指明默认的情况, config 指明配置的变量,<br> 即CONFIG_HELLO_ADD</p>
-<ol start="4">
+<p>tristate表示可以配置成n, y, m三种状态(不编译，直接编译入kernel，编译成module),<br>后面的字符串最后会显示到菜单上, default 指明默认的情况, config 指明配置的变量,<br>即CONFIG_HELLO_ADD</p>
+</li>
 <li><p>make menuconfig 依照下面路径, 将会看到HELLO_ADD模块的配置菜单</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">  Device Drivers ---&gt;</span><br><span class="line">          Character devices ---&gt;</span><br><span class="line">          ...</span><br><span class="line">          &lt;&gt; HELLO_ADD MODULE(try the Kconfig)</span><br><span class="line">          ...</span><br></pre></td></tr></table></figure></li>
 <li><p>同(二)中第三步，在对应目录下即可得到hello_add.ko</p>
@@ -427,7 +427,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9C%A8kernel%E7%9A%84%E6%BA%90%E7%A0%81%E6%A0%91%E4%B8%AD%E7%BC%96%E8%AF%91"><span class="nav-number">1.</span> <span class="nav-text">在kernel的源码树中编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97%E7%94%B1%E5%A4%9A%E4%B8%AA%E6%96%87%E4%BB%B6%E7%BB%84%E6%88%90%EF%BC%8C%E6%94%BE%E5%9C%A8%E4%B8%80%E4%B8%AA%E7%9B%AE%E5%BD%95%E9%87%8C%E7%BC%96%E8%AF%91"><span class="nav-number">2.</span> <span class="nav-text">模块由多个文件组成，放在一个目录里编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%A9%E7%94%A8Kconfig%E5%9B%BE%E5%BD%A2%E5%8C%96%E9%85%8D%E7%BD%AEkernel%E3%80%81module"><span class="nav-number">3.</span> <span class="nav-text">利用Kconfig图形化配置kernel、module: </span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%99%84%E5%BD%95"><span class="nav-number">4.</span> <span class="nav-text">附录</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%87%87%E7%94%A8%E6%BA%90%E7%A0%81%E6%A0%91%E5%A4%96%E7%BC%96%E8%AF%91%E7%9A%84%E6%96%B9%E5%BC%8F"><span class="nav-number">1.</span> <span class="nav-text">采用源码树外编译的方式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9C%A8kernel%E7%9A%84%E6%BA%90%E7%A0%81%E6%A0%91%E4%B8%AD%E7%BC%96%E8%AF%91"><span class="nav-number">2.</span> <span class="nav-text">在kernel的源码树中编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A8%A1%E5%9D%97%E7%94%B1%E5%A4%9A%E4%B8%AA%E6%96%87%E4%BB%B6%E7%BB%84%E6%88%90%EF%BC%8C%E6%94%BE%E5%9C%A8%E4%B8%80%E4%B8%AA%E7%9B%AE%E5%BD%95%E9%87%8C%E7%BC%96%E8%AF%91"><span class="nav-number">3.</span> <span class="nav-text">模块由多个文件组成，放在一个目录里编译</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%A9%E7%94%A8Kconfig%E5%9B%BE%E5%BD%A2%E5%8C%96%E9%85%8D%E7%BD%AEkernel%E3%80%81module"><span class="nav-number">4.</span> <span class="nav-text">利用Kconfig图形化配置kernel、module: </span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%99%84%E5%BD%95"><span class="nav-number">5.</span> <span class="nav-text">附录</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 

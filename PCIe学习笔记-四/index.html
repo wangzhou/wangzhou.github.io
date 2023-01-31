@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文继续pci note 3, 介绍PCI枚举中资源分配相关的函数, 内核版本为3.18-rc1">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-07-11T15:49:52.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.826Z">
+<meta property="article:modified_time" content="2023-01-31T11:52:40.109Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="PCIe">
 <meta name="twitter:card" content="summary">
@@ -232,7 +232,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-01-31 19:52:40" itemprop="dateModified" datetime="2023-01-31T19:52:40+08:00">2023-01-31</time>
               </span>
 
           
@@ -268,97 +268,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>pci_assign_unassigned_bus_resources(b)<br>void pci_assign_unassigned_bus_resources(struct pci_bus *bus)<br>{<br>    struct pci_dev <em>dev;<br>    LIST_HEAD(add_list); /</em> list of resources that<br>                    want additional resources */</p>
-<pre><code>down_read(&amp;pci_bus_sem);
-list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list)
-    if (pci_is_bridge(dev) &amp;&amp; pci_has_subordinate(dev))
-                /* 这里传入的参数是bus 1对应的pci_bus */
-            __pci_bus_size_bridges(dev-&gt;subordinate,
-                         &amp;add_list);
-up_read(&amp;pci_bus_sem);
-/* 配置各个桥和设备的BAR，配置桥的MEM，I/O，prefetch MEM base/limit */
-__pci_bus_assign_resources(bus, &amp;add_list, NULL);
-BUG_ON(!list_empty(&amp;add_list));
-</code></pre>
-<p>}</p>
-<p>__pci_bus_size_bridges(struct pci_bus *bus, struct list_head <em>realloc_head)<br>    …<br>       /</em> 在当前的连接状态下，list中的代码不会执行。下面的代码层层递归，直到<br>        * 最底层设备的上的pci_bus，这时最底层设备是没有下一级的pci_bus的。<br>        * 所以，继续执行后面的代码。<br>        <em>/<br>    –&gt;list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list) {<br>        …<br>    case PCI_CLASS_BRIDGE_PCI:<br>    default:<br>        __pci_bus_size_bridges(b, realloc_head);<br>        break;<br>       }<br>    …<br>       /</em> 当前pci_bus的桥对应的pci_dev, 这里应该是host <em>/<br>    –&gt;switch (bus-&gt;self-&gt;class &gt;&gt; 8) {<br>        …<br>        case PCI_CLASS_BRIDGE_PCI:<br>            /</em> 会执行这里 <em>/<br>            pci_bridge_check_ranges(bus);<br>        …<br>    default:<br>        /</em> 这个函数改变了pci_bus-&gt;resource[]中的值。start对齐4K，size是该bus下<br>         * 所有I/O空间的总和。但是似乎realloc_head<br>         * list似乎没有node添加上去<br>         */<br>        pbus_size_io(bus, realloc_head ? 0 : additional_io_size,<br>                 additional_io_size, realloc_head);</p>
-<pre><code>    /*
-     * If there&#39;s a 64-bit prefetchable MMIO window, compute
-     * the size required to put all 64-bit prefetchable
-     * resources in it.
-     */
-    b_res = &amp;bus-&gt;self-&gt;resource[PCI_BRIDGE_RESOURCES];
-    mask = IORESOURCE_MEM;
-    prefmask = IORESOURCE_MEM | IORESOURCE_PREFETCH;
-    if (b_res[2].flags &amp; IORESOURCE_MEM_64) &#123;
-        prefmask |= IORESOURCE_MEM_64;
-        ret = pbus_size_mem(bus, prefmask, prefmask,
-              prefmask, prefmask,
-              realloc_head ? 0 : additional_mem_size,
-              additional_mem_size, realloc_head);
-
-        /*
-         * If successful, all non-prefetchable resources
-         * and any 32-bit prefetchable resources will go in
-         * the non-prefetchable window.
-         */
-        if (ret == 0) &#123;
-            mask = prefmask;
-            type2 = prefmask &amp; ~IORESOURCE_MEM_64;
-            type3 = prefmask &amp; ~IORESOURCE_PREFETCH;
-        &#125;
-    &#125;
-
-    /*
-     * If there is no 64-bit prefetchable window, compute the
-     * size required to put all prefetchable resources in the
-     * 32-bit prefetchable window (if there is one).
-     */
-    if (!type2) &#123;
-        prefmask &amp;= ~IORESOURCE_MEM_64;
-        ret = pbus_size_mem(bus, prefmask, prefmask,
-                 prefmask, prefmask,
-                 realloc_head ? 0 : additional_mem_size,
-                 additional_mem_size, realloc_head);
-
-        /*
-         * If successful, only non-prefetchable resources
-         * will go in the non-prefetchable window.
-         */
-        if (ret == 0)
-            mask = prefmask;
-        else
-            additional_mem_size += additional_mem_size;
-
-        type2 = type3 = IORESOURCE_MEM;
-    &#125;
-
-    /*
-     * Compute the size required to put everything else in the
-     * non-prefetchable window.  This includes:
-     *
-     *   - all non-prefetchable resources
-     *   - 32-bit prefetchable resources if there&#39;s a 64-bit
-     *     prefetchable window or no prefetchable window at all
-     *   - 64-bit prefetchable resources if there&#39;s no
-     *     prefetchable window at all
-     *
-     * Note that the strategy in __pci_assign_resource() must
-     * match that used here.  Specifically, we cannot put a
-     * 32-bit prefetchable resource in a 64-bit prefetchable
-     * window.
-     */
-    pbus_size_mem(bus, mask, IORESOURCE_MEM, type2, type3,
-            realloc_head ? 0 : additional_mem_size,
-            additional_mem_size, realloc_head);
-    break;
-&#125;
-</code></pre>
-<p>}</p>
-<p>__pci_bus_assign_resources(bus, &amp;add_list, NULL)<br>        /* bus:0, 会对该bus上的所有device分别调用__dev_sort_resource<br>     * 然后统一调用一个__assign_resources_sorted()。之后程序进入<br>     * 下面的list中，又会嵌套进入__pci_bus_assign_resources, 这时<br>     * bus:1。重复上面的过程。在bus:1是__pci_bus_assign_resources<br>     * 在处理处理完pbus_assign_resources_sorted后不回往下执行,返回<br>     * 上层。这时bus:0, 进入pci_setup_bridge执行。<br>     * 其中，会在pbus_assign_resources_sorted中配置BAR，在<br>     * __pci_setup_bridge中配mem, I/O, prefetch mem的base/limit<br>     */<br>    –&gt; pbus_assign_resources_sorted(bus, realloc_head, fail_head);<br>    –&gt; list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list)<br>        –&gt; __pci_bus_assign_resources(b, realloc_head, fail_head);<br>    –&gt; switch (dev-&gt;class &gt;&gt; 8)<br>        case PCI_CLASS_BRIDGE_PCI:<br>            –&gt; pci_setup_bridge(b);</p>
-<p>static void pbus_assign_resources_sorted()<br>    –&gt; LIST_HEAD(head);<br>    –&gt; list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list)<br>        __dev_sort_resources(dev, &amp;head);<br>                    /* 把pci_dev中的resource[]从大到小排序, 存入链表head中 <em>/<br>            –&gt; pdev_sort_resources(dev, head);<br>    –&gt; __assign_resources_sorted(&amp;head, realloc_head, fail_head);<br>            /</em> 因为realloc_head为空链表，所以直接到requested_and_reassign <em>/<br>    –&gt; if (!realloc_head || list_empty(realloc_head))<br>        goto requested_and_reassign;<br>    …<br>        requested_and_reassign:<br>    –&gt; assign_requested_resources_sorted(head, fail_head);<br>            /</em> dev_res(pci_dev_resource)存储一个device中一个配置空间<br>         * 的资源(一个设备可有多个mem或I/O配置空间)<br>         */<br>        –&gt; list_for_each_entry(dev_res, head, list)<br>        –&gt; resource_size(res) &amp;&amp;<br>        pci_assign_resource(dev_res-&gt;dev, idx)<br>               –&gt; _pci_assign_resource(dev, resno, size, align);<br>           –&gt; pci_update_resource(dev, resno);</p>
-<pre><code>    --&gt; reassign_resources_sorted(realloc_head, head);
-</code></pre>
+        <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br></pre></td><td class="code"><pre><span class="line">pci_assign_unassigned_bus_resources(b)</span><br><span class="line">void pci_assign_unassigned_bus_resources(struct pci_bus *bus)</span><br><span class="line">&#123;</span><br><span class="line">	struct pci_dev *dev;</span><br><span class="line">	LIST_HEAD(add_list); /* list of resources that</span><br><span class="line">					want additional resources */</span><br><span class="line"></span><br><span class="line">	down_read(&amp;pci_bus_sem);</span><br><span class="line">	list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list)</span><br><span class="line">		if (pci_is_bridge(dev) &amp;&amp; pci_has_subordinate(dev))</span><br><span class="line">		    		/* 这里传入的参数是bus 1对应的pci_bus */</span><br><span class="line">				__pci_bus_size_bridges(dev-&gt;subordinate,</span><br><span class="line">							 &amp;add_list);</span><br><span class="line">	up_read(&amp;pci_bus_sem);</span><br><span class="line">	/* 配置各个桥和设备的BAR，配置桥的MEM，I/O，prefetch MEM base/limit */</span><br><span class="line">	__pci_bus_assign_resources(bus, &amp;add_list, NULL);</span><br><span class="line">	BUG_ON(!list_empty(&amp;add_list));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">__pci_bus_size_bridges(struct pci_bus *bus, struct list_head *realloc_head)</span><br><span class="line">    ...</span><br><span class="line">       /* 在当前的连接状态下，list中的代码不会执行。下面的代码层层递归，直到</span><br><span class="line">        * 最底层设备的上的pci_bus，这时最底层设备是没有下一级的pci_bus的。</span><br><span class="line">        * 所以，继续执行后面的代码。</span><br><span class="line">        */</span><br><span class="line">    --&gt;list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list) &#123;</span><br><span class="line">	    ...</span><br><span class="line">	case PCI_CLASS_BRIDGE_PCI:</span><br><span class="line">	default:</span><br><span class="line">		__pci_bus_size_bridges(b, realloc_head);</span><br><span class="line">		break;</span><br><span class="line">       &#125;</span><br><span class="line">    ...</span><br><span class="line">       /* 当前pci_bus的桥对应的pci_dev, 这里应该是host */</span><br><span class="line">    --&gt;switch (bus-&gt;self-&gt;class &gt;&gt; 8) &#123;</span><br><span class="line">        ...</span><br><span class="line">        case PCI_CLASS_BRIDGE_PCI:</span><br><span class="line">            /* 会执行这里 */</span><br><span class="line">    	    pci_bridge_check_ranges(bus);</span><br><span class="line">	    ...</span><br><span class="line">	default:</span><br><span class="line">		/* 这个函数改变了pci_bus-&gt;resource[]中的值。start对齐4K，size是该bus下</span><br><span class="line">		 * 所有I/O空间的总和。但是似乎realloc_head</span><br><span class="line">		 * list似乎没有node添加上去</span><br><span class="line">		 */</span><br><span class="line">		pbus_size_io(bus, realloc_head ? 0 : additional_io_size,</span><br><span class="line">			     additional_io_size, realloc_head);</span><br><span class="line"></span><br><span class="line">		/*</span><br><span class="line">		 * If there&#x27;s a 64-bit prefetchable MMIO window, compute</span><br><span class="line">		 * the size required to put all 64-bit prefetchable</span><br><span class="line">		 * resources in it.</span><br><span class="line">		 */</span><br><span class="line">		b_res = &amp;bus-&gt;self-&gt;resource[PCI_BRIDGE_RESOURCES];</span><br><span class="line">		mask = IORESOURCE_MEM;</span><br><span class="line">		prefmask = IORESOURCE_MEM | IORESOURCE_PREFETCH;</span><br><span class="line">		if (b_res[2].flags &amp; IORESOURCE_MEM_64) &#123;</span><br><span class="line">			prefmask |= IORESOURCE_MEM_64;</span><br><span class="line">			ret = pbus_size_mem(bus, prefmask, prefmask,</span><br><span class="line">				  prefmask, prefmask,</span><br><span class="line">				  realloc_head ? 0 : additional_mem_size,</span><br><span class="line">				  additional_mem_size, realloc_head);</span><br><span class="line"></span><br><span class="line">			/*</span><br><span class="line">			 * If successful, all non-prefetchable resources</span><br><span class="line">			 * and any 32-bit prefetchable resources will go in</span><br><span class="line">			 * the non-prefetchable window.</span><br><span class="line">			 */</span><br><span class="line">			if (ret == 0) &#123;</span><br><span class="line">				mask = prefmask;</span><br><span class="line">				type2 = prefmask &amp; ~IORESOURCE_MEM_64;</span><br><span class="line">				type3 = prefmask &amp; ~IORESOURCE_PREFETCH;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		/*</span><br><span class="line">		 * If there is no 64-bit prefetchable window, compute the</span><br><span class="line">		 * size required to put all prefetchable resources in the</span><br><span class="line">		 * 32-bit prefetchable window (if there is one).</span><br><span class="line">		 */</span><br><span class="line">		if (!type2) &#123;</span><br><span class="line">			prefmask &amp;= ~IORESOURCE_MEM_64;</span><br><span class="line">			ret = pbus_size_mem(bus, prefmask, prefmask,</span><br><span class="line">					 prefmask, prefmask,</span><br><span class="line">					 realloc_head ? 0 : additional_mem_size,</span><br><span class="line">					 additional_mem_size, realloc_head);</span><br><span class="line"></span><br><span class="line">			/*</span><br><span class="line">			 * If successful, only non-prefetchable resources</span><br><span class="line">			 * will go in the non-prefetchable window.</span><br><span class="line">			 */</span><br><span class="line">			if (ret == 0)</span><br><span class="line">				mask = prefmask;</span><br><span class="line">			else</span><br><span class="line">				additional_mem_size += additional_mem_size;</span><br><span class="line"></span><br><span class="line">			type2 = type3 = IORESOURCE_MEM;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		/*</span><br><span class="line">		 * Compute the size required to put everything else in the</span><br><span class="line">		 * non-prefetchable window.  This includes:</span><br><span class="line">		 *</span><br><span class="line">		 *   - all non-prefetchable resources</span><br><span class="line">		 *   - 32-bit prefetchable resources if there&#x27;s a 64-bit</span><br><span class="line">		 *     prefetchable window or no prefetchable window at all</span><br><span class="line">		 *   - 64-bit prefetchable resources if there&#x27;s no</span><br><span class="line">		 *     prefetchable window at all</span><br><span class="line">		 *</span><br><span class="line">		 * Note that the strategy in __pci_assign_resource() must</span><br><span class="line">		 * match that used here.  Specifically, we cannot put a</span><br><span class="line">		 * 32-bit prefetchable resource in a 64-bit prefetchable</span><br><span class="line">		 * window.</span><br><span class="line">		 */</span><br><span class="line">		pbus_size_mem(bus, mask, IORESOURCE_MEM, type2, type3,</span><br><span class="line">				realloc_head ? 0 : additional_mem_size,</span><br><span class="line">				additional_mem_size, realloc_head);</span><br><span class="line">		break;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">__pci_bus_assign_resources(bus, &amp;add_list, NULL)</span><br><span class="line">        /* bus:0, 会对该bus上的所有device分别调用__dev_sort_resource</span><br><span class="line">	 * 然后统一调用一个__assign_resources_sorted()。之后程序进入</span><br><span class="line">	 * 下面的list中，又会嵌套进入__pci_bus_assign_resources, 这时</span><br><span class="line">	 * bus:1。重复上面的过程。在bus:1是__pci_bus_assign_resources</span><br><span class="line">	 * 在处理处理完pbus_assign_resources_sorted后不回往下执行,返回</span><br><span class="line">	 * 上层。这时bus:0, 进入pci_setup_bridge执行。</span><br><span class="line">	 * 其中，会在pbus_assign_resources_sorted中配置BAR，在</span><br><span class="line">	 * __pci_setup_bridge中配mem, I/O, prefetch mem的base/limit</span><br><span class="line">	 */</span><br><span class="line">    --&gt; pbus_assign_resources_sorted(bus, realloc_head, fail_head);</span><br><span class="line">    --&gt; list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list)</span><br><span class="line">        --&gt; __pci_bus_assign_resources(b, realloc_head, fail_head);</span><br><span class="line">	--&gt; switch (dev-&gt;class &gt;&gt; 8)</span><br><span class="line">		case PCI_CLASS_BRIDGE_PCI:</span><br><span class="line">		    --&gt; pci_setup_bridge(b);</span><br><span class="line"></span><br><span class="line">static void pbus_assign_resources_sorted()</span><br><span class="line">    --&gt; LIST_HEAD(head);</span><br><span class="line">    --&gt; list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list)</span><br><span class="line">		__dev_sort_resources(dev, &amp;head);</span><br><span class="line">                    /* 把pci_dev中的resource[]从大到小排序, 存入链表head中 */</span><br><span class="line">		    --&gt; pdev_sort_resources(dev, head);</span><br><span class="line">    --&gt; __assign_resources_sorted(&amp;head, realloc_head, fail_head);</span><br><span class="line">            /* 因为realloc_head为空链表，所以直接到requested_and_reassign */</span><br><span class="line">	--&gt; if (!realloc_head || list_empty(realloc_head))</span><br><span class="line">		goto requested_and_reassign;</span><br><span class="line">	...</span><br><span class="line">        requested_and_reassign:</span><br><span class="line">	--&gt; assign_requested_resources_sorted(head, fail_head);</span><br><span class="line">	        /* dev_res(pci_dev_resource)存储一个device中一个配置空间</span><br><span class="line">		 * 的资源(一个设备可有多个mem或I/O配置空间)</span><br><span class="line">		 */</span><br><span class="line">	    --&gt; list_for_each_entry(dev_res, head, list)</span><br><span class="line">		--&gt; resource_size(res) &amp;&amp;</span><br><span class="line">		pci_assign_resource(dev_res-&gt;dev, idx)</span><br><span class="line">	           --&gt; _pci_assign_resource(dev, resno, size, align);</span><br><span class="line">		   --&gt; pci_update_resource(dev, resno);</span><br><span class="line"></span><br><span class="line">        --&gt; reassign_resources_sorted(realloc_head, head);</span><br></pre></td></tr></table></figure>
 
     </div>
 

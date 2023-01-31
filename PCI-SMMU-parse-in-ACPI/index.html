@@ -31,7 +31,7 @@
 <meta property="og:description" content="This document shares a code analysis based on Linux-v4.9 about how to parse SMMU information in ACPI IORT table, and how does a PCIe device get its SMMUv3 device.">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-07-11T15:36:35.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.822Z">
+<meta property="article:modified_time" content="2023-01-31T12:10:58.790Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="PCIe">
 <meta property="article:tag" content="ACPI">
@@ -234,7 +234,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-01-31 20:10:58" itemprop="dateModified" datetime="2023-01-31T20:10:58+08:00">2023-01-31</time>
               </span>
 
           
@@ -270,21 +270,9 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <ol>
-<li>acpi smmu parse</li>
-</ol>
-<hr>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">acpi_init</span><br><span class="line">    --&gt; acpi_iort_init</span><br><span class="line">            /* parse the SMMU node in IORT table */</span><br><span class="line">        --&gt; iort_init_platform_devices</span><br><span class="line">                /* create a platform_device for SMMU, and add it to platform_bus */</span><br><span class="line">            --&gt; iort_add_smmu_platform_device</span><br><span class="line">                    /* why call this function here? */</span><br><span class="line">                --&gt; acpi_dma_configure</span><br><span class="line">                    --&gt; iort_iommu_configure</span><br><span class="line"></span><br><span class="line">            /* call functions in section: __iort_acpi_probe_table ~ __iort_acpi_probe_table_end */</span><br><span class="line">        --&gt; acpi_probe_device_table(iort)</span><br></pre></td></tr></table></figure>
-<ol start="2">
-<li>put arm_smmu_init in above section in compile phase</li>
-</ol>
-<hr>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">IORT_ACPI_DECLARE(arm_smmu_v3, ACPI_SIG_IORT, acpi_smmu_v3_init);</span><br><span class="line">arm_smmu_v3_init </span><br><span class="line">        /*</span><br><span class="line">         * add SMMU driver to platform_bus, this will trigger probe function to</span><br><span class="line">         * bind this driver and above SMMU platform_device.</span><br><span class="line">         */</span><br><span class="line">    --&gt; platform_driver_register(&amp;arm_smmu_driver)</span><br></pre></td></tr></table></figure>
-<ol start="3">
-<li>PCIe device get its SMMU device</li>
-</ol>
-<hr>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">pci_device_add</span><br><span class="line">    --&gt; pci_dma_configure(dev)</span><br><span class="line">        --&gt; acpi_dma_configure(&amp;dev-&gt;dev, attr)</span><br><span class="line"></span><br><span class="line">acpi_dma_configure</span><br><span class="line">       /* if dev is a pci device, first find related RC node in IORT table */</span><br><span class="line">    --&gt;iommu = iort_iommu_configure </span><br><span class="line">            /* RC node */</span><br><span class="line">        --&gt; node = iort_scan_node</span><br><span class="line">                /* parent here is SMMU node */</span><br><span class="line">            --&gt; parent = iort_node_map_rid</span><br></pre></td></tr></table></figure>
+        <h2 id="acpi-smmu-parse"><a href="#acpi-smmu-parse" class="headerlink" title="acpi smmu parse"></a>acpi smmu parse</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">acpi_init</span><br><span class="line">    --&gt; acpi_iort_init</span><br><span class="line">            /* parse the SMMU node in IORT table */</span><br><span class="line">        --&gt; iort_init_platform_devices</span><br><span class="line">                /* create a platform_device for SMMU, and add it to platform_bus */</span><br><span class="line">            --&gt; iort_add_smmu_platform_device</span><br><span class="line">                    /* why call this function here? */</span><br><span class="line">                --&gt; acpi_dma_configure</span><br><span class="line">                    --&gt; iort_iommu_configure</span><br><span class="line"></span><br><span class="line">            /* call functions in section: __iort_acpi_probe_table ~ __iort_acpi_probe_table_end */</span><br><span class="line">        --&gt; acpi_probe_device_table(iort)</span><br></pre></td></tr></table></figure>
+<h2 id="put-arm-smmu-init-in-above-section-in-compile-phase"><a href="#put-arm-smmu-init-in-above-section-in-compile-phase" class="headerlink" title="put arm_smmu_init in above section in compile phase"></a>put arm_smmu_init in above section in compile phase</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">IORT_ACPI_DECLARE(arm_smmu_v3, ACPI_SIG_IORT, acpi_smmu_v3_init);</span><br><span class="line">arm_smmu_v3_init </span><br><span class="line">        /*</span><br><span class="line">         * add SMMU driver to platform_bus, this will trigger probe function to</span><br><span class="line">         * bind this driver and above SMMU platform_device.</span><br><span class="line">         */</span><br><span class="line">    --&gt; platform_driver_register(&amp;arm_smmu_driver)</span><br></pre></td></tr></table></figure>
+<h2 id="PCIe-device-get-its-SMMU-device"><a href="#PCIe-device-get-its-SMMU-device" class="headerlink" title="PCIe device get its SMMU device"></a>PCIe device get its SMMU device</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">pci_device_add</span><br><span class="line">    --&gt; pci_dma_configure(dev)</span><br><span class="line">        --&gt; acpi_dma_configure(&amp;dev-&gt;dev, attr)</span><br><span class="line"></span><br><span class="line">acpi_dma_configure</span><br><span class="line">       /* if dev is a pci device, first find related RC node in IORT table */</span><br><span class="line">    --&gt;iommu = iort_iommu_configure </span><br><span class="line">            /* RC node */</span><br><span class="line">        --&gt; node = iort_scan_node</span><br><span class="line">                /* parent here is SMMU node */</span><br><span class="line">            --&gt; parent = iort_node_map_rid</span><br></pre></td></tr></table></figure>
 
     </div>
 
@@ -386,6 +374,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#acpi-smmu-parse"><span class="nav-number">1.</span> <span class="nav-text">acpi smmu parse</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#put-arm-smmu-init-in-above-section-in-compile-phase"><span class="nav-number">2.</span> <span class="nav-text">put arm_smmu_init in above section in compile phase</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PCIe-device-get-its-SMMU-device"><span class="nav-number">3.</span> <span class="nav-text">PCIe device get its SMMU device</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 

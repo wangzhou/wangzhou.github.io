@@ -31,7 +31,7 @@
 <meta property="og:description" content="This doc helps to introduce how to test PCIe SR-IOV in HiSilicon D05 board. We can use same way to test SR-IOV in Hi1620.">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-07-11T15:34:19.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.806Z">
+<meta property="article:modified_time" content="2023-01-31T12:13:57.824Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="PCIe">
 <meta property="article:tag" content="软件测试">
@@ -233,7 +233,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-01-31 20:13:57" itemprop="dateModified" datetime="2023-01-31T20:13:57+08:00">2023-01-31</time>
               </span>
 
           
@@ -269,25 +269,13 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <ol start="0">
-<li>preparation</li>
-</ol>
-<hr>
-<p>kernel: <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL2hpc2lsaWNvbi9rZXJuZWwtZGV2LmdpdA==">https://github.com/hisilicon/kernel-dev.git<i class="fa fa-external-link-alt"></i></span> branch: private-topic-sriov-v3-4.10</p>
+        <h2 id="preparation"><a href="#preparation" class="headerlink" title="preparation"></a>preparation</h2><p>kernel: <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL2hpc2lsaWNvbi9rZXJuZWwtZGV2LmdpdA==">https://github.com/hisilicon/kernel-dev.git<i class="fa fa-external-link-alt"></i></span> branch: private-topic-sriov-v3-4.10</p>
 <p>UEFI: openlab1.0 101 server /home/wangzhou/repo/plinth_uefi/uefi</p>
 <p>qemu: <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL2VhdWdlci9xZW11LmdpdA==">https://github.com/eauger/qemu.git<i class="fa fa-external-link-alt"></i></span> branch: v2.7.0-passthrough-rfc-v5</p>
 <p>hardware topology:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">+---------------+       +----------------------+</span><br><span class="line">|  D05 I        |       |         D05 II       |</span><br><span class="line">|               |       |                      |</span><br><span class="line">|   +-----------+       +------------------+   |</span><br><span class="line">|   |1P NA PCIe2|&lt;-----&gt;|any 10G networking|   |</span><br><span class="line">|   +-----------+       +------------------+   |</span><br><span class="line">+---------------+       +----------------------+</span><br></pre></td></tr></table></figure>
-<ol>
-<li>compile kernel and UEFI</li>
-</ol>
-<hr>
-<p>configure kernel: Add SMMU_V3=y, 82599 PF driver = m, 82599 VF driver = m,<br>                  VFIO PCI driver = m (p.s. ACPI boot)<br>compile kernel image and ko<br>compile UEFI using: ./uefi-tools/uefi-build.sh -c ./LinaroPkg/platforms.config d05</p>
-<ol start="2">
-<li>basic test</li>
-</ol>
-<hr>
-<pre><code>1. boot up host OS (firstly update UEFI above)[1]
+<h2 id="compile-kernel-and-UEFI"><a href="#compile-kernel-and-UEFI" class="headerlink" title="compile kernel and UEFI"></a>compile kernel and UEFI</h2><p>configure kernel: Add SMMU_V3=y, 82599 PF driver = m, 82599 VF driver = m,<br>                  VFIO PCI driver = m (p.s. ACPI boot)<br>compile kernel image and ko<br>compile UEFI using: ./uefi-tools/uefi-build.sh -c ./LinaroPkg/platforms.config d05</p>
+<h2 id="basic-test"><a href="#basic-test" class="headerlink" title="basic test"></a>basic test</h2><pre><code>1. boot up host OS (firstly update UEFI above)[1]
 
 2. copy modules to host OS:
    ixgbe.ko mdio.ko vfio_iommu_type1.ko vfio.ko vfio-pci.ko
@@ -348,20 +336,12 @@
    
    run ping and iperf to test
 </code></pre>
-<ol start="3">
-<li>more scenarios</li>
-</ol>
-<hr>
-<pre><code>1. enable multiple VFs, assigned to one VM
+<h2 id="more-scenarios"><a href="#more-scenarios" class="headerlink" title="more scenarios"></a>more scenarios</h2><pre><code>1. enable multiple VFs, assigned to one VM
 2. enable multiple VFs, assigned to different VMs
 3. use VF directly
 4. VF and PF communicate
 </code></pre>
-<ol start="4">
-<li>performance</li>
-</ol>
-<hr>
-<pre><code>1. should at least reach the performance of PF[3]
+<h2 id="performance"><a href="#performance" class="headerlink" title="performance"></a>performance</h2><pre><code>1. should at least reach the performance of PF[3]
 </code></pre>
 <p>reference:<br>[1] should add pcie_acs_override=downstream in kernel command line:<br>    As our PCIe RP does not support ACS capbility, we should add this command line<br>    and related patch(<span class="exturl" data-url="aHR0cHM6Ly9sa21sLm9yZy9sa21sLzIwMTMvNS8zMC81MTM=">https://lkml.org/lkml/2013/5/30/513<i class="fa fa-external-link-alt"></i></span>) which will never be<br>    merged into mainline to tell kernel our PCIe RP indeed did something to<br>    provide address isolation just like ACS does.<br>    we will upstream in ACS quirk patch to fix this.<br>[2] how to compile qemu locally in D05:<br>    <span class="exturl" data-url="aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2NhcmVjcm93X2J5ci9hcnRpY2xlL2RldGFpbHMvNTE0OTQwMjA=">http://blog.csdn.net/scarecrow_byr/article/details/51494020<i class="fa fa-external-link-alt"></i></span><br>[3] should add 82599 patch to test, firstly make sure performance of 82599 PF is<br>    good.</p>
 
@@ -464,6 +444,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#preparation"><span class="nav-number">1.</span> <span class="nav-text">preparation</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#compile-kernel-and-UEFI"><span class="nav-number">2.</span> <span class="nav-text">compile kernel and UEFI</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#basic-test"><span class="nav-number">3.</span> <span class="nav-text">basic test</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#more-scenarios"><span class="nav-number">4.</span> <span class="nav-text">more scenarios</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#performance"><span class="nav-number">5.</span> <span class="nav-text">performance</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 

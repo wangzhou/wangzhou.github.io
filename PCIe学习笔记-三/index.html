@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文继续pci note 2, 介绍函数pci_scan_child_bus, 内核版本为3.18-rc1">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-07-11T15:56:20.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.826Z">
+<meta property="article:modified_time" content="2023-01-31T11:40:46.027Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="PCIe">
 <meta name="twitter:card" content="summary">
@@ -232,7 +232,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-01-31 19:40:46" itemprop="dateModified" datetime="2023-01-31T19:40:46+08:00">2023-01-31</time>
               </span>
 
           
@@ -268,209 +268,14 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>pci_scan_child_bus(b)</p>
+        <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pci_scan_child_bus(b)</span><br></pre></td></tr></table></figure>
 <p>这个函数完成pci总线的枚举，完成整个pci树各个总线号的分配。但是并没有分配各个pci桥，<br>pci device的BAR和mem, I/O, prefetch mem的base/limit寄存器</p>
-<p>unsigned int pci_scan_child_bus(struct pci_bus *bus)<br>{<br>    unsigned int devfn, pass, max = bus-&gt;busn_res.start;<br>    struct pci_dev *dev;</p>
-<pre><code>/* 开始pci枚举, 一个pci bus上最多有256个设备，每个设备最多有8个function
- * 所以这里最多可以扫描32个device。实际上每个function也是有配置空间的
- * 所以function可以看作是个逻辑的设备
- */
-for (devfn = 0; devfn &lt; 0x100; devfn += 8)
-    pci_scan_slot(bus, devfn);
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">unsigned int pci_scan_child_bus(struct pci_bus *bus)</span><br><span class="line">&#123;</span><br><span class="line">	unsigned int devfn, pass, max = bus-&gt;busn_res.start;</span><br><span class="line">	struct pci_dev *dev;</span><br><span class="line"></span><br><span class="line">	/* 开始pci枚举, 一个pci bus上最多有256个设备，每个设备最多有8个function</span><br><span class="line">	 * 所以这里最多可以扫描32个device。实际上每个function也是有配置空间的</span><br><span class="line">	 * 所以function可以看作是个逻辑的设备</span><br><span class="line">	 */</span><br><span class="line">	for (devfn = 0; devfn &lt; 0x100; devfn += 8)</span><br><span class="line">		pci_scan_slot(bus, devfn);</span><br><span class="line"></span><br><span class="line">	/* pci虚拟化相关的东西 */</span><br><span class="line">	max += pci_iov_bus_range(bus);</span><br><span class="line"></span><br><span class="line">	...</span><br><span class="line">	if (!bus-&gt;is_added) &#123;</span><br><span class="line">		dev_dbg(&amp;bus-&gt;dev, &quot;fixups for bus\n&quot;);</span><br><span class="line">		/* 对于arm64来说，是个空函数 */</span><br><span class="line">		pcibios_fixup_bus(bus);</span><br><span class="line">		bus-&gt;is_added = 1;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	for (pass = 0; pass &lt; 2; pass++)</span><br><span class="line">		list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list) &#123;</span><br><span class="line">			if (pci_is_bridge(dev))</span><br><span class="line">			    	/* 开始递归的做pci枚举，在下面的函数中会再次</span><br><span class="line">				 * 调用pci_scan_child_bus。总线号的确定也在这个</span><br><span class="line">				 * 函数中</span><br><span class="line">				 */</span><br><span class="line">				max = pci_scan_bridge(bus, dev, max, pass);</span><br><span class="line">		&#125;</span><br><span class="line">	...</span><br><span class="line">	return max;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br></pre></td><td class="code"><pre><span class="line">pci_scan_slot(struct pci_bus *bus, int devfn)</span><br><span class="line">    ...</span><br><span class="line">    --&gt; pci_scan_single_device(bus, devfn)</span><br><span class="line">        ...</span><br><span class="line">	    /* 扫描devfn设备, 探测设备：读vendor id, 读BAR的大小 。</span><br><span class="line">	     * 软件行为：为device分配struct pci_dev; 根据探测设备得到的数据，填</span><br><span class="line">	     * 写pci_dev里的一些值。若是按照笔记1中的硬件拓扑图现在扫描的device</span><br><span class="line">	     * 应该是pcie root port</span><br><span class="line">	     */</span><br><span class="line">	--&gt; pci_scan_device(bus, devfn)</span><br><span class="line">	        /* 读devfn的vendor id, 会调用到pci_scan_root_bus的参数ops传入的read操作 */</span><br><span class="line">	    --&gt; pci_bus_read_dev_vendor_id()</span><br><span class="line">	        /* 分配pci_dev结构 */</span><br><span class="line">	    --&gt; pci_alloc_dev(bus)</span><br><span class="line">	    ...</span><br><span class="line">	        /* 处理pci配置头中的class code, Header Type, Interrupt Pin</span><br><span class="line">		 * Interrupt Line等内容，并设定新分配的pci_dev中的对应项。这里</span><br><span class="line">		 * 也会探测device的BAR大小，并设定pci_dev-&gt;resource[]。我们关注</span><br><span class="line">		 * 的重点也是pci_bus,pci_dev中相应的元素怎么变化。</span><br><span class="line">		 */</span><br><span class="line">	    --&gt; pci_setup_device(dev)</span><br><span class="line">	        ...</span><br><span class="line">	--&gt; pci_device_add(dev, bus)	</span><br><span class="line"></span><br><span class="line">int pci_setup_device(struct pci_dev *dev)</span><br><span class="line">    ...</span><br><span class="line">        /* 的到device配置空间中head type的值，可以是普通pci device, pci桥等</span><br><span class="line">	 * 这个值在下面的switch-case中决定程序是走哪个分支。如果当前的设备是</span><br><span class="line">	 * pcie root port，那么走PCI_HEADER_TYPE_BRIDGE分支。设备配置空间</span><br><span class="line">	 * head type的值一般是pci host controller驱动中配置过的, 可以参考</span><br><span class="line">	 * /drivers/pci/host/pcie-designware.c</span><br><span class="line">	 */</span><br><span class="line">    --&gt; pci_read_config_byte(dev, PCI_HEADER_TYPE, &amp;hdr_type)</span><br><span class="line">        /* device的parent是上游总线之上的那个pci桥 */</span><br><span class="line">    --&gt; dev-&gt;dev.parent = dev-&gt;bus-&gt;bridge;</span><br><span class="line">        /* 读出class revision的值 */</span><br><span class="line">    --&gt; pci_read_config_dword(dev, PCI_CLASS_REVISION, &amp;class)</span><br><span class="line">	dev-&gt;revision = class &amp; 0xff;</span><br><span class="line">	dev-&gt;class = class &gt;&gt; 8;		    /* upper 3 bytes */</span><br><span class="line"></span><br><span class="line">	dev-&gt;current_state = PCI_UNKNOWN;</span><br><span class="line"></span><br><span class="line">	class = dev-&gt;class &gt;&gt; 8;</span><br><span class="line"></span><br><span class="line">	switch (dev-&gt;hdr_type) &#123;		    /* header type */</span><br><span class="line">	case PCI_HEADER_TYPE_NORMAL:		    /* standard header */</span><br><span class="line">		if (class == PCI_CLASS_BRIDGE_PCI)</span><br><span class="line">			goto bad;</span><br><span class="line">		pci_read_irq(dev);</span><br><span class="line">		/*</span><br><span class="line">		 * 得到BAR的大小，并存在pci_dev-&gt;resource[]中，主要是对pci</span><br><span class="line">		 * device起作用。当输入参数dev是pci桥时，得到的值似乎对后面影响</span><br><span class="line">		 * 不大，这点需要确认下？</span><br><span class="line">		 */</span><br><span class="line">		pci_read_bases(dev, 6, PCI_ROM_ADDRESS);</span><br><span class="line">		pci_read_config_word(dev, PCI_SUBSYSTEM_VENDOR_ID, &amp;dev-&gt;subsystem_vendor);</span><br><span class="line">		pci_read_config_word(dev, PCI_SUBSYSTEM_ID, &amp;dev-&gt;subsystem_device);</span><br><span class="line"></span><br><span class="line">			break;</span><br><span class="line"></span><br><span class="line">	case PCI_HEADER_TYPE_BRIDGE:		    /* bridge header */</span><br><span class="line">		if (class != PCI_CLASS_BRIDGE_PCI)</span><br><span class="line">			goto bad;</span><br><span class="line">		pci_read_irq(dev);</span><br><span class="line">		dev-&gt;transparent = ((dev-&gt;class &amp; 0xff) == 1);</span><br><span class="line">		pci_read_bases(dev, 2, PCI_ROM_ADDRESS1);</span><br><span class="line">		set_pcie_hotplug_bridge(dev);</span><br><span class="line">		pos = pci_find_capability(dev, PCI_CAP_ID_SSVID);</span><br><span class="line">		if (pos) &#123;</span><br><span class="line">			pci_read_config_word(dev, pos + PCI_SSVID_VENDOR_ID, &amp;dev-&gt;subsystem_vendor);</span><br><span class="line">			pci_read_config_word(dev, pos + PCI_SSVID_DEVICE_ID, &amp;dev-&gt;subsystem_device);</span><br><span class="line">		&#125;</span><br><span class="line">		break;</span><br><span class="line">		...</span><br><span class="line">	&#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * 直接读硬件配置空间中的interrupt line and pin，然后写到pci_dev-&gt;line、pci_dev-&gt;irq中</span><br><span class="line"> */</span><br><span class="line">pci_read_irq(dev)</span><br><span class="line"></span><br><span class="line">/* 依次读取6个bar的内容，相关内容写入pci_dev下的struct resource resource[] */</span><br><span class="line">pci_read_bases(dev, 6, PCI_ROM_ADDRESS);</span><br><span class="line">    --&gt;__pci_read_bases</span><br><span class="line">        --&gt;mask = type ? PCI_ROM_ADDRESS_MASK : ~0;</span><br><span class="line">        /* 最初探测bar的大小，向bar空间写入全1 */</span><br><span class="line">        --&gt;pci_write_config_dword(dev, pos, l | mask);</span><br><span class="line">        /* 读出提示信息，写入sz缓存 */</span><br><span class="line">	--&gt;pci_read_config_dword(dev, pos, &amp;sz);</span><br><span class="line">        /* 如果全1, 设备工作不正常，或是没有这个bar */</span><br><span class="line">        --&gt;if (sz == 0xffffffff)</span><br><span class="line">		sz = 0;</span><br><span class="line"></span><br><span class="line">	--&gt;if (type == pci_bar_unknown) &#123;</span><br><span class="line">                /* 根据上面sz的值，得到是io/mem bar, 32/64bits, prefectch/</span><br><span class="line">                 * non-prefectch。这些信息都会写入res-&gt;flags中的对应bit</span><br><span class="line">                 */ </span><br><span class="line">		/* 如果l = 0, 解析的结果，kernel会认为这是一个32bit,</span><br><span class="line">		 * non-prefetchable, mem bar</span><br><span class="line">		 */</span><br><span class="line">		--&gt;res-&gt;flags = decode_bar(dev, l);</span><br><span class="line">		res-&gt;flags |= IORESOURCE_SIZEALIGN;</span><br><span class="line">		if (res-&gt;flags &amp; IORESOURCE_IO) &#123;</span><br><span class="line">                    ...</span><br><span class="line">		&#125; else &#123;</span><br><span class="line">                        /* 下面先把低32bits写到64bits变量的低32bits */</span><br><span class="line">			/* 如果l = 0, l64 = 0 */</span><br><span class="line">			l64 = l &amp; PCI_BASE_ADDRESS_MEM_MASK;</span><br><span class="line">			/* sz是写入全1后从bar中得到的值，如果是0xf000000f</span><br><span class="line">			 * sz64 = 0xf0000000</span><br><span class="line">			 */</span><br><span class="line">			sz64 = sz &amp; PCI_BASE_ADDRESS_MEM_MASK;</span><br><span class="line">                        /* ul的变量是多少bits? */</span><br><span class="line">			/* 应该是0xfffffff0 */</span><br><span class="line">			mask64 = (u32)PCI_BASE_ADDRESS_MEM_MASK;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">            ...</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	if (res-&gt;flags &amp; IORESOURCE_MEM_64) &#123;</span><br><span class="line">		pci_read_config_dword(dev, pos + 4, &amp;l);</span><br><span class="line">		pci_write_config_dword(dev, pos + 4, ~0);</span><br><span class="line">		pci_read_config_dword(dev, pos + 4, &amp;sz);</span><br><span class="line">		pci_write_config_dword(dev, pos + 4, l);</span><br><span class="line"></span><br><span class="line">		l64 |= ((u64)l &lt;&lt; 32);</span><br><span class="line">		sz64 |= ((u64)sz &lt;&lt; 32);</span><br><span class="line">		mask64 |= ((u64)~0 &lt;&lt; 32);</span><br><span class="line">	&#125;</span><br><span class="line">        ...</span><br><span class="line">	sz64 = pci_size(l64, sz64, mask64);</span><br><span class="line">		/* size = 0xf000_0000 */</span><br><span class="line">		--&gt; size = sz64 &amp; mask64;</span><br><span class="line">		/* size = 0x0fff_ffff, and return this */</span><br><span class="line">		--&gt; size = (size &amp; ~(size-1)) - 1;</span><br><span class="line"></span><br><span class="line">	/* struct pci_bus_region, local struct. indicate a bar&#x27;s resource? */</span><br><span class="line">	region.start = l64; /* l64 = 0 */</span><br><span class="line">	region.end = l64 + sz64; /* 0x0fff_ffff */</span><br><span class="line"></span><br><span class="line">	pcibios_bus_to_resource(dev-&gt;bus, res, &amp;region);</span><br><span class="line">		/* 首先找到host中的对应资源 */</span><br><span class="line">		--&gt; resource_list_for_each_entry(window, &amp;bridge-&gt;windows) &#123;</span><br><span class="line">			--&gt; if (resource_type(res) != resource_type(window-&gt;res))</span><br><span class="line">			/* 找到对应到pci域中的起始地址 */</span><br><span class="line">			--&gt; bus_region.start = window-&gt;res-&gt;start - window-&gt;offset;</span><br><span class="line">			--&gt; bus_region.end = window-&gt;res-&gt;end - window-&gt;offset;</span><br><span class="line"></span><br><span class="line">	pcibios_resource_to_bus(dev-&gt;bus, &amp;inverted_region, res);</span><br></pre></td></tr></table></figure>
 
-/* pci虚拟化相关的东西 */
-max += pci_iov_bus_range(bus);
-
-...
-if (!bus-&gt;is_added) &#123;
-    dev_dbg(&amp;bus-&gt;dev, &quot;fixups for bus\n&quot;);
-    /* 对于arm64来说，是个空函数 */
-    pcibios_fixup_bus(bus);
-    bus-&gt;is_added = 1;
-&#125;
-
-for (pass = 0; pass &lt; 2; pass++)
-    list_for_each_entry(dev, &amp;bus-&gt;devices, bus_list) &#123;
-        if (pci_is_bridge(dev))
-                /* 开始递归的做pci枚举，在下面的函数中会再次
-             * 调用pci_scan_child_bus。总线号的确定也在这个
-             * 函数中
-             */
-            max = pci_scan_bridge(bus, dev, max, pass);
-    &#125;
-...
-return max;
-</code></pre>
-<p>}</p>
-<p>pci_scan_slot(struct pci_bus <em>bus, int devfn)<br>    …<br>    –&gt; pci_scan_single_device(bus, devfn)<br>        …<br>        /</em> 扫描devfn设备, 探测设备：读vendor id, 读BAR的大小 。<br>         * 软件行为：为device分配struct pci_dev; 根据探测设备得到的数据，填<br>         * 写pci_dev里的一些值。若是按照笔记1中的硬件拓扑图现在扫描的device<br>         * 应该是pcie root port<br>         <em>/<br>    –&gt; pci_scan_device(bus, devfn)<br>            /</em> 读devfn的vendor id, 会调用到pci_scan_root_bus的参数ops传入的read操作 <em>/<br>        –&gt; pci_bus_read_dev_vendor_id()<br>            /</em> 分配pci_dev结构 <em>/<br>        –&gt; pci_alloc_dev(bus)<br>        …<br>            /</em> 处理pci配置头中的class code, Header Type, Interrupt Pin<br>         * Interrupt Line等内容，并设定新分配的pci_dev中的对应项。这里<br>         * 也会探测device的BAR大小，并设定pci_dev-&gt;resource[]。我们关注<br>         * 的重点也是pci_bus,pci_dev中相应的元素怎么变化。<br>         */<br>        –&gt; pci_setup_device(dev)<br>            …<br>    –&gt; pci_device_add(dev, bus)    </p>
-<p>int pci_setup_device(struct pci_dev <em>dev)<br>    …<br>        /</em> 的到device配置空间中head type的值，可以是普通pci device, pci桥等<br>     * 这个值在下面的switch-case中决定程序是走哪个分支。如果当前的设备是<br>     * pcie root port，那么走PCI_HEADER_TYPE_BRIDGE分支。设备配置空间<br>     * head type的值一般是pci host controller驱动中配置过的, 可以参考<br>     * /drivers/pci/host/pcie-designware.c<br>     <em>/<br>    –&gt; pci_read_config_byte(dev, PCI_HEADER_TYPE, &amp;hdr_type)<br>        /</em> device的parent是上游总线之上的那个pci桥 <em>/<br>    –&gt; dev-&gt;dev.parent = dev-&gt;bus-&gt;bridge;<br>        /</em> 读出class revision的值 <em>/<br>    –&gt; pci_read_config_dword(dev, PCI_CLASS_REVISION, &amp;class)<br>    dev-&gt;revision = class &amp; 0xff;<br>    dev-&gt;class = class &gt;&gt; 8;            /</em> upper 3 bytes */</p>
-<pre><code>dev-&gt;current_state = PCI_UNKNOWN;
-
-class = dev-&gt;class &gt;&gt; 8;
-
-switch (dev-&gt;hdr_type) &#123;            /* header type */
-case PCI_HEADER_TYPE_NORMAL:            /* standard header */
-    if (class == PCI_CLASS_BRIDGE_PCI)
-        goto bad;
-    pci_read_irq(dev);
-    /*
-     * 得到BAR的大小，并存在pci_dev-&gt;resource[]中，主要是对pci
-     * device起作用。当输入参数dev是pci桥时，得到的值似乎对后面影响
-     * 不大，这点需要确认下？
-     */
-    pci_read_bases(dev, 6, PCI_ROM_ADDRESS);
-    pci_read_config_word(dev, PCI_SUBSYSTEM_VENDOR_ID, &amp;dev-&gt;subsystem_vendor);
-    pci_read_config_word(dev, PCI_SUBSYSTEM_ID, &amp;dev-&gt;subsystem_device);
-
-        break;
-
-case PCI_HEADER_TYPE_BRIDGE:            /* bridge header */
-    if (class != PCI_CLASS_BRIDGE_PCI)
-        goto bad;
-    pci_read_irq(dev);
-    dev-&gt;transparent = ((dev-&gt;class &amp; 0xff) == 1);
-    pci_read_bases(dev, 2, PCI_ROM_ADDRESS1);
-    set_pcie_hotplug_bridge(dev);
-    pos = pci_find_capability(dev, PCI_CAP_ID_SSVID);
-    if (pos) &#123;
-        pci_read_config_word(dev, pos + PCI_SSVID_VENDOR_ID, &amp;dev-&gt;subsystem_vendor);
-        pci_read_config_word(dev, pos + PCI_SSVID_DEVICE_ID, &amp;dev-&gt;subsystem_device);
-    &#125;
-    break;
-    ...
-&#125;
-</code></pre>
-<p>/* 直接读硬件配置空间中的interrupt line and pin，然后写到pci_dev-&gt;line</p>
-<ul>
-<li>pci_dev-&gt;irq中</li>
-<li>/<br>pci_read_irq(dev)</li>
-</ul>
-<p>/* 依次读取6个bar的内容，相关内容写入pci_dev下的struct resource resource[] <em>/<br>pci_read_bases(dev, 6, PCI_ROM_ADDRESS);<br>    –&gt;__pci_read_bases<br>        –&gt;mask = type ? PCI_ROM_ADDRESS_MASK : ~0;<br>        /</em> 最初探测bar的大小，向bar空间写入全1 <em>/<br>        –&gt;pci_write_config_dword(dev, pos, l | mask);<br>        /</em> 读出提示信息，写入sz缓存 <em>/<br>    –&gt;pci_read_config_dword(dev, pos, &amp;sz);<br>        /</em> 如果全1, 设备工作不正常，或是没有这个bar */<br>        –&gt;if (sz == 0xffffffff)<br>        sz = 0;</p>
-<pre><code>--&gt;if (type == pci_bar_unknown) &#123;
-            /* 根据上面sz的值，得到是io/mem bar, 32/64bits, prefectch/
-             * non-prefectch。这些信息都会写入res-&gt;flags中的对应bit
-             */ 
-    /* 如果l = 0, 解析的结果，kernel会认为这是一个32bit,
-     * non-prefetchable, mem bar
-     */
-    --&gt;res-&gt;flags = decode_bar(dev, l);
-    res-&gt;flags |= IORESOURCE_SIZEALIGN;
-    if (res-&gt;flags &amp; IORESOURCE_IO) &#123;
-                ...
-    &#125; else &#123;
-                    /* 下面先把低32bits写到64bits变量的低32bits */
-        /* 如果l = 0, l64 = 0 */
-        l64 = l &amp; PCI_BASE_ADDRESS_MEM_MASK;
-        /* sz是写入全1后从bar中得到的值，如果是0xf000000f
-         * sz64 = 0xf0000000
-         */
-        sz64 = sz &amp; PCI_BASE_ADDRESS_MEM_MASK;
-                    /* ul的变量是多少bits? */
-        /* 应该是0xfffffff0 */
-        mask64 = (u32)PCI_BASE_ADDRESS_MEM_MASK;
-    &#125;
-&#125; else &#123;
-        ...
-&#125;
-
-if (res-&gt;flags &amp; IORESOURCE_MEM_64) &#123;
-    pci_read_config_dword(dev, pos + 4, &amp;l);
-    pci_write_config_dword(dev, pos + 4, ~0);
-    pci_read_config_dword(dev, pos + 4, &amp;sz);
-    pci_write_config_dword(dev, pos + 4, l);
-
-    l64 |= ((u64)l &lt;&lt; 32);
-    sz64 |= ((u64)sz &lt;&lt; 32);
-    mask64 |= ((u64)~0 &lt;&lt; 32);
-&#125;
-    ...
-sz64 = pci_size(l64, sz64, mask64);
-    /* size = 0xf000_0000 */
-    --&gt; size = sz64 &amp; mask64;
-    /* size = 0x0fff_ffff, and return this */
-    --&gt; size = (size &amp; ~(size-1)) - 1;
-
-/* struct pci_bus_region, local struct. indicate a bar&#39;s resource? */
-region.start = l64; /* l64 = 0 */
-region.end = l64 + sz64; /* 0x0fff_ffff */
-
-pcibios_bus_to_resource(dev-&gt;bus, res, &amp;region);
-    /* 首先找到host中的对应资源 */
-    --&gt; resource_list_for_each_entry(window, &amp;bridge-&gt;windows) &#123;
-        --&gt; if (resource_type(res) != resource_type(window-&gt;res))
-        /* 找到对应到pci域中的起始地址 */
-        --&gt; bus_region.start = window-&gt;res-&gt;start - window-&gt;offset;
-        --&gt; bus_region.end = window-&gt;res-&gt;end - window-&gt;offset;
-
-pcibios_resource_to_bus(dev-&gt;bus, &amp;inverted_region, res);
-</code></pre>
-<p>现在回到pci_scan_child_bus中的pci_scan_bridge()函数。<br>/*</p>
-<ul>
-<li><p>如果一个pci_dev是pci桥的话，以它的上游总线bus和这个设备dev本身为参数，扫描这个</p>
-</li>
-<li><p>桥。这个函数中实现pci树的递归扫描，在这个函数中为整个pci树上的各个子总线分配</p>
-</li>
-<li><p>总线号。这里pci_scan_bridge会调用两次，第一次处理BIOS中已经配置的东西，不清楚</p>
-</li>
-<li><p>intel在BIOS中做了怎样的处理。</p>
-</li>
-<li><p>/<br>pci_scan_bridge(bus, dev, max, pass);<br>  …<br>  /* 这里上来就读桥设备的主bus号，是因为有些体系架构下可能在BIOS中已经对这些</p>
-<ul>
-<li>做过配置。在ARM64中暂时没有看到有这样做的情况。</li>
-<li>/</li>
-</ul>
-<p>  –&gt; pci_read_config_dword(dev, PCI_PRIMARY_BUS, &amp;buses);<br>  …<br>  /* 配置了在kernel中分配bus号，应该不会进入到if中 */<br>  –&gt; if ((secondary || subordinate) &amp;&amp; !pcibios_assign_all_busses() &amp;&amp;</p>
-<pre><code>  !is_cardbus &amp;&amp; !broken) &#123;
-</code></pre>
-<p>  …<br>  } else {</p>
-<pre><code>      /* 第一次掉用pci_scan_bridge就此返回了 */
-  if (!pass) &#123;
-          ...
-      goto out;
-  &#125;
-
-  /* Clear errors */
-  pci_write_config_word(dev, PCI_STATUS, 0xffff);
-
-  /* 确定是否已用max+1这个bus号 */
-  child = pci_find_bus(pci_domain_nr(bus), max+1);
-  if (!child) &#123;
-          /* 分配新的struct pci_bus */
-      child = pci_add_new_bus(bus, dev, max+1);
-      if (!child)
-          goto out;
-      pci_bus_insert_busn_res(child, max+1, 0xff);
-  &#125;
-  max++;
-  /* 合成新的bus号，准备写入pci桥的配置空间 */
-  buses = (buses &amp; 0xff000000)
-        | ((unsigned int)(child-&gt;primary)     &lt;&lt;  0)
-        | ((unsigned int)(child-&gt;busn_res.start)   &lt;&lt;  8)
-        | ((unsigned int)(child-&gt;busn_res.end) &lt;&lt; 16);
-  ...
-  /* 写入该pci桥primary bus, secondary bus, subordinate bus */
-  pci_write_config_dword(dev, PCI_PRIMARY_BUS, buses);
-
-  if (!is_cardbus) &#123;
-      child-&gt;bridge_ctl = bctl;
-      /* 递归调用pci_scan_child_bus, 扫描这个子总线下的设备*/
-      max = pci_scan_child_bus(child);
-  &#125; else &#123;
-          /* 不关心cardbus */
-      ...
-  &#125;
-  /*
-   * Set the subordinate bus number to its real value.
-   * 每次递归结束把实际的subordinate bus写入pci桥的配置空间
-   * subordinate bus表示该pci桥下最大的总线号
-   */
-  pci_bus_update_busn_res_end(child, max);
-  pci_write_config_byte(dev, PCI_SUBORDINATE_BUS, max);
-</code></pre>
-<p>  }<br>  …<br>out:<br>  pci_write_config_word(dev, PCI_BRIDGE_CONTROL, bctl);</p>
-<p>  return max;</p>
-</li>
-</ul>
+<p>现在回到pci_scan_child_bus中的pci_scan_bridge()函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * 如果一个pci_dev是pci桥的话，以它的上游总线bus和这个设备dev本身为参数，扫描这个</span><br><span class="line"> * 桥。这个函数中实现pci树的递归扫描，在这个函数中为整个pci树上的各个子总线分配</span><br><span class="line"> * 总线号。这里pci_scan_bridge会调用两次，第一次处理BIOS中已经配置的东西，不清楚</span><br><span class="line"> * intel在BIOS中做了怎样的处理。</span><br><span class="line"> */</span><br><span class="line">pci_scan_bridge(bus, dev, max, pass);</span><br><span class="line">    ...</span><br><span class="line">    /* 这里上来就读桥设备的主bus号，是因为有些体系架构下可能在BIOS中已经对这些</span><br><span class="line">     * 做过配置。在ARM64中暂时没有看到有这样做的情况。</span><br><span class="line">     */</span><br><span class="line">    --&gt; pci_read_config_dword(dev, PCI_PRIMARY_BUS, &amp;buses);</span><br><span class="line">    ...</span><br><span class="line">    /* 配置了在kernel中分配bus号，应该不会进入到if中 */</span><br><span class="line">    --&gt; if ((secondary || subordinate) &amp;&amp; !pcibios_assign_all_busses() &amp;&amp;</span><br><span class="line">	    !is_cardbus &amp;&amp; !broken) &#123;</span><br><span class="line">	...</span><br><span class="line">	&#125; else &#123;</span><br><span class="line">	        /* 第一次掉用pci_scan_bridge就此返回了 */</span><br><span class="line">		if (!pass) &#123;</span><br><span class="line">		        ...</span><br><span class="line">			goto out;</span><br><span class="line">		&#125;</span><br><span class="line"></span><br><span class="line">		/* Clear errors */</span><br><span class="line">		pci_write_config_word(dev, PCI_STATUS, 0xffff);</span><br><span class="line"></span><br><span class="line">		/* 确定是否已用max+1这个bus号 */</span><br><span class="line">		child = pci_find_bus(pci_domain_nr(bus), max+1);</span><br><span class="line">		if (!child) &#123;</span><br><span class="line">		        /* 分配新的struct pci_bus */</span><br><span class="line">			child = pci_add_new_bus(bus, dev, max+1);</span><br><span class="line">			if (!child)</span><br><span class="line">				goto out;</span><br><span class="line">			pci_bus_insert_busn_res(child, max+1, 0xff);</span><br><span class="line">		&#125;</span><br><span class="line">		max++;</span><br><span class="line">		/* 合成新的bus号，准备写入pci桥的配置空间 */</span><br><span class="line">		buses = (buses &amp; 0xff000000)</span><br><span class="line">		      | ((unsigned int)(child-&gt;primary)     &lt;&lt;  0)</span><br><span class="line">		      | ((unsigned int)(child-&gt;busn_res.start)   &lt;&lt;  8)</span><br><span class="line">		      | ((unsigned int)(child-&gt;busn_res.end) &lt;&lt; 16);</span><br><span class="line">		...</span><br><span class="line">		/* 写入该pci桥primary bus, secondary bus, subordinate bus */</span><br><span class="line">		pci_write_config_dword(dev, PCI_PRIMARY_BUS, buses);</span><br><span class="line"></span><br><span class="line">		if (!is_cardbus) &#123;</span><br><span class="line">			child-&gt;bridge_ctl = bctl;</span><br><span class="line">			/* 递归调用pci_scan_child_bus, 扫描这个子总线下的设备*/</span><br><span class="line">			max = pci_scan_child_bus(child);</span><br><span class="line">		&#125; else &#123;</span><br><span class="line">		        /* 不关心cardbus */</span><br><span class="line">			...</span><br><span class="line">		&#125;</span><br><span class="line">		/*</span><br><span class="line">		 * Set the subordinate bus number to its real value.</span><br><span class="line">		 * 每次递归结束把实际的subordinate bus写入pci桥的配置空间</span><br><span class="line">		 * subordinate bus表示该pci桥下最大的总线号</span><br><span class="line">		 */</span><br><span class="line">		pci_bus_update_busn_res_end(child, max);</span><br><span class="line">		pci_write_config_byte(dev, PCI_SUBORDINATE_BUS, max);</span><br><span class="line">	&#125;</span><br><span class="line">	...</span><br><span class="line">out:</span><br><span class="line">	pci_write_config_word(dev, PCI_BRIDGE_CONTROL, bctl);</span><br><span class="line"></span><br><span class="line">	return max;</span><br></pre></td></tr></table></figure>
 
     </div>
 

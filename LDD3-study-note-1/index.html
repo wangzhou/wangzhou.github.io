@@ -31,7 +31,7 @@
 <meta property="og:description" content="LDD3的第三章介绍了一个简单的字符设备，实现了read&#x2F;write&#x2F;open&#x2F;release等回调函数。 网上有LDD3自带的源代码，为了方便查找，我把官方源代码放到了: https:&#x2F;&#x2F;github.com&#x2F;wangzhou&#x2F;ldd3.git 自己实现的代码(第三章的简易字符设备)放在了：https:&#x2F;&#x2F;github.com&#x2F;wangzhou&#x2F;scull.git 本文只是记录一下实现中遇到的需">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-07-05T14:39:55.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.806Z">
+<meta property="article:modified_time" content="2023-01-31T12:30:13.077Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="读书笔记">
 <meta property="article:tag" content="LDD3">
@@ -233,7 +233,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-01-31 20:30:13" itemprop="dateModified" datetime="2023-01-31T20:30:13+08:00">2023-01-31</time>
               </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
@@ -279,29 +279,13 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <ol>
-<li>这是一个什么设备</li>
-</ol>
-<hr>
-<p>这是一个内存模拟出来的设备，简单说就是一些内存区域。在用户态，可以对相应的设备<br>文件read/write，相应的结果是读写这些内存区域中的数据。</p>
+        <h2 id="这是一个什么设备"><a href="#这是一个什么设备" class="headerlink" title="这是一个什么设备"></a>这是一个什么设备</h2><p>这是一个内存模拟出来的设备，简单说就是一些内存区域。在用户态，可以对相应的设备<br>文件read/write，相应的结果是读写这些内存区域中的数据。</p>
 <p>这些内存的区域按照下面的数据结构组成：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+-------+         +-------+          +-------+         +-------+   </span><br><span class="line">| 链表  +--------&gt;+       +---------&gt;+       +--------&gt;+       |   ....</span><br><span class="line">|       |         |       |          |       |         |       |</span><br><span class="line">+---+---+         +-------+          +-------+         +-------+</span><br><span class="line">    |               ...                                            </span><br><span class="line">    +--------+      +-------------------------+                 </span><br><span class="line">    | 指针   +-----&gt;+ quantum(e.g. 4000) Byte |</span><br><span class="line">    +--------+      +-------------------------+</span><br><span class="line">    |        +-----&gt; ...                                            </span><br><span class="line">    +--------+                                                  </span><br><span class="line">    |        |                                                  </span><br><span class="line">    +--------+                                                  </span><br><span class="line">    ...                                                 </span><br><span class="line">    +--------+                                                  </span><br><span class="line">    |        |                                                  </span><br><span class="line">    +--------+                                                  </span><br><span class="line">    |        |                                                  </span><br><span class="line">    +--------+                                                  </span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">+-------+         +-------+          +-------+         +-------+   </span><br><span class="line">| list  +--------&gt;+       +---------&gt;+       +--------&gt;+       |   ....</span><br><span class="line">|       |         |       |          |       |         |       |</span><br><span class="line">+---+---+         +-------+          +-------+         +-------+</span><br><span class="line">    |               ...                                            </span><br><span class="line">    +--------+      +-------------------------+                 </span><br><span class="line">    | pointer+-----&gt;+ quantum(e.g. 4000) Byte |</span><br><span class="line">    +--------+      +-------------------------+</span><br><span class="line">    |        +-----&gt; ...                                            </span><br><span class="line">    +--------+                                                  </span><br><span class="line">    |        |                                                  </span><br><span class="line">    +--------+                                                  </span><br><span class="line">    ...                                                 </span><br><span class="line">    +--------+                                                  </span><br><span class="line">    |        |                                                  </span><br><span class="line">    +--------+                                                  </span><br><span class="line">    |        |                                                  </span><br><span class="line">    +--------+                                                  </span><br></pre></td></tr></table></figure>
 <p>可以看到数据只是存在quantum的单元里的，其他的数据结构都是为了索引到这个结构。<br>这个数据结构的特点是，链表的长度是不固定的(quantum, 指针数组的大小是固定的), 这样<br>只要一直往这个设备里写数据，链表就不断的加长，同时不断的创建新的quantum, 把数据<br>存在里面。这个过程可以吃光系统里所有的内存。还有一个特点就是，设备一开始不会分配<br>quantum, 只有有数据需要写入，又没有quantum时才开始分配。所有分配的quantum在模块<br>卸载时释放掉。同时，设备的读写函数设计成如果一次读写的数据超过一个quantum的界限，<br>那么只读写当前一个quantum中的数据。</p>
-<ol start="2">
-<li>open/release/read/write的实现</li>
-</ol>
-<hr>
-<p>open: 把scull_dev挂成struce file的数据，方便以后其他的操作找到设备<br>read/write: …<br>release: 关闭文件的时候要调用到, 对scull_dev不做处理。模块退出的时候, 释放设备对应的<br>         内存, 这个操作应该是在exit函数里，不放到这里。</p>
-<ol start="3">
-<li>调试宏</li>
-</ol>
-<hr>
-<p>在代码中插入了一些断言的宏，方便调试。</p>
-<ol start="4">
-<li>自动创建设备节点</li>
-</ol>
-<hr>
-<p>LDD3源代码中是加了一个脚本创建设备节点，这里创建一个class, 然后在class里创建这个<br>字符设备对应的设备文件。模块加载时会自动在/dev下创建设备文件。</p>
+<h2 id="open-release-read-write的实现"><a href="#open-release-read-write的实现" class="headerlink" title="open/release/read/write的实现"></a>open/release/read/write的实现</h2><p>open: 把scull_dev挂成struce file的数据，方便以后其他的操作找到设备<br>read/write: …<br>release: 关闭文件的时候要调用到, 对scull_dev不做处理。模块退出的时候, 释放设备对应的<br>         内存, 这个操作应该是在exit函数里，不放到这里。</p>
+<h2 id="调试宏"><a href="#调试宏" class="headerlink" title="调试宏"></a>调试宏</h2><p>在代码中插入了一些断言的宏，方便调试。</p>
+<h2 id="自动创建设备节点"><a href="#自动创建设备节点" class="headerlink" title="自动创建设备节点"></a>自动创建设备节点</h2><p>LDD3源代码中是加了一个脚本创建设备节点，这里创建一个class, 然后在class里创建这个<br>字符设备对应的设备文件。模块加载时会自动在/dev下创建设备文件。</p>
 
     </div>
 
@@ -402,6 +386,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%BF%99%E6%98%AF%E4%B8%80%E4%B8%AA%E4%BB%80%E4%B9%88%E8%AE%BE%E5%A4%87"><span class="nav-number">1.</span> <span class="nav-text">这是一个什么设备</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#open-release-read-write%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="nav-number">2.</span> <span class="nav-text">open&#x2F;release&#x2F;read&#x2F;write的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B0%83%E8%AF%95%E5%AE%8F"><span class="nav-number">3.</span> <span class="nav-text">调试宏</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%87%AA%E5%8A%A8%E5%88%9B%E5%BB%BA%E8%AE%BE%E5%A4%87%E8%8A%82%E7%82%B9"><span class="nav-number">4.</span> <span class="nav-text">自动创建设备节点</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 

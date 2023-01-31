@@ -31,7 +31,7 @@
 <meta property="og:description" content="This doc is an analysis note about ATS feature in PCIe&#x2F;SMMU">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-07-05T14:42:41.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.822Z">
+<meta property="article:modified_time" content="2023-01-31T12:25:22.857Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="PCIe">
@@ -233,7 +233,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-01-31 20:25:22" itemprop="dateModified" datetime="2023-01-31T20:25:22+08:00">2023-01-31</time>
               </span>
 
           
@@ -269,21 +269,13 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <ol>
-<li>ATS</li>
-</ol>
-<hr>
-<p>ATS is the short of Access Translation Service. In the PCIe spec, the ATS section<br>includes ATS, PRI and PASID. Here we only consider ATS.</p>
+        <h2 id="ATS"><a href="#ATS" class="headerlink" title="ATS"></a>ATS</h2><p>ATS is the short of Access Translation Service. In the PCIe spec, the ATS section<br>includes ATS, PRI and PASID. Here we only consider ATS.</p>
 <p>Generally speaking, ATS just prefetch the PA(physical address) to store in PCIe<br>device’s side. Once this PCIe device sending a memory read/write operation<br>(e.g memory read/write TLP), it will bring a flag which means that the address<br>of this operation had already been translated. When this operation passes SMMU,<br>SMMU will parse this flag and know that this address is a PA and SMMU will do<br>nothing about this operation, SMMU then will just forward this operation to<br>read/write memory.</p>
 <p>The hardware will do the prefetch automatically. But software must be involved<br>when we want to disable/invalidate a prefetched PA in PCIe device.</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">    +-------+</span><br><span class="line">    |  CPU  |</span><br><span class="line">    +---+---+</span><br><span class="line">        |</span><br><span class="line">--------+-----------------------------+----</span><br><span class="line">        |        PA   ^               |</span><br><span class="line">    +---+---+    ^    |            +--+--+</span><br><span class="line">    | SMMU  |    |    |            | DDR |</span><br><span class="line">    +---+---+    |    |            +-----+</span><br><span class="line">        |        VA   |</span><br><span class="line">    +---+---+         |</span><br><span class="line">    |  RP   |         |</span><br><span class="line">    +---+---+         |</span><br><span class="line">        |             |</span><br><span class="line">    +---+---+         PA</span><br><span class="line">    |  EP   |</span><br><span class="line">    +-------+</span><br></pre></td></tr></table></figure>
 
 <p>From the above figure, with SMMU enable and without ATS enable, read/write<br>operation from EP will be with a VA, SMMU help to do the translation from VA to<br>PA. However, when enabling ATS, PA can be stored in EP ahead, EP can send<br>read/write operation with a PA directly, which will improve the performance.</p>
-<ol start="2">
-<li>Hareware support</li>
-</ol>
-<hr>
-<p> For EP that supports ATS must have ATS Extended Capability in its CFG. In ATS<br> cap, we have ATS capability registers and ATS controller registers. Now all<br> bits in ATS capability registers are RO, STU and Enable in ATS control registers<br> are RW. STU means smallest translation unit, which should be matched with SMMU<br> supported page size.</p>
+<h2 id="Hareware-support"><a href="#Hareware-support" class="headerlink" title="Hareware support"></a>Hareware support</h2><p> For EP that supports ATS must have ATS Extended Capability in its CFG. In ATS<br> cap, we have ATS capability registers and ATS controller registers. Now all<br> bits in ATS capability registers are RO, STU and Enable in ATS control registers<br> are RW. STU means smallest translation unit, which should be matched with SMMU<br> supported page size.</p>
 <p> For SMMU, we should enable ATS by IDR0_ATS in SMMU_IDR0.ATS.</p>
 <ul>
 <li><p>ATS enable</p>
@@ -298,11 +290,7 @@
 <p>SMMU will use command CMD_ATC_INV to invalidate the cached PA in EP.</p>
 </li>
 </ul>
-<ol start="3">
-<li>software support</li>
-</ol>
-<hr>
-<p> For analysis will base on [PATCH 0/7] Add PCI ATS support to SMMUv3, we can<br> find this in git://linux-arm.org/linux-jpb.git branch: svm/ats-v1.</p>
+<h2 id="software-support"><a href="#software-support" class="headerlink" title="software support"></a>software support</h2><p> For analysis will base on [PATCH 0/7] Add PCI ATS support to SMMUv3, we can<br> find this in git://linux-arm.org/linux-jpb.git branch: svm/ats-v1.</p>
 <ul>
 <li><p>ATS enable:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">arm_smmu_add_device</span><br><span class="line">    --&gt; arm_smmu_enable_ats</span><br><span class="line">            /* will configure stu in this function, stu here comes from smmu */</span><br><span class="line">        --&gt; pci_enable_ats(pdev, stu)</span><br></pre></td></tr></table></figure></li>
@@ -412,6 +400,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#ATS"><span class="nav-number">1.</span> <span class="nav-text">ATS</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Hareware-support"><span class="nav-number">2.</span> <span class="nav-text">Hareware support</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#software-support"><span class="nav-number">3.</span> <span class="nav-text">software support</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
