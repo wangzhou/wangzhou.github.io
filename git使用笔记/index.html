@@ -20,7 +20,7 @@
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null,"activeClass":"valine"},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
   <meta name="description" content="这篇文档的开始是got git这本书的读书笔记。后面开始是一些git使用技巧的总结。">
@@ -246,27 +246,6 @@
             </span>
 
           
-            <span id="/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" class="post-meta-item leancloud_visitors" data-flag-title="git使用笔记" title="阅读次数">
-              <span class="post-meta-item-icon">
-                <i class="fa fa-eye"></i>
-              </span>
-              <span class="post-meta-item-text">阅读次数：</span>
-              <span class="leancloud-visitors-count"></span>
-            </span>
-  
-  <span class="post-meta-item">
-    
-      <span class="post-meta-item-icon">
-        <i class="far fa-comment"></i>
-      </span>
-      <span class="post-meta-item-text">Valine：</span>
-    
-    <a title="valine" href="/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/#valine-comments" itemprop="discussionUrl">
-      <span class="post-comments-count valine-comment-count" data-xid="/git%E4%BD%BF%E7%94%A8%E7%AC%94%E8%AE%B0/" itemprop="commentCount"></span>
-    </a>
-  </span>
-  
-  
             <div class="post-description">这篇文档的开始是got git这本书的读书笔记。后面开始是一些git使用技巧的总结。</div>
 
         </div>
@@ -308,7 +287,7 @@
 <h2 id="chapter-15"><a href="#chapter-15" class="headerlink" title="chapter 15"></a>chapter 15</h2><p> git pull/push<br> git push 有时无法成功，可能是因为git push对应的git仓库不是bare的，直接推送会<br> 改变工作区。这可以配置对应的远程仓库：git config receive.denyCurrentBranch ignore<br> 这时可以成功push</p>
 <h2 id="chapter-16"><a href="#chapter-16" class="headerlink" title=" chapter 16"></a> chapter 16</h2><p> -other<br> git commit –amend –author=’your name <email-box>‘ 可以修改commit中author一行的内容</email-box></p>
 <p> patch的subject这一行有时不只是[PATCH], 比如在询问意见时可以是[PATCH RFC ***], 在第3版<br> patch时subject可以是[PATCH v3 <em><strong>]. 如何改变subject这一行的内容：可以在生成patch<br> 的时候加–subject-prefix=”</strong></em>“, 比如, git format-patch -s -2 –subject-prefix=”PATCH RFC”<br> 生成的patch subject为：[PATCH RFC 0/3], [PATCH RFC 1/3], [PATCH RFC 2/3], [PATCH RFC 3/3]</p>
-<p> git send-email 使用git send-email发送patches, 组成的patches是一个系列的。<br> 用git format-patch生成patches, 然后一个个用普通邮箱发出，给出的patches是一个个分裂的。<br> git send-email *.patch 即可把当前目录里的patch都发送出去，而且git send-email提供一个<br> 对话是的发送过程，只要在过程中填入发送的邮箱即可。对于cc的邮箱可以在一开始的命令中给出：<br> git send-email *.patch --cc=<span class="exturl" data-url="bWFpbHRvOiYjMTIxOyYjMTExOyYjeDc1OyYjMTE0OyYjeDVmOyYjMTAxOyYjeDZkOyYjeDYxOyYjeDY5OyYjMTA4OyYjeDVmOyYjOTg7JiN4NmY7JiMxMjA7JiM2NDsmI3gzMTsmI3gzMjsmI3gzNjsmIzQ2OyYjOTk7JiMxMTE7JiMxMDk7">&#121;&#111;&#x75;&#114;&#x5f;&#101;&#x6d;&#x61;&#x69;&#108;&#x5f;&#98;&#x6f;&#120;&#64;&#x31;&#x32;&#x36;&#46;&#99;&#111;&#109;<i class="fa fa-external-link-alt"></i></span></p>
+<p> git send-email 使用git send-email发送patches, 组成的patches是一个系列的。<br> 用git format-patch生成patches, 然后一个个用普通邮箱发出，给出的patches是一个个分裂的。<br> git send-email *.patch 即可把当前目录里的patch都发送出去，而且git send-email提供一个<br> 对话是的发送过程，只要在过程中填入发送的邮箱即可。对于cc的邮箱可以在一开始的命令中给出：<br> git send-email *.patch --cc=<span class="exturl" data-url="bWFpbHRvOiYjeDc5OyYjMTExOyYjeDc1OyYjeDcyOyYjeDVmOyYjMTAxOyYjeDZkOyYjeDYxOyYjeDY5OyYjeDZjOyYjeDVmOyYjOTg7JiMxMTE7JiMxMjA7JiM2NDsmIzQ5OyYjeDMyOyYjNTQ7JiN4MmU7JiM5OTsmIzExMTsmIzEwOTs=">&#x79;&#111;&#x75;&#x72;&#x5f;&#101;&#x6d;&#x61;&#x69;&#x6c;&#x5f;&#98;&#111;&#120;&#64;&#49;&#x32;&#54;&#x2e;&#99;&#111;&#109;<i class="fa fa-external-link-alt"></i></span></p>
 <p> Message-ID to be used as In-Reply-To?</p>
 <h2 id="git-pull-note"><a href="#git-pull-note" class="headerlink" title="git pull note"></a>git pull note</h2><ol>
 <li><p>git repo A:<br>branch: master, test</p>
@@ -428,7 +407,13 @@
 
           </div>
           
-    <div class="comments" id="valine-comments"></div>
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="https://github.com/wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
 
 <script>
   window.addEventListener('tabs:register', () => {
@@ -596,35 +581,6 @@
   
 
   
-
-
-<script>
-NexT.utils.loadComments(document.querySelector('#valine-comments'), () => {
-  NexT.utils.getScript('//unpkg.com/valine/dist/Valine.min.js', () => {
-    var GUEST = ['nick', 'mail', 'link'];
-    var guest = 'nick,mail,link';
-    guest = guest.split(',').filter(item => {
-      return GUEST.includes(item);
-    });
-    new Valine({
-      el         : '#valine-comments',
-      verify     : false,
-      notify     : false,
-      appId      : 'vKlONtxGqPcJ8DmJtcPtl5DE-gzGzoHsz',
-      appKey     : 'UjUg6M4ugEbKttf0E45NSOQH',
-      placeholder: "Share your comment",
-      avatar     : 'mm',
-      meta       : guest,
-      pageSize   : '10' || 10,
-      visitor    : true,
-      lang       : 'zh-cn' || 'zh-cn',
-      path       : location.pathname,
-      recordIP   : false,
-      serverURLs : ''
-    });
-  }, window.Valine);
-});
-</script>
 
 </body>
 </html>
