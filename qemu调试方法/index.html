@@ -20,13 +20,13 @@
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
   <meta name="description" content="qemu自己提供了debug接口，可以观察到机器自身的状态，比如，可以查看程序运行 时CPU各个寄存器的变化。本文分析相关的使用方法和qemu代码逻辑。本文以一个简单的例子说明使用方式，以riscv平台为基础。以qemu user mode为例 说明，system mode是一样的。分析中使用的qemu的版本是5.1.50">
 <meta property="og:type" content="article">
 <meta property="og:title" content="qemu调试方法">
-<meta property="og:url" content="http://example.com/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/index.html">
+<meta property="og:url" content="http://wangzhou.github.io/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/index.html">
 <meta property="og:site_name" content="Sherlock&#39;s blog">
 <meta property="og:description" content="qemu自己提供了debug接口，可以观察到机器自身的状态，比如，可以查看程序运行 时CPU各个寄存器的变化。本文分析相关的使用方法和qemu代码逻辑。本文以一个简单的例子说明使用方式，以riscv平台为基础。以qemu user mode为例 说明，system mode是一样的。分析中使用的qemu的版本是5.1.50">
 <meta property="og:locale" content="zh_CN">
@@ -37,7 +37,7 @@
 <meta property="article:tag" content="虚拟化">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="http://example.com/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/">
+<link rel="canonical" href="http://wangzhou.github.io/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/">
 
 
 <script id="page-configurations">
@@ -203,7 +203,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/yase.svg">

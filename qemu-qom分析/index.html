@@ -20,13 +20,13 @@
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"example.com","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
   <meta name="description" content="qemu里使用面向对象的模型来模拟相关的元素，可以想象这样的模拟是很合理的，比如， 用device描述一个设备的基类，pci_device可以继承device，然后vfio的pci设备又可以 继承pci_device，同时一个用纯用软件模拟的pci网络设备也可以继承pci_device。 本文描述这个基于面向对象的思路构建起来的qemux模型。分析基于qemu 5.2.92版本。">
 <meta property="og:type" content="article">
 <meta property="og:title" content="qemu qom分析">
-<meta property="og:url" content="http://example.com/qemu-qom%E5%88%86%E6%9E%90/index.html">
+<meta property="og:url" content="http://wangzhou.github.io/qemu-qom%E5%88%86%E6%9E%90/index.html">
 <meta property="og:site_name" content="Sherlock&#39;s blog">
 <meta property="og:description" content="qemu里使用面向对象的模型来模拟相关的元素，可以想象这样的模拟是很合理的，比如， 用device描述一个设备的基类，pci_device可以继承device，然后vfio的pci设备又可以 继承pci_device，同时一个用纯用软件模拟的pci网络设备也可以继承pci_device。 本文描述这个基于面向对象的思路构建起来的qemux模型。分析基于qemu 5.2.92版本。">
 <meta property="og:locale" content="zh_CN">
@@ -37,7 +37,7 @@
 <meta property="article:tag" content="面向对象">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="http://example.com/qemu-qom%E5%88%86%E6%9E%90/">
+<link rel="canonical" href="http://wangzhou.github.io/qemu-qom%E5%88%86%E6%9E%90/">
 
 
 <script id="page-configurations">
@@ -203,7 +203,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://example.com/qemu-qom%E5%88%86%E6%9E%90/">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu-qom%E5%88%86%E6%9E%90/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/yase.svg">
