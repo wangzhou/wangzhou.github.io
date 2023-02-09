@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文是学习cache基础知识过程中的一个笔记。学习的材料是《深入理解计算机系统》和 ARMv8的编程指导手册。这个笔记会梳理cache相关的几个基础概念，比如，cache line， cache set， way，全相连cache，组相连cache，直接映射cache等等。其实 《深入理解计算机系统》这本书里讲的已经很清楚。这里会结合ARMv8手册做一个简单梳理。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-06-28T15:59:44.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.830Z">
+<meta property="article:modified_time" content="2023-02-09T15:41:42.097Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="ARMv8">
@@ -234,7 +234,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-02-09 23:41:42" itemprop="dateModified" datetime="2023-02-09T23:41:42+08:00">2023-02-09</time>
               </span>
 
           
@@ -261,7 +261,7 @@
 <p>下面再对全相连cache，组相连cache，直接映射cache做下解释。直接映射的cache只有一个<br>cache set, 所以每次去cache里找一个地址对应的cache都要遍历整个cache。这样，cache<br>小还可以，cache大了，效率会很差。直接映射cache的最直接的应用是TLB，TLB是MMU页表<br>的cache(缓存)。一般的DDR的cache都是组相连cache，全相连cache有cache颠簸的潜在性能<br>影响, 画个具体的图比较容易明白:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">   +------------+              +------------+</span><br><span class="line">A  | ddr        |  ---------&gt;  | cache line |  全相连cache，一个set一个cache line</span><br><span class="line">   +------------+         /    +------------+</span><br><span class="line">   | ddr        |  ------/--&gt;  | cache line |</span><br><span class="line">   +------------+       / /    +------------+</span><br><span class="line">   | ddr        |  ----/-/--&gt;  | cache line |</span><br><span class="line">   +------------+     / / /    +------------+</span><br><span class="line">   | ddr        |  --/-/-/--&gt;  | cache line |</span><br><span class="line">   +------------+   / / / /    +------------+</span><br><span class="line">B  | ddr        |  / / / /</span><br><span class="line">   +------------+   / / /</span><br><span class="line">   | ddr        |  / / /</span><br><span class="line">   +------------+   / /</span><br><span class="line">   | ddr        |  / /</span><br><span class="line">   +------------+   /</span><br><span class="line">   | ddr        |  /</span><br><span class="line">   +------------+</span><br><span class="line">   ...</span><br></pre></td></tr></table></figure>
 <p>上面的内存块都以是cache line粒度的。可以看到B地址对应的cache line和A地址对应的<br>cache line是相同的。当对A地址引用后，再对B地址引用，由于cache line中还是A地址<br>对应的内容，那么对B地址的引用必然会引起cache替换。所以如果有这样的程序，那么性能<br>将会很差:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">      for (i = 0; i &lt; NUM; i++) &#123;</span><br><span class="line">      	tmp = *(A + i) * *(B + i);</span><br><span class="line">value += tmp;</span><br><span class="line">      &#125;</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">for (i = 0; i &lt; NUM; i++) &#123;</span><br><span class="line">	tmp = *(A + i) * *(B + i);</span><br><span class="line">	value += tmp;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 <p>组相连cache因为一个set里有多个cache line, 还可以在set这一维度引入很多处理算法，<br>减少cache颠簸的发生。</p>
 <p>最后以一个具体的cache的示例结束这篇笔记，一个32K 一个cache line 32 byte 4路组相连<br>cache的示意图: 先计算地址里s, b的数值，2 ^ b = 32, b = 5; S = 32K / (32 * 4) =<br>256, 2 ^ s = S, s = 8。所以一个内存地址的划分是:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">|bit 31 ~ bit 13                        |bit 12 ~ bit 5 |bit 4 ~  bit 0|</span><br><span class="line">+---------------------------------------+---------------+--------------+</span><br><span class="line">|       tag                             |   index       |   offset     |</span><br></pre></td></tr></table></figure>
@@ -323,7 +323,7 @@
     
   
   <div class="comments">
-  <script src="https://utteranc.es/client.js" repo="wangzhou/wangzhou.github.io" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
   </div>
   
   

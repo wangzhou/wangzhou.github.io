@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文梳理riscv上timer的基本软硬件逻辑，硬件模型基于qemu，使用的qemu版本是6.2.0， 内核代码分析使用的版本是v5.12-rc8。本文尽可能多的梳理riscv上timer相关的内容，需要独立描述的会在文中指出来。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2022-08-11T13:08:08.000Z">
-<meta property="article:modified_time" content="2023-02-06T11:24:39.034Z">
+<meta property="article:modified_time" content="2023-02-09T15:47:51.062Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="QEMU">
 <meta property="article:tag" content="计算机体系结构">
@@ -234,7 +234,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-02-06 19:24:39" itemprop="dateModified" datetime="2023-02-06T19:24:39+08:00">2023-02-06</time>
+                <time title="修改时间：2023-02-09 23:47:51" itemprop="dateModified" datetime="2023-02-09T23:47:51+08:00">2023-02-09</time>
               </span>
 
           
@@ -270,15 +270,17 @@
 <h2 id="qemu逻辑-RDTIME"><a href="#qemu逻辑-RDTIME" class="headerlink" title="qemu逻辑 - RDTIME"></a>qemu逻辑 - RDTIME</h2><p> 这个寄存器在U mode也可以访问，所以具体实现也是qemu user mode和system mode各自支持的。</p>
 <p> qemu user mode下的实现，直接使用host上的特性tick执行实现，这样的实现感觉真心<br> 没有什么实用价值。</p>
 <p> system mode下的实现，RDTIME的时钟源也是QEMU_CLOCK_VIRTUAL，读相关的CSR直接得到<br> 计算后的计数值，数值上和如上M/S mode timer计数器的值是一样，表示自系统启动以来<br> 的一个计数值。所以，这个值和墙上时钟还是不一样的，墙上时钟在系统关机后会使用主板<br> 上的纽扣电池继续运行。</p>
-<h2 id="Linux内核逻辑"><a href="#Linux内核逻辑" class="headerlink" title="Linux内核逻辑"></a>Linux内核逻辑</h2><p> 内核timer初始化在：arch/riscv/kernel/time.c, time_init<br> 内核相关驱动的位置在：drivers/clocksource/timer-riscv.c</p>
+<h2 id="Linux内核逻辑"><a href="#Linux内核逻辑" class="headerlink" title="Linux内核逻辑"></a>Linux内核逻辑</h2><p> 内核timer初始化在：arch/riscv/kernel/time.c的time_init。内核相关驱动的位置在：<br> drivers/clocksource/timer-riscv.c。截止到目前为止，S mode timer的内核patch还在<br> 社区评审，相关的连接在lwn.net/Articles/886863/。</p>
 <p> riscv timer的内核驱动把对应的of_device_id静态定义到__timer_of_table段里。time_init<br> 里的timer_probe会扫描__timer_of_table这个段里timer相关的of_device_id, 然后调用<br> 对应的初始化函数，这里就是调用riscv_timer_init_dt，这个函数会找见intc对应的domain，<br> 通过domain和S mode timer硬件中断号得到S mode timer对应中断的virq，最后向virq注册<br> S timer的中断处理函数：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">riscv_timer_init_dt</span><br><span class="line">  +-&gt; riscv_clock_event_irq = irq_create_mapping(domain, RV_IRQ_TIMER)</span><br><span class="line">  +-&gt; request_percpu_irq(riscv_clock_event_irq, riscv_timer_interrupt, ...)</span><br></pre></td></tr></table></figure>
 
-<p> 但是继续看riscv_timer_interrupt的实现, 会发现这个函数会进一步调用clock_event_device<br> 里的event_handler回调函数，但是这个回调函数并不是在驱动里直接提供的。</p>
+<p> riscv timer驱动会注册clocksource和clock_event_device。</p>
+<p> clocksource就是指不断递增的时钟源，比如riscv上的mtime寄存器以一定的频率增加计数，<br> 它就是一个clocksource. riscv_clocksource提供一个read接口，通过这个接口可以得到<br> 当前mtime计数器里的值。在riscv qemu virt平台上这个计数器的频率定义在cpus节点的<br> timebase-frequency字段，它的值是0x989680，就是十进制的10000000，也就是说这个计数<br> 器10ns计数一下。</p>
+<p> clock_event_device指的是可以产生和时钟相关事件的device，比如riscv上当mtime的值<br> 大于等于mtimecmp的值时会上报一个M mode timer的中断，mtime和mtimecmp就可以被看作<br> 一个clock_event_device。riscv timer驱动里定义的struct clock_event_device riscv_clock_event<br> 是个per CPU变量，timer的中断处理函数就是调用riscv_clock_event里的event_handler。<br> 但是这个回调函数并不是在驱动里直接提供的。</p>
 <p> event_handler的注册逻辑是通过这个驱动里注册的cpu hotplu回调函数riscv_timer_starting_cpu<br> 完成的，大概的调用逻辑如下，可以看见event_handler实际上是一个公共函数tick_handle_periodic。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">start_kernel</span><br><span class="line">  +-&gt; time_init</span><br><span class="line">    +-&gt; timer_probe</span><br><span class="line">      +-&gt; cpuhp_setup_state</span><br><span class="line">        +-&gt; __cpuhp_setup_state</span><br><span class="line">          +-&gt; __cpuhp_setup_state_cpuslocked</span><br><span class="line">            +-&gt; cpuhp_issue_call</span><br><span class="line">              +-&gt; cpuhp_invoke_callback</span><br><span class="line">                +-&gt; riscv_timer_starting_cpu</span><br><span class="line">                  +-&gt; clockevents_config_and_register</span><br><span class="line">                    +-&gt; clockevents_register_device</span><br><span class="line">                      +-&gt; tick_check_new_device</span><br><span class="line">                        +-&gt; tick_setup_device</span><br><span class="line">                          +-&gt; tick_setup_periodic</span><br><span class="line">			        /* event_handler回调 */</span><br><span class="line">			    +-&gt; tick_handle_periodic</span><br></pre></td></tr></table></figure>
 <p> tick_handle_periodic就是每次时钟中断时要运行的逻辑，相关逻辑已经和调度有关系，<br> 在另外讲调度的文章里独立分析吧。</p>
-<p> (todo: register clock source and clock event)</p>
+<p> 实际上，tick_handle_periodic只是在内核开始的时候用，内核随后会把event_handler切<br> 到高精度定时器的回调函数上hrtimer_interrupt，这个函数里只是处理时间相关的东西，<br> tick时发生的调度要回到entry.S里，也就是处理完timer中断再处理调度相关的逻辑。</p>
 
     </div>
 
@@ -336,7 +338,7 @@
     
   
   <div class="comments">
-  <script src="https://utteranc.es/client.js" repo="wangzhou/wangzhou.github.io" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
   </div>
   
   

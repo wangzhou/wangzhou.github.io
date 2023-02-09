@@ -222,10 +222,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2023-02-06 19:16:02 / 修改时间：19:18:53" itemprop="dateCreated datePublished" datetime="2023-02-06T19:16:02+08:00">2023-02-06</time>
+              <time title="创建时间：2023-02-06 19:16:02" itemprop="dateCreated datePublished" datetime="2023-02-06T19:16:02+08:00">2023-02-06</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-02-09 23:46:46" itemprop="dateModified" datetime="2023-02-09T23:46:46+08:00">2023-02-09</time>
+              </span>
 
           
 
@@ -238,7 +244,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p>本文分析riscv的dts描述格式，分析用的是riscv qemu virt平台，我们将分析不同 启动参数下生成的dts格式。依赖的qemu版本是v7.1.50。</p>
+          <p>本文分析riscv的dts描述格式，分析用的是riscv qemu virt平台，我们将分析不同 启动参数下生成的dts格式，重点分析CPU、中断控制器以及PCIe控制器的相关定义。 依赖的qemu版本是v7.1.50，依赖的内核版本是v6.1。</p>
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/RISCV-DTS%E6%8F%8F%E8%BF%B0%E5%88%86%E6%9E%90/">

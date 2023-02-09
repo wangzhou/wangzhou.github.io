@@ -270,7 +270,7 @@
 
 <p>配置好后每次可以先fetchmail, 然后用mutt -f ~/Mail/mbox打开邮件查看。</p>
 <p>到现在就基本可以命令行浏览，收发邮件了。但是如果你一下订阅了几个邮件列表，想<br>分类管理邮件，下面给一个简单的示范：</p>
-<p>想单独管理下来自<span class="exturl" data-url="bWFpbHRvOiYjeDZjOyYjeDY5OyYjMTEwOyYjMTE3OyYjeDc4OyYjeDJkOyYjeDcwOyYjOTk7JiMxMDU7JiN4NDA7JiN4NzY7JiMxMDM7JiN4NjU7JiN4NzI7JiN4MmU7JiMxMDc7JiMxMDE7JiN4NzI7JiMxMTA7JiMxMDE7JiN4NmM7JiN4MmU7JiN4NmY7JiMxMTQ7JiN4Njc7">&#x6c;&#x69;&#110;&#117;&#x78;&#x2d;&#x70;&#99;&#105;&#x40;&#x76;&#103;&#x65;&#x72;&#x2e;&#107;&#101;&#x72;&#110;&#101;&#x6c;&#x2e;&#x6f;&#114;&#x67;<i class="fa fa-external-link-alt"></i></span> 邮件列表里的邮件。先在家目录的Mail下<br>创建一个文件保存邮件，这里我们创建一个叫pci-mbox的文件。在.procmailrc文件中添加<br>一下几行：</p>
+<p>想单独管理下来自<span class="exturl" data-url="bWFpbHRvOiYjMTA4OyYjMTA1OyYjMTEwOyYjMTE3OyYjeDc4OyYjNDU7JiMxMTI7JiM5OTsmI3g2OTsmIzY0OyYjMTE4OyYjeDY3OyYjeDY1OyYjMTE0OyYjeDJlOyYjMTA3OyYjMTAxOyYjeDcyOyYjMTEwOyYjMTAxOyYjMTA4OyYjNDY7JiMxMTE7JiMxMTQ7JiMxMDM7">&#108;&#105;&#110;&#117;&#x78;&#45;&#112;&#99;&#x69;&#64;&#118;&#x67;&#x65;&#114;&#x2e;&#107;&#101;&#x72;&#110;&#101;&#108;&#46;&#111;&#114;&#103;<i class="fa fa-external-link-alt"></i></span> 邮件列表里的邮件。先在家目录的Mail下<br>创建一个文件保存邮件，这里我们创建一个叫pci-mbox的文件。在.procmailrc文件中添加<br>一下几行：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">:0</span><br><span class="line">* ^Cc:.*linux-pci@vger.kernel.org</span><br><span class="line">pci-mbox</span><br></pre></td></tr></table></figure>
 <p>之后再fetchmail，来自pci邮件列表中的邮件就自动保存在~/Mail/pci-mbox中了。</p>
 <p>注意：</p>
@@ -332,7 +332,7 @@
     
   
   <div class="comments">
-  <script src="https://utteranc.es/client.js" repo="wangzhou/wangzhou.github.io" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
   </div>
   
   
