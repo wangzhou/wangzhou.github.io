@@ -14,7 +14,7 @@
 
 <link rel="stylesheet" href="/css/main.css">
 
-<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
@@ -33,8 +33,8 @@
 <meta property="article:published_time" content="2022-09-25T13:17:24.000Z">
 <meta property="article:modified_time" content="2022-09-25T13:44:21.347Z">
 <meta property="article:author" content="Sherlock Wang">
-<meta property="article:tag" content="中断">
 <meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="中断">
 <meta property="article:tag" content="riscv">
 <meta name="twitter:card" content="summary">
 
@@ -247,7 +247,7 @@
 <p> 这里有几个概念要先分清楚，clint(core local interrupt)是和aclint(Advanced clint)<br> 独立的协议, clint发布在前，aclint兼容clint，发布在后。</p>
 <p> qemu 7.1.50已经支持了aclint，但是如果想要打开，要在qemu启动命令行里加上-machine virt,aclint=on。<br> qemu启动加不加aclint=on，在qemu monitor里用info qtree查看设备, 会发现mtimer没有<br> 变化，但是swi在aclint=1的时候，多了一个，两个swi设备其中一个是clint的mswi, 一个是aclint<br> 的sswi。对应的在dts上，aclint没有开的时候，只是一个riscv,clint0节点，aclint打开之后<br> 变成了，mtimer/sswi/mswi三个节点, compatible分别是：riscv,aclint-mtimer/riscv,aclint-sswi/riscv,aclint-mswi。</p>
 <p> 内核v5.19-rc8还没有支持aclint, 但是社区已经有patch在review。</p>
-<h2 id="Machine-level-Timer-Device"><a href="#Machine-level-Timer-Device" class="headerlink" title="Machine-level Timer Device"></a>Machine-level Timer Device</h2><p> Timer的基本逻辑我们在<span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcmlzY3YtdGltZXIlRTclOUElODQlRTUlOUYlQkElRTYlOUMlQUMlRTklODAlQkIlRTglQkUlOTEv">riscv timer的基本逻辑<i class="fa fa-external-link-alt"></i></span>里已经介绍。</p>
+<h2 id="Machine-level-Timer-Device"><a href="#Machine-level-Timer-Device" class="headerlink" title="Machine-level Timer Device"></a>Machine-level Timer Device</h2><p> Timer的基本逻辑我们在<a href="https://wangzhou.github.io/riscv-timer%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">riscv timer的基本逻辑</a>里已经介绍。</p>
 <h2 id="Software-Interrupt"><a href="#Software-Interrupt" class="headerlink" title="Software Interrupt"></a>Software Interrupt</h2><p> 本文重点看看软件中断这部分。</p>
 <p> clint下，只有M mode下的msip寄存器, 这个寄存器的最低bit读写被映射到CSR寄存器MIP的<br> MSIP bit，写这个bit可以触发其他核的M mode soft interrupt。</p>
 <p> aclint下，兼容上面的msip寄存器，新增加了SETSSIP寄存器，并把msip寄存器和SETSSIP<br> 寄存器封装到了MSWI设备(Machine-level Software Interrupt Device)和<br> SSWI(Supervisor-level Software Interrupt Device)设备里。</p>
@@ -277,10 +277,11 @@
 
 
       <footer class="post-footer">
+          
           <div class="post-tags">
-              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"># 中断</a>
-              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"># 计算机体系结构</a>
-              <a href="/tags/riscv/" rel="tag"># riscv</a>
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"><i class="fa fa-tag"></i> 中断</a>
+              <a href="/tags/riscv/" rel="tag"><i class="fa fa-tag"></i> riscv</a>
           </div>
 
         
@@ -422,7 +423,7 @@
 
 <div class="copyright">
   
-  &copy; 
+  &copy; 2021 – 
   <span itemprop="copyrightYear">2023</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>

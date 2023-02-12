@@ -14,7 +14,7 @@
 
 <link rel="stylesheet" href="/css/main.css">
 
-<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
@@ -315,7 +315,7 @@
 <p> 到此为止，中断或异常发生时需要用到的寄存器都有了。我们下面通过具体的中断或者异常<br> 流程把整个过程串起来。</p>
 <h2 id="中断或异常流程"><a href="#中断或异常流程" class="headerlink" title="中断或异常流程"></a>中断或异常流程</h2><p> 中断异常向量表的地址会提前配置到stvec。medeleg/mideleg寄存器需要提前配置好，把<br> 需要在S mode下处理的异常和中断对应的bit配置上。</p>
 <p> 当中断或异常发生的时候，硬件把SIE的值copy到SPIE，当前处理器mode写入SPP，SIE清0。<br> sepc存入异常指令地址、或者中断指令地址，scause写入中断或者异常的原因，stval写入<br> 中断或异常的参数，然后通过stvec得到中断异常向量的地址。随后，硬件从中断异常向量<br> 地址取指令执行。(可以参考qemu代码：qemu/target/riscv/cpu.c riscv_cpu_do_interrupt函数)</p>
-<p> 以Linux内核为例，riscv的中断异常处理流程，先保存中断或异常发生时的寄存器上下文，<br> 然后根据scause的信息找见具体的中断或异常处理函数执行。具体的软件流程分析可以参考<br> <span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vTGludXglRTUlODYlODUlRTYlQTAlQjhyaXNjdi1lbnRyeS1TJUU1JTg4JTg2JUU2JTlFJTkwLw==">Linux内核riscv entry.S分析<i class="fa fa-external-link-alt"></i></span></p>
+<p> 以Linux内核为例，riscv的中断异常处理流程，先保存中断或异常发生时的寄存器上下文，<br> 然后根据scause的信息找见具体的中断或异常处理函数执行。具体的软件流程分析可以参考<br> <a href="https://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8riscv-entry-S%E5%88%86%E6%9E%90/">Linux内核riscv entry.S分析</a></p>
 <p> 当异常或中断需要返回时，软件可以使用sret指令，sret指令在执行的时候会把sepc寄存器<br> 里保存的地址作为返回地址，使用SPP寄存器里的值作为CPU的mode，把SPIE的值写入SIE，<br> SPIE写1，SPP写入U mode编号。所以，在调用sret前，软件要配置好sepc、SPP、SPIE寄存器<br> 的值。</p>
 <h2 id="特权级相关的指令"><a href="#特权级相关的指令" class="headerlink" title="特权级相关的指令"></a>特权级相关的指令</h2><p> 异常相关的指令：ecall、ebreak、sret、mret。ecall和ebreak比较相似，就是使用指令触发<br> ecall或者ebreak异常。ecall异常又可以分为ecall from U mode、ecall from S mode，分别<br> 表示ecall是在CPU U mode还是在S mode发起的。在Linux上，从U mode发起的ecall就是一个<br> 系统调用，软件把系统调用需要的参数先摆到系统寄存器上，然后触发ecall指令，硬件依照<br> 上述的异常流程改变CPU的状态，最终软件执行系统调用代码，参数从系统寄存器上获取。<br> Linux上，特性体系构架的系统调用ABI是软件约定的。sret、mret只是从S mode或者从M mode<br> 返回的不同，其他的逻辑是相同的。</p>
 <p> 机器相关的指令：reset、wfi。reset复位整个riscv机器。wfi执行的时候会挂起CPU，直到<br> CPU收到中断，一般是用来降低功耗的。</p>
@@ -343,9 +343,10 @@
 
 
       <footer class="post-footer">
+          
           <div class="post-tags">
-              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"># 计算机体系结构</a>
-              <a href="/tags/riscv/" rel="tag"># riscv</a>
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/riscv/" rel="tag"><i class="fa fa-tag"></i> riscv</a>
           </div>
 
         
@@ -487,7 +488,7 @@
 
 <div class="copyright">
   
-  &copy; 
+  &copy; 2021 – 
   <span itemprop="copyrightYear">2023</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>

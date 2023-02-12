@@ -14,7 +14,7 @@
 
 <link rel="stylesheet" href="/css/main.css">
 
-<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
@@ -34,8 +34,8 @@
 <meta property="article:modified_time" content="2022-12-05T14:37:09.534Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="虚拟化">
-<meta property="article:tag" content="中断">
 <meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="中断">
 <meta property="article:tag" content="riscv">
 <meta name="twitter:card" content="summary">
 
@@ -244,7 +244,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p> 先看看要完成虚拟机中断，我们可以怎么做。一个直白的考虑是，所有的虚拟机中断都由<br> hypvisor也就是kvm来注入，这样注入中断需要qemu发kvm的ioctl，虚拟机里收到中断也处理<br> 不了，因为没有给虚拟机模拟guest内核可以看见的中断控制器，还要退出到qemu里处理中断。<br> 整个逻辑可以参考<span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcmlzY3Yta3ZtJUU0JUI4JUFEJUU2JTk2JUFEJUU4JTk5JTlBJUU2JThCJTlGJUU1JThDJTk2JUU3JTlBJTg0JUU1JTlGJUJBJUU2JTlDJUFDJUU5JTgwJUJCJUU4JUJFJTkxLw==">https://wangzhou.github.io/riscv-kvm中断虚拟化的基本逻辑/<i class="fa fa-external-link-alt"></i></span></p>
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p> 先看看要完成虚拟机中断，我们可以怎么做。一个直白的考虑是，所有的虚拟机中断都由<br> hypvisor也就是kvm来注入，这样注入中断需要qemu发kvm的ioctl，虚拟机里收到中断也处理<br> 不了，因为没有给虚拟机模拟guest内核可以看见的中断控制器，还要退出到qemu里处理中断。<br> 整个逻辑可以参考<a href="https://wangzhou.github.io/riscv-kvm%E4%B8%AD%E6%96%AD%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">https://wangzhou.github.io/riscv-kvm中断虚拟化的基本逻辑/</a></p>
 <p> 如上的方式，中断注入和处理都需要qemu的参与，性能比较低。我们考虑怎么可以直接把<br> 中断送到虚拟机里，并且在虚拟机里就可以处理相关的中断。</p>
 <p> 先看第二个问题，只需要叫guest内核可以直接访问到中断控制器的接口就好，直观的理解，<br> 就是在hypvisor(kvm)里给guest机器模拟一个中断控制器就好，实现上, 一方面要把中断<br> 控制器的信息在dtb里描述，这样guest内核才能获取中断控制器的信息，一方面要在第二层<br> 的地址翻译里加上中断控制器MMIO到实际物理MMIO的映射，这样guest内核里的中断控制器<br> 驱动才能物理上使用中断控制器，具体做法，就是在qemu里通过kvm的ioctl把上面的动作<br> 落实在硬件上。如果guest里有些控制是通过csr寄存器的，那么还要考虑csr的支持，这个<br> 要么硬件上就直接支持，否则需要trap进hypvisor去处理。 </p>
 <p> 再看第一个问题：怎么把具体的中断送到虚拟机上。riscv的AIA imsic的拓扑大概是这样的：(AIA可以支持中断直通)</p>
@@ -253,12 +253,12 @@
 <p> 到此为止一切都好，但是你去看riscv协议，就会发现里面VMID这个概念只局限在第二层地址<br> 翻译常，并没有用VMID识别虚拟机。那riscv是怎么搞定上面的问题的。</p>
 <p> S_GEXT被硬件直接配置mideleg代理到了HS，所以一旦有这个中断就在HS中做中断处理(虚拟<br> 机拉起之前并没有做继续委托)。看起来riscv的逻辑是这样的，hstatus.VGEIN可以实现类似<br> 过滤器的功能，当hstatus.VGEIN域段的数值和hgeip表示的vCPU相等时，mip.VSEIP才能被<br> 配置上，这样当一个特定的vCPU被调度运行时，hypvisor在投入vCPU运行之前把vCPU对应的<br> VGENIN打开，这样这个vCPU上的VS中断就可以直通到vCPU。但是，依照之前的分析，S_GEXT<br> 中断也会上报到hypvisor, 那就需要有机制可以做到，当VS中断对应的vCPU不在位的时候，<br> 中断投递到hypvisor，当VS中断对应的vCPU在位的时候，中断只直通到vCPU。前者可以通过<br> VGENIN过滤掉，针对后者，riscv上定义了hgeie，这个寄存器决定哪个vCPU的S_GEXT是有效<br> 的。所以，在一个vCPU投入运行之前，hypvisor可以配置VGENIN的值是这个vCPU的编号，<br> 配置hgeie对于这个vCPU无效，在这样的配置下，当这个vCPU对应的VS中断到来时，中断<br> 被直通到guest，当来的不是这个vCPU的VS中断时，在HS触发S_GEXT中断。</p>
 <h2 id="硬件逻辑"><a href="#硬件逻辑" class="headerlink" title="硬件逻辑"></a>硬件逻辑</h2><p> 整个中断虚拟化需要riscv的H扩展和AIA中断控制器的配合完成，但是H扩展和AIA的逻辑是<br> 独立的，各自的逻辑都可以自圆其说。</p>
-<p> H扩展的介绍可以参考<span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcmlzY3YtS1ZNJUU4JTk5JTlBJUU2JThCJTlGJUU1JThDJTk2JUU1JTg4JTg2JUU2JTlFJTkwLw==">https://wangzhou.github.io/riscv-KVM虚拟化分析/<i class="fa fa-external-link-alt"></i></span><br> 最核心的地方是，一个物理Hart上，定义了hgeie/hgeip寄存器，这个寄存器上的每个bit<br> 都对应这个物理Hart上一个虚拟机上的外部中断，hgeip表示对应虚拟机上有没有外部中断<br> 上报，hgeie表示对应的虚拟机外部中断会不会触发SGEI中断，H扩展的定义不关心外部的<br> 中断控制器。H扩展增加了SGEI这个中断类型，当接收到虚拟机外部中断时，硬件通过SGEI<br> 中断把这个信息报给hypvisor, hypvisor就可以去调度虚拟机投入运行，hgeie可以控制针对<br> 具体虚拟机的外部中断，是否上报SGEI。hstatus里的VGEIN控制一个具体虚拟机的外部中断<br> 是否可以直通到虚拟机，所谓直通到虚拟机，就是这个中断会触发CPU直接进入vCPU的中断<br> 上下文里。整个逻辑怎么串起来，在上面的章节里已经说明。</p>
+<p> H扩展的介绍可以参考<a href="https://wangzhou.github.io/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/">https://wangzhou.github.io/riscv-KVM虚拟化分析/</a><br> 最核心的地方是，一个物理Hart上，定义了hgeie/hgeip寄存器，这个寄存器上的每个bit<br> 都对应这个物理Hart上一个虚拟机上的外部中断，hgeip表示对应虚拟机上有没有外部中断<br> 上报，hgeie表示对应的虚拟机外部中断会不会触发SGEI中断，H扩展的定义不关心外部的<br> 中断控制器。H扩展增加了SGEI这个中断类型，当接收到虚拟机外部中断时，硬件通过SGEI<br> 中断把这个信息报给hypvisor, hypvisor就可以去调度虚拟机投入运行，hgeie可以控制针对<br> 具体虚拟机的外部中断，是否上报SGEI。hstatus里的VGEIN控制一个具体虚拟机的外部中断<br> 是否可以直通到虚拟机，所谓直通到虚拟机，就是这个中断会触发CPU直接进入vCPU的中断<br> 上下文里。整个逻辑怎么串起来，在上面的章节里已经说明。</p>
 <p> 下面看AIA的逻辑，riscv的aclint和plic是不支持PCI的MSI中断的，也不支持虚拟化中断<br> 直通，AIA主要是补齐了相关功能。具体看，AIA新增了IMSIC(incoming MSI controller),<br> APLIC(Advanced plic)，以及MSI中断直通对于IOMMU的要求。</p>
 <p> IMSIC是一个可以独立使用的可以接收MSI的中断控制器，从上面章节中的示意图上可以看到，<br> 每个物理的HART都有一个独立的IMSIC，这个IMSCI在M mode、S mode以及对于虚拟化都有<br> 独立的资源，针对虚拟机的资源是每个虚拟机都有一份的，所谓资源，IMSIC上叫做interrupt<br> file，每个interrupt file有一个物理的MSI doorbell接口，而一个interrupt file被用来<br> 记录所有通过它上报的中断。我们从单个中断的视角再走一遍，也就是说中断写了，比如，<br> guest 1 interrupt file的MSI doorbell，那么hgeip的对应bit就会置1，如果这时hgeie<br> 对应bit置1，SGEI中断就会被触发，SGEI会被硬件代理到HS，那么就会进入hypvisor处理这个<br> 中断，如果hgeie对应bit是0，那么SGEI中断不会被触发，如果这时VGEIN配置成1，那么VS<br> 中断被触发，一般在拉起虚拟机之前，hypvisor已经把VS中断代理到VS，这时，这个中断<br> 就直接导致CPU进入vCPU的中断上下文。需要注意的是，我们看问题的时候，一般不要这样<br> 顺着状态变迁分析，但是这样看一遍会叫我们对这个问题有一个感性直观的问题。</p>
 <p> APLIC可以单独使用，APLIC也可以配合IMSIC使用，如果APLIC配合IMSIC使用，那么APLIC<br> 的输出必须被连在IMSIC的输入上，这样一个线中断被转成一个MSI中断。APLIC单独使用的<br> 时候，不支持虚拟化中断直通。本文先不去分析APLIC的逻辑，这个需要在独立的文档中分析。</p>
 <p> 理论上，我们对一个guest interrupt file的MSI doorbell写数据就可以触发对应的虚拟机<br> 机外部中断处于pending。但是，虚拟机里的直通设备并不能直接看到guest interrupt file<br> MSI doorbell的物理地址，所以，需要在guest的地址空间上为guest interrupt file的MSI<br> doorbell建立对应的映射，实际上就是在第二级页表里添加虚拟MSI doorbell到物理MSI<br> doorbell的映射。</p>
-<h2 id="QEMU模拟逻辑"><a href="#QEMU模拟逻辑" class="headerlink" title="QEMU模拟逻辑"></a>QEMU模拟逻辑</h2><p> qemu里模拟中断的基本思路可以参考这里：<span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcWVtdS10Y2clRTQlQjglQUQlRTYlOTYlQUQlRTYlQTglQTElRTYlOEIlOUYv">https://wangzhou.github.io/qemu-tcg中断模拟/<i class="fa fa-external-link-alt"></i></span><br> qemu里的实现需要分两个方面去看，一个是AIA在qemu是怎么被模拟的，一个是AIA在qemu里<br> 是怎么被使用的，怎么被使用是说qemu里怎么调用KVM的接口在KVM的把AIA创建出来。<br> 如果用<span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vJUU2JTlFJTg0JUU1JUJCJUJBcmlzY3YlRTQlQjglQTQlRTUlQjElODJxZW11JUU3JTlBJTg0JUU2JUFEJUE1JUU5JUFBJUE0Lw==">这里<i class="fa fa-external-link-alt"></i></span>提到的两层qemu<br> 的方法模拟整个系统，第一个方面是指第一层qemu的AIA的模拟，第二个方面指的是第二层<br> qemu的怎么创建KVM里的AIA设备。</p>
+<h2 id="QEMU模拟逻辑"><a href="#QEMU模拟逻辑" class="headerlink" title="QEMU模拟逻辑"></a>QEMU模拟逻辑</h2><p> qemu里模拟中断的基本思路可以参考这里：<a href="https://wangzhou.github.io/qemu-tcg%E4%B8%AD%E6%96%AD%E6%A8%A1%E6%8B%9F/">https://wangzhou.github.io/qemu-tcg中断模拟/</a><br> qemu里的实现需要分两个方面去看，一个是AIA在qemu是怎么被模拟的，一个是AIA在qemu里<br> 是怎么被使用的，怎么被使用是说qemu里怎么调用KVM的接口在KVM的把AIA创建出来。<br> 如果用<a href="https://wangzhou.github.io/%E6%9E%84%E5%BB%BAriscv%E4%B8%A4%E5%B1%82qemu%E7%9A%84%E6%AD%A5%E9%AA%A4/">这里</a>提到的两层qemu<br> 的方法模拟整个系统，第一个方面是指第一层qemu的AIA的模拟，第二个方面指的是第二层<br> qemu的怎么创建KVM里的AIA设备。</p>
 <p> 当前社区中的测试代码，第二层qemu是使用kvmtool代替的，kvmtool可以被简单理解为qemu<br> 里去掉tcg，只保留kvm的部分。</p>
 <p> 如下是qemu中模拟AIA的基本逻辑:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">/* target/riscv/cpu.c */</span><br><span class="line">riscv_cpu_init</span><br><span class="line">      /* 这里是虚拟机外部中断的硬件信号的输入口 */</span><br><span class="line">  +-&gt; qdev_init_gpio_in(..., riscv_cpu_set_irq, IRQ_LOCAL_MAX+IRQ_LOCAL_GUEST_MAX)</span><br></pre></td></tr></table></figure>
@@ -295,11 +295,12 @@
 
 
       <footer class="post-footer">
+          
           <div class="post-tags">
-              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"># 虚拟化</a>
-              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"># 中断</a>
-              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"># 计算机体系结构</a>
-              <a href="/tags/riscv/" rel="tag"># riscv</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"><i class="fa fa-tag"></i> 虚拟化</a>
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"><i class="fa fa-tag"></i> 中断</a>
+              <a href="/tags/riscv/" rel="tag"><i class="fa fa-tag"></i> riscv</a>
           </div>
 
         
@@ -441,7 +442,7 @@
 
 <div class="copyright">
   
-  &copy; 
+  &copy; 2021 – 
   <span itemprop="copyrightYear">2023</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>

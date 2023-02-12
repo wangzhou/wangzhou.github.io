@@ -14,7 +14,7 @@
 
 <link rel="stylesheet" href="/css/main.css">
 
-<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
@@ -269,7 +269,7 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">/* arch/riscv/kvm/vcpu.c */</span><br><span class="line">kvm_arch_vcpu_ioctl_run</span><br><span class="line">      /* 这里一进来run vcpu就处理MMIO，可能是上次时MMIO原因退出的，这样当然要接着MMIO的上下文继续跑 */</span><br><span class="line">  +-&gt; if (run-&gt;exit_reason == KVM_EXIT_MMIO)</span><br><span class="line">              kvm_riscv_vcpu_mmio_return(vcpu, vcpu-&gt;run)</span><br><span class="line">      /* 投入运行虚拟机, 异常后也从这里退出来 */</span><br><span class="line">  +-&gt; kvm_riscv_vcpu_enter_exit</span><br><span class="line">      /* 处理异常*/</span><br><span class="line">  +-&gt; kvm_riscv_vcpu_exit</span><br><span class="line">    +-&gt; gstage_page_fault</span><br><span class="line">      +-&gt; emulate_load</span><br><span class="line">            /* 在这里配置退出条件 */</span><br><span class="line">        +-&gt; run-&gt;exit_reason = KVM_EXIT_MMIO</span><br></pre></td></tr></table></figure>
 
 <p>随后独立考虑中断虚拟化。</p>
-<h2 id="qemu-kvm的基本逻辑"><a href="#qemu-kvm的基本逻辑" class="headerlink" title="qemu kvm的基本逻辑"></a>qemu kvm的基本逻辑</h2><p> <span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcWVtdS10Y2clRTclQkYlQkIlRTglQUYlOTElRTYlODklQTclRTglQTElOEMlRTYlQTAlQjglRTUlQkYlODMlRTklODAlQkIlRTglQkUlOTElRTUlODglODYlRTYlOUUlOTAv">qemu tcg翻译执行核心逻辑分析<i class="fa fa-external-link-alt"></i></span>已经介绍了虚拟机启动的相关逻辑，从qemu构架上看<br> kvm和tcg处于同一个层面上, 都是cpu模拟的一种加速器。</p>
+<h2 id="qemu-kvm的基本逻辑"><a href="#qemu-kvm的基本逻辑" class="headerlink" title="qemu kvm的基本逻辑"></a>qemu kvm的基本逻辑</h2><p> <a href="https://wangzhou.github.io/qemu-tcg%E7%BF%BB%E8%AF%91%E6%89%A7%E8%A1%8C%E6%A0%B8%E5%BF%83%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">qemu tcg翻译执行核心逻辑分析</a>已经介绍了虚拟机启动的相关逻辑，从qemu构架上看<br> kvm和tcg处于同一个层面上, 都是cpu模拟的一种加速器。</p>
 <p> 虚拟机初始化逻辑:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">/* accel/kvm/kvm-all.c */</span><br><span class="line">kvm_init</span><br><span class="line">  +-&gt; qemu_open_old(&quot;/dev/kvm&quot;, O_RDWR)</span><br><span class="line">      /* 创建虚拟机 */</span><br><span class="line">  +-&gt; kvm_ioctl(s, KVM_CREATE_VM, type);</span><br><span class="line">      /* 虚拟机内存配置入口 */</span><br><span class="line">  +-&gt; kvm_memory_listener_register</span><br><span class="line">    +-&gt; kvm_region_add</span><br><span class="line">      +-&gt; kvm_set_phys_mem</span><br><span class="line">        +-&gt; kvm_set_user_memory_region</span><br><span class="line">          +-&gt; kvm_vm_ioctl(s, KVM_SET_USER_MEMORY_REGION, &amp;mem)</span><br></pre></td></tr></table></figure>
 <p> kvm vcpu线程启动的逻辑：</p>
@@ -279,13 +279,13 @@
 <p> riscv的H扩展增加了CPU的状态，增加了一个隐式的V状态，当V=0的时候，CPU的U/M状态还和<br> 之前是一样的，S状态处在HS状态，当V=1的时候，CPU原来的U/S状态变成了VU/VS状态。<br> V状态在中断或异常时由硬件改变，还有一个改变的地方是sret/mret指令。具体的变化逻辑<br> 是: 1. 当在V状态trap进HS时，硬件会把V配置成0; 2. CPU trap进入M状态，硬件会把V配置成0;<br> 3. sret返回时, 恢复到之前的V状态；4. mret返回时, 恢复到之前的V状态。这里说的之前<br> 的V状态，riscv的hstatus寄存器上的SPV(Supervisor Previous Virtualization mode)表示<br> “之前的V状态”，上述的sret和mret从这个寄存器中得到之前的V状态。如前所述，kvm在启动<br> 虚拟机之前会配置hstatus的SPV为1，这样使用sret启动虚拟机后，V状体被置为1。</p>
 <p> 增加了hypervisor和guest对应的两组寄存器，其中hypervisor对应的寄存器有: hstatus, hedeleg,<br> hideleg, hvip, hip, hie, hgeip, hgeie, henvcfg, henvcfgh, hounteren, htimedelta, htimedeltah,<br> htval, htinst, hgatp, guest对应的寄存器有：vsstatus, vsip, vsie, vstvec, vsscratch, vsepc,<br> vscause, vstval, vsatp。</p>
 <p> 对于这些系统寄存器，我们可以大概分为两类，一类是配置hypvisor的行为的，一类是VS/VU<br> 的映射寄存器。我们一个一个寄存器看下。VS/VU的映射寄存器就是CPU在运行在V状态时使用<br> 的寄存器，这些寄存器基本上是S mode寄存器的翻版，riscv spec提到，当系统运行在V状态<br> 时，硬件的控制逻辑依赖这组vs开头的寄存器，这时对S mode相同寄存器的读写被映射到vs<br> 开头的这组寄存器上。</p>
-<p> hedeleg/hideleg表示是否要把HS的中断继续委托到VS去处理，在进入V模式前，如果需要，<br> 就要提前配置好。具体的委托情况可以参考<span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcmlzY3YlRTQlQjglQUQlRTYlOTYlQUQlRTUlQkMlODIlRTUlQjglQjglRTUlQTclOTQlRTYlODklOTglRTUlODUlQjMlRTclQjMlQkIlRTUlODglODYlRTYlOUUlOTAv">这里<i class="fa fa-external-link-alt"></i></span><br> 这里需要注意的是，RV协议上提到，当H扩展实现时，VS的几个中断的mideleg对应域段硬件<br> 直接就配置成1了，也就是说默认被代理到HS处理。如果GEILEN非零，也就是有SGEI，那么<br> SGEI也会直接硬件默认代理到HS处理。</p>
+<p> hedeleg/hideleg表示是否要把HS的中断继续委托到VS去处理，在进入V模式前，如果需要，<br> 就要提前配置好。具体的委托情况可以参考<a href="https://wangzhou.github.io/riscv%E4%B8%AD%E6%96%AD%E5%BC%82%E5%B8%B8%E5%A7%94%E6%89%98%E5%85%B3%E7%B3%BB%E5%88%86%E6%9E%90/">这里</a><br> 这里需要注意的是，RV协议上提到，当H扩展实现时，VS的几个中断的mideleg对应域段硬件<br> 直接就配置成1了，也就是说默认被代理到HS处理。如果GEILEN非零，也就是有SGEI，那么<br> SGEI也会直接硬件默认代理到HS处理。</p>
 <p> hgatp是第二级页表的基地址寄存器。</p>
 <p> hvip用于给虚拟机VS mode注入中断，写VSEIP/VSTIP/VSSIP域段，会给VS mode注入相关中断，<br> riscv spec里没有说，注入的中断在什么状态下会的到响应？如果有多个VM实例，中断注入<br> 了哪个实例里?</p>
 <p> hip/hie是hypvisor下中断相关的pending和enable控制。hip/hie包含hvip的各个域段，除了<br> 如上的域段，还有一个SGEIP域段。协议上这里写的比较绕，先是总述了hip/hie里各个域段<br> 在不同读写属性下对应的逻辑是怎么样的，然后分开bit去描述。细节的逻辑是，hip.SGEIP<br> 是只读的，只有在hgeip/hgeie表示的vCPU里有中断可以处理时才是1，所以这个域段表示这个<br> 物理CPU上的vCPU是否有外部中断需要处理; hip.VSEIP也是只读的，在hvip.VSEIP是1或者<br> hgeip有pending bit时，hip.VSEIP为1。</p>
 <p> hgeip/hgeie是SGEI的pending和enable控制，如果hgeip/hgeie是一个64bit的寄存器，那么<br> 它的1-63bit可以表示1-63个vcpu的SGEI pending/enable bit，每个bit描述直通到该vCPU<br> 上的中断，所以，协议上说要配合中断控制器使用。hgeip是一个只读寄存器。</p>
 <p> 所以，VSEIP是一个SEIP的对照中断，而SGEI是一个直通中断的汇集信号。</p>
-<p> vcpu怎么响应这个直通的中断？我们把这个逻辑独立出来在这里描述:<br> <span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcmlzY3YtQUlBJUU5JTgwJUJCJUU4JUJFJTkxJUU1JTg4JTg2JUU2JTlFJTkwLw==">https://wangzhou.github.io/riscv-AIA逻辑分析/<i class="fa fa-external-link-alt"></i></span></p>
+<p> vcpu怎么响应这个直通的中断？我们把这个逻辑独立出来在这里描述:<br> <a href="https://wangzhou.github.io/riscv-AIA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">https://wangzhou.github.io/riscv-AIA逻辑分析/</a></p>
 <p> 罗列出riscv上所有的中断类型，S mode/M mode/VS mode的外部中断/时钟中断/软件中断<br> 这些一共下来就是9种中断类型，再加上supervisor guest external interrupt。</p>
 <p> htval/htinst是HS异常时的参数寄存器。htval用来存放guest page fault的IPA，其他情况<br> 暂时时0，留给以后扩展。两级翻译的具体流程在独立的文档中描述。</p>
 <p> 这些寄存器的qemu实现比较有意思，VS在实际运行的时候会把vs开头寄存器中配置的值copy<br> 到S mode的寄存器上，把HS mode的寄存器中原来的值，存在硬件里。qemu上VS实际运行依赖<br> 的还是S mode寄存器上的当前状态，qemu的实现如果和协议一样，qemu在VS时对S mode寄存器<br> 的改写应该同时写到vsxxx这组寄存器上，VS状态的实际控制应该依赖于vsxxx这组寄存器，<br> qemu目前的实现应该逻辑上也是对的。要让guest内核可以直接运行到KVM上，原来使用的<br> 寄存器名字也是不能改变的。</p>
@@ -335,11 +335,12 @@
 
 
       <footer class="post-footer">
+          
           <div class="post-tags">
-              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
-              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"># 虚拟化</a>
-              <a href="/tags/riscv/" rel="tag"># riscv</a>
-              <a href="/tags/KVM/" rel="tag"># KVM</a>
+              <a href="/tags/QEMU/" rel="tag"><i class="fa fa-tag"></i> QEMU</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"><i class="fa fa-tag"></i> 虚拟化</a>
+              <a href="/tags/riscv/" rel="tag"><i class="fa fa-tag"></i> riscv</a>
+              <a href="/tags/KVM/" rel="tag"><i class="fa fa-tag"></i> KVM</a>
           </div>
 
         
@@ -481,7 +482,7 @@
 
 <div class="copyright">
   
-  &copy; 
+  &copy; 2021 – 
   <span itemprop="copyrightYear">2023</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>

@@ -14,7 +14,7 @@
 
 <link rel="stylesheet" href="/css/main.css">
 
-<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
@@ -303,7 +303,7 @@
 </li>
 <li><p>DMA</p>
 <p>软件写0x1018 bit0为1触发一个DMA数据拷贝，相关实现代码在dma_engine_do_dma_copy里。<br>这个函数直接调用pci_dma_read/pci_dma_write做设备buffer和内存之间的数据搬移，这里<br>在使能smmuv3的时候，以上两个函数的内部实现会先调用smmuv3的translation函数做地址<br>翻译，然后再做数据搬移，在不使能smmuv3的时候，直接使用内存地址做数据搬移。</p>
-<p>如果只是模拟一个PCIe EP设备，可以不用管和iommu相关的内部实现。如果要做iommu的模拟，<br>可以参考<span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcWVtdS1pb21tdSVFNiVBOCVBMSVFNiU4QiU5RiVFNiU4MCU5RCVFOCVCNyVBRiVFNSU4OCU4NiVFNiU5RSU5MC8=">这里<i class="fa fa-external-link-alt"></i></span></p>
+<p>如果只是模拟一个PCIe EP设备，可以不用管和iommu相关的内部实现。如果要做iommu的模拟，<br>可以参考<a href="https://wangzhou.github.io/qemu-iommu%E6%A8%A1%E6%8B%9F%E6%80%9D%E8%B7%AF%E5%88%86%E6%9E%90/">这里</a></p>
 </li>
 <li><p>中断</p>
 <p>realize函数中使用pci_config_set_interrupt_pin给设备加一个INTx中断。使用msi_init<br>给设备加MSI中断。可以使用pci_irq_assert触发一个电平中断，通过msi_notify触发一个<br>MSI中断，通过qemu_irq_pulse触发一个边沿中断。</p>
@@ -338,9 +338,10 @@
 
 
       <footer class="post-footer">
+          
           <div class="post-tags">
-              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
-              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"># 虚拟化</a>
+              <a href="/tags/QEMU/" rel="tag"><i class="fa fa-tag"></i> QEMU</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"><i class="fa fa-tag"></i> 虚拟化</a>
           </div>
 
         
@@ -482,7 +483,7 @@
 
 <div class="copyright">
   
-  &copy; 
+  &copy; 2021 – 
   <span itemprop="copyrightYear">2023</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>

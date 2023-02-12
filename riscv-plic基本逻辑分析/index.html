@@ -14,7 +14,7 @@
 
 <link rel="stylesheet" href="/css/main.css">
 
-<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
@@ -33,7 +33,7 @@
 <meta property="og:image" content="http://wangzhou.github.io/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/plic_hardware.png">
 <meta property="og:image" content="http://wangzhou.github.io/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/plic_flow.png">
 <meta property="article:published_time" content="2022-12-19T07:43:24.000Z">
-<meta property="article:modified_time" content="2023-02-06T11:23:25.481Z">
+<meta property="article:modified_time" content="2023-02-12T07:33:23.275Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="中断">
 <meta property="article:tag" content="riscv">
@@ -236,7 +236,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-02-06 19:23:25" itemprop="dateModified" datetime="2023-02-06T19:23:25+08:00">2023-02-06</time>
+                <time title="修改时间：2023-02-12 15:33:23" itemprop="dateModified" datetime="2023-02-12T15:33:23+08:00">2023-02-12</time>
               </span>
 
           
@@ -290,12 +290,12 @@
 
 <h2 id="内核实现"><a href="#内核实现" class="headerlink" title="内核实现"></a>内核实现</h2><p> plic的Linux内核驱动在: linux/drivers/irqchip/irq-sifive-plic.c，要理解plic的代码<br> 还需要理解intc的逻辑，intc是CPU core本地”中断控制器”，是CPU core内部处理中断逻辑<br> 的一个抽象，可以简单的理解intc的输入是各个CPU中断类型，输出是中断CPU。</p>
 <p> 本地”中断控制器”的初始化触发路径是：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">start_kernel</span><br><span class="line">      /* arch/riscv/kernel/irq.c */</span><br><span class="line">  +-&gt; init_IRQ</span><br><span class="line">    +-&gt; irqchip_init</span><br><span class="line">          /*</span><br><span class="line">           * 扫描__irqchip_of_table这个段里的所有中断控制器，然后调用它们的初始</span><br><span class="line">    * 化函数。</span><br><span class="line">           */</span><br><span class="line">      +-&gt; of_irq_init(__irqchip_of_table)</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">start_kernel</span><br><span class="line">      /* arch/riscv/kernel/irq.c */</span><br><span class="line">  +-&gt; init_IRQ</span><br><span class="line">    +-&gt; irqchip_init</span><br><span class="line">          /*</span><br><span class="line">           * 扫描__irqchip_of_table这个段里的所有中断控制器，然后调用它们的初始</span><br><span class="line">           * 化函数。</span><br><span class="line">           */</span><br><span class="line">      +-&gt; of_irq_init(__irqchip_of_table)</span><br></pre></td></tr></table></figure>
 <p> 这个中断控制器的驱动在drivers/irqchip/irq-riscv-intc.c, 这个驱动会把中断控制器<br> 相关的structure of_device_id放到__irqchip_of_table段里。of_irq_init会扫面dts里<br> 所有的interrupt controller节点，并且按照最顶端的中断控制器依此向下遍历每个中断<br> 控制器节点，调用其中的初始化函数。具体到riscv就是依此调用riscv_intc_init、plic_init<br> 等，我们这里先考虑最简单的系统，即系统中只有plic。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">riscv_intc_init</span><br><span class="line">      /*</span><br><span class="line">       * 初始化intc对应的irq domain, 在riscv64上为这个irq domain分了64个中断输入，</span><br><span class="line">       * 这里的输入就是cpu core上对应的各种中断类型，比如M mode timer中断、S mode</span><br><span class="line">       * 外部中断等。</span><br><span class="line">       *</span><br><span class="line">       * 这里并没有为每个具体的中断类型建立irq_desc以及建立硬件中断号到virq的映射，</span><br><span class="line">       * 我们下面可以看到，直到有具体的用户时，才会建立对应的virq。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; irq_domain_add_linear</span><br><span class="line">  +-&gt; set_handle_irq</span><br></pre></td></tr></table></figure>
 <p> set_handle_irq把riscv_intc_irq配置给handle_arch_irq，从entry.S的分析可以知道，<br> CPU被中断时会跳到handle_arch_irq执行，所以riscv_intc_irq就是riscv上中断处理的总<br> 入口。</p>
 <p> plic会汇集外设的中断，然后接入CPU的M mode external irq和S mode external irq，所以<br> S mode external irq对应的irq_desc和virq是在plic初始化时做的，具体上，plic的初始化<br> 会找见plic的父中断控制器，就是intc，然后做相关操作:</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">__plic_init</span><br><span class="line">      /*</span><br><span class="line">       * 通过plic dts中的interrupts-extended得到中断context的个数，简单情况下，</span><br><span class="line">       * 如果一个CPU core上有M mode external irq和S mode external irq，那么整个</span><br><span class="line">       * 系统上plic的context个数就是核数乘2。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; nr_contexts = of_irq_count(node)</span><br><span class="line">      /* 创建plic的irq domain */</span><br><span class="line">  +-&gt; irq_domain_add_linear</span><br><span class="line"></span><br><span class="line">  +-&gt; 针对每个context做如下迭代：</span><br><span class="line">        /*</span><br><span class="line">  * 找到plic的父节点，并调用irq_create_of_mapping，得到S mode external irq</span><br><span class="line">  * 的virq，这个过程会分配对应的irq_desc。</span><br><span class="line">  */</span><br><span class="line">    +-&gt; plic_parent_irq = irq_of_parse_and_map</span><br><span class="line">      +-&gt; irq_create_of_mapping</span><br><span class="line">        /* 配置intc S mode外部中断对应的处理函数 */</span><br><span class="line">    +-&gt; irq_set_chained_handler(plic_parent_irq, plic_handle_irq)</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">__plic_init</span><br><span class="line">      /*</span><br><span class="line">       * 通过plic dts中的interrupts-extended得到中断context的个数，简单情况下，</span><br><span class="line">       * 如果一个CPU core上有M mode external irq和S mode external irq，那么整个</span><br><span class="line">       * 系统上plic的context个数就是核数乘2。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; nr_contexts = of_irq_count(node)</span><br><span class="line">      /* 创建plic的irq domain */</span><br><span class="line">  +-&gt; irq_domain_add_linear</span><br><span class="line"></span><br><span class="line">  +-&gt; 针对每个context做如下迭代：</span><br><span class="line">        /*</span><br><span class="line">         * 找到plic的父节点，并调用irq_create_of_mapping，得到S mode external irq</span><br><span class="line">         * 的virq，这个过程会分配对应的irq_desc。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; plic_parent_irq = irq_of_parse_and_map</span><br><span class="line">      +-&gt; irq_create_of_mapping</span><br><span class="line">        /* 配置intc S mode外部中断对应的处理函数 */</span><br><span class="line">    +-&gt; irq_set_chained_handler(plic_parent_irq, plic_handle_irq)</span><br></pre></td></tr></table></figure>
 
 <p> 可以想象，一个中断连接到plic输入上的具体外设，应该是在外设对应的设备节点初始化<br> 的时候找见外设对应的plic节点，在plic irq domain上创建外设中断对应的irq_desc以及<br> virq。外设驱动里通过requst_irq接口把外设的中断处理函数注册给virq。</p>
 
@@ -321,9 +321,10 @@
 
 
       <footer class="post-footer">
+          
           <div class="post-tags">
-              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"># 中断</a>
-              <a href="/tags/riscv/" rel="tag"># riscv</a>
+              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"><i class="fa fa-tag"></i> 中断</a>
+              <a href="/tags/riscv/" rel="tag"><i class="fa fa-tag"></i> riscv</a>
           </div>
 
         
@@ -465,7 +466,7 @@
 
 <div class="copyright">
   
-  &copy; 
+  &copy; 2021 – 
   <span itemprop="copyrightYear">2023</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>

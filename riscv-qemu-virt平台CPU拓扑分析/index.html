@@ -14,7 +14,7 @@
 
 <link rel="stylesheet" href="/css/main.css">
 
-<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
@@ -253,7 +253,7 @@
 
 <p>下面描述如上各个对象的初始化逻辑，整个逻辑从virt平台初始化开始。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">virt_machine_init</span><br><span class="line">      /* 初始化hart_array, 被初始化的hart_array的指针通过&amp;s-&gt;soc[i]传入 */</span><br><span class="line">  +-&gt; object_initialize_child(OBJECT(machine), soc_name, &amp;s-&gt;soc[i], TYPE_RISCV_HART_ARRAY);</span><br><span class="line">      /* 触发hart_array的realize函数被调用 */</span><br><span class="line">  +-&gt; sysbus_realize(SYS_BUS_DEVICE(&amp;s-&gt;soc[i]), &amp;error_fatal);</span><br><span class="line">        /*</span><br><span class="line">	 * hart_array的realize函数, 其中会初始化和realize各个hart，因为是在hart_array</span><br><span class="line">	 * 的上下文，这里就可以针对不同的hart做一些差异化的配置，比如, 下面配置</span><br><span class="line">	 * 每个hart的hart id。</span><br><span class="line">	 */</span><br><span class="line">    +-&gt; riscv_harts_realize</span><br><span class="line">          /* RISCVCPU的内存是在hart_array的realize函数里申请的 */</span><br><span class="line">      +-&gt; s-&gt;harts = g_new0(RISCVCPU, s-&gt;num_harts);</span><br><span class="line">          /* 针对每个hart都调用一个下 */</span><br><span class="line">      +-&gt; riscv_hart_realize</span><br><span class="line">            /* RISCVCPU初始化, 对应的初始化函数在这里被调用(riscv_cpu_init) */</span><br><span class="line">        +-&gt; object_initialize_child(OBJECT(s), &quot;harts[*]&quot;, &amp;s-&gt;harts[idx], cpu_type);</span><br><span class="line">	  +-&gt; riscv_cpu_init</span><br><span class="line">	    /* 为每个hart配置复位pc地址 */</span><br><span class="line">        +-&gt; qdev_prop_set_uint64(DEVICE(&amp;s-&gt;harts[idx]), &quot;resetvec&quot;, s-&gt;resetvec);</span><br><span class="line">	    /* 为每个hart配置hart id */</span><br><span class="line">        +-&gt; s-&gt;harts[idx].env.mhartid = s-&gt;hartid_base + idx;</span><br><span class="line">        +-&gt; qemu_register_reset(riscv_harts_cpu_reset, &amp;s-&gt;harts[idx]);</span><br><span class="line">	    /*</span><br><span class="line">	     * 触发RISCVCPU的realize函数被调用，其中的细节分析，可以参考下面的链接。</span><br><span class="line">	     */</span><br><span class="line">        +-&gt; qdev_realize(DEVICE(&amp;s-&gt;harts[idx]), NULL, errp); (riscv_cpu_realize)</span><br><span class="line">	  +-&gt; [...]</span><br><span class="line">          +-&gt; qemu_init_vcpu(cs);</span><br><span class="line">          +-&gt; cpu_reset(cs);</span><br><span class="line">          +-&gt; mcc-&gt;parent_realize(dev, errp);</span><br></pre></td></tr></table></figure>
-<p><span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vJUU1JUE0JTlBJUU2JUEwJUI4JUU1JTkwJUFGJUU1JThBJUE4JUU1JTlGJUJBJUU2JTlDJUFDJUU5JTgwJUJCJUU4JUJFJTkxJUU1JTg4JTg2JUU2JTlFJTkwLw==">RISCVCPU realize函数细节分析<i class="fa fa-external-link-alt"></i></span></p>
+<p><a href="https://wangzhou.github.io/%E5%A4%9A%E6%A0%B8%E5%90%AF%E5%8A%A8%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">RISCVCPU realize函数细节分析</a></p>
 
     </div>
 
@@ -277,10 +277,11 @@
 
 
       <footer class="post-footer">
+          
           <div class="post-tags">
-              <a href="/tags/riscv/" rel="tag"># riscv</a>
-              <a href="/tags/qemu/" rel="tag"># qemu</a>
-              <a href="/tags/CPU/" rel="tag"># CPU</a>
+              <a href="/tags/riscv/" rel="tag"><i class="fa fa-tag"></i> riscv</a>
+              <a href="/tags/qemu/" rel="tag"><i class="fa fa-tag"></i> qemu</a>
+              <a href="/tags/CPU/" rel="tag"><i class="fa fa-tag"></i> CPU</a>
           </div>
 
         
@@ -421,7 +422,7 @@
 
 <div class="copyright">
   
-  &copy; 
+  &copy; 2021 – 
   <span itemprop="copyrightYear">2023</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>

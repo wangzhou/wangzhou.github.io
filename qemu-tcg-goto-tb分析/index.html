@@ -14,7 +14,7 @@
 
 <link rel="stylesheet" href="/css/main.css">
 
-<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
@@ -241,7 +241,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <h2 id="goto-tb分析"><a href="#goto-tb分析" class="headerlink" title="goto tb分析"></a>goto tb分析</h2><p> <span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vcWVtdS10Y2clRTglQjclQjMlRTglQkQlQUMlRTclOUElODQlRTUlQTQlODQlRTclOTAlODYv">qemu tcg跳转的处理<i class="fa fa-external-link-alt"></i></span>中分析了qemu<br> 中模拟跳转的逻辑，其中提到了chained tb的概念，chained tb中有一个限制，这个在它<br> 的代码实现里看出来：两个chained tb对应的guest指令需要在同一个guest的page里。下面<br> 分析这样限制的原因。</p>
+        <h2 id="goto-tb分析"><a href="#goto-tb分析" class="headerlink" title="goto tb分析"></a>goto tb分析</h2><p> <a href="https://wangzhou.github.io/qemu-tcg%E8%B7%B3%E8%BD%AC%E7%9A%84%E5%A4%84%E7%90%86/">qemu tcg跳转的处理</a>中分析了qemu<br> 中模拟跳转的逻辑，其中提到了chained tb的概念，chained tb中有一个限制，这个在它<br> 的代码实现里看出来：两个chained tb对应的guest指令需要在同一个guest的page里。下面<br> 分析这样限制的原因。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"> VA1 ---&gt; +---------------+ </span><br><span class="line">          |               |</span><br><span class="line">          |               |  map1</span><br><span class="line">          |               | ----------+</span><br><span class="line">          |               |           |</span><br><span class="line">          |               |           |</span><br><span class="line"> VA2 ---&gt; +---------------+           |        +---------------+ &lt;--- PA1</span><br><span class="line">          |               |           |        |               |</span><br><span class="line">          |               |  map2     +------&gt; |               |</span><br><span class="line">          |               | ------+            |               |</span><br><span class="line">          |               |       |            |               |</span><br><span class="line">          |               |  map3 |            |               |</span><br><span class="line">          +---------------+ ----+ |            +---------------+ &lt;--- PA2</span><br><span class="line">                                | |            |               |</span><br><span class="line">                                | +----------&gt; |               |</span><br><span class="line">                                |              |               |</span><br><span class="line">                                |              |               |</span><br><span class="line">                                |              |               |</span><br><span class="line">                                |              +---------------+ &lt;--- PA3</span><br><span class="line">                                |              |               |</span><br><span class="line">                                +------------&gt; |               |</span><br><span class="line">                                               |               |</span><br><span class="line">                                               |               |</span><br><span class="line">                                               |               |</span><br><span class="line">                                               +---------------+</span><br><span class="line">tb1 key: pa1</span><br><span class="line">+-------+ &lt;---------------------+   &lt;------ htable</span><br><span class="line">|       |                       |</span><br><span class="line">|       |                       |</span><br><span class="line">+-------+                       |</span><br><span class="line">    |                           |</span><br><span class="line">    |                           |</span><br><span class="line">    |                           |</span><br><span class="line">    v tb2 key: pa2              |</span><br><span class="line">+-------+ &lt;-------------+       |</span><br><span class="line">|       |               |       |</span><br><span class="line">|       |               |       |</span><br><span class="line">+-------+               |       |</span><br><span class="line">                        |       |</span><br><span class="line">                        |       |</span><br><span class="line">tb_jmp_cache key: va    |       |</span><br><span class="line">+--------------------------------------------------------------+</span><br><span class="line">|                      va2     va1                             |</span><br><span class="line">+--------------------------------------------------------------+</span><br></pre></td></tr></table></figure>
 <p> qemu在翻译执行的时候，对于tb有两个cache，首先所有生成的tb都会放到htable这个哈希表，<br> 这个是我们这里说的第一个cache，这个哈希表的key是guest代码块的起始pa以及一些其它的<br> flag，另外一个cache叫tb_jmp_cache，这个是很简单的用guest代码块的起始va做key(这个<br> cache和本文分析的问题无关，对于它的分析，我们单独放到最后)。</p>
 <p> htable用pa以及flag做key，在翻译执行的时候首先会用va查tlb得到pa，如果tlb里没有缓存，<br> 那就触发page table walk或者取指令异常，终归是要把pa找到并填到tlb里。</p>
@@ -286,8 +286,9 @@
 
 
       <footer class="post-footer">
+          
           <div class="post-tags">
-              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
+              <a href="/tags/QEMU/" rel="tag"><i class="fa fa-tag"></i> QEMU</a>
           </div>
 
         
@@ -429,7 +430,7 @@
 
 <div class="copyright">
   
-  &copy; 
+  &copy; 2021 – 
   <span itemprop="copyrightYear">2023</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>

@@ -14,7 +14,7 @@
 
 <link rel="stylesheet" href="/css/main.css">
 
-<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Monda:300,300italic,400,400italic,700,700italic|Roboto Slab:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
 <link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
   <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
 
@@ -280,7 +280,7 @@
 <p> child属性</p>
 <h2 id="interface"><a href="#interface" class="headerlink" title="interface"></a>interface</h2><p> 目前只看了PCI/PCIe设备里使用了interface这个东西，PCIe设备用INTERFACE_PCIE_DEVICE<br> PCI设备用INTERFACE_CONVENTIONAL_PCI_DEVICE。pci设备的realize函数里根据interface<br> 的情况决定是否要使能PCI_CAP_EXPRESS，这个只在PCIe的时候使能。</p>
 <p> 注意，PCI设备只有0x0~0xff的配置空间。</p>
-<h2 id="一个例子"><a href="#一个例子" class="headerlink" title="一个例子"></a>一个例子</h2><p> 这里写了一个dma engine的qemu设备作为<span class="exturl" data-url="aHR0cHM6Ly93YW5nemhvdS5naXRodWIuaW8vJUU1JUE2JTgyJUU0JUJEJTk1JUU1JTlDJUE4cWVtdSVFOSU4NyU4QyVFNSVBMiU5RSVFNSU4QSVBMCVFNCVCOCU4MCVFNCVCOCVBQSVFOCU5OSU5QSVFNiU4QiU5RiVFOCVBRSVCRSVFNSVBNCU4Ny8=">例子<i class="fa fa-external-link-alt"></i></span>。</p>
+<h2 id="一个例子"><a href="#一个例子" class="headerlink" title="一个例子"></a>一个例子</h2><p> 这里写了一个dma engine的qemu设备作为<a href="https://wangzhou.github.io/%E5%A6%82%E4%BD%95%E5%9C%A8qemu%E9%87%8C%E5%A2%9E%E5%8A%A0%E4%B8%80%E4%B8%AA%E8%99%9A%E6%8B%9F%E8%AE%BE%E5%A4%87/">例子</a>。</p>
 
     </div>
 
@@ -304,9 +304,10 @@
 
 
       <footer class="post-footer">
+          
           <div class="post-tags">
-              <a href="/tags/QEMU/" rel="tag"># QEMU</a>
-              <a href="/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1/" rel="tag"># 面向对象</a>
+              <a href="/tags/QEMU/" rel="tag"><i class="fa fa-tag"></i> QEMU</a>
+              <a href="/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1/" rel="tag"><i class="fa fa-tag"></i> 面向对象</a>
           </div>
 
         
@@ -448,7 +449,7 @@
 
 <div class="copyright">
   
-  &copy; 
+  &copy; 2021 – 
   <span itemprop="copyrightYear">2023</span>
   <span class="with-love">
     <i class="fa fa-heart"></i>
