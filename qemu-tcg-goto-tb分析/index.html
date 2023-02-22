@@ -31,7 +31,7 @@
 <meta property="og:description" content="分析goto tb什么要在一个page内，使用的qemu代码的版本是v7.1.50，分析基于riscv构架。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-01-20T09:38:26.000Z">
-<meta property="article:modified_time" content="2023-02-19T14:46:27.766Z">
+<meta property="article:modified_time" content="2023-02-22T05:22:49.971Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="QEMU">
 <meta name="twitter:card" content="summary">
@@ -232,7 +232,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-02-19 22:46:27" itemprop="dateModified" datetime="2023-02-19T22:46:27+08:00">2023-02-19</time>
+                <time title="修改时间：2023-02-22 13:22:49" itemprop="dateModified" datetime="2023-02-22T13:22:49+08:00">2023-02-22</time>
               </span>
 
           
@@ -265,7 +265,7 @@
 <p>从如上数据结构中去掉一个tb的逻辑如下, 比如我们这里要去掉tb3，具体的逻辑是：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">do_tb_phys_invalidate</span><br><span class="line">      /*</span><br><span class="line">       * 找到tb3指向的节点，把tb3指向的tb中的jmp_list_head上的tb3节点去掉, 分别</span><br><span class="line">       * 对tb3可能指向的两个tb节点做这样的操作。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; tb_remove_from_jmp_list(tb, 0)</span><br><span class="line">  +-&gt; tb_remove_from_jmp_list(tb, 1)</span><br><span class="line"></span><br><span class="line">      /* 从tb3的jmp_list_head的到指向他的tb, 更新这些tb的指向 */</span><br><span class="line">  +-&gt; tb_jmp_unlink(tb)</span><br></pre></td></tr></table></figure>
 
-<p> PageDesc初始化的地方是page_init函数，可以看出相关的位置是各种tcg资源初始化的地方:</p>
+<p> 如上已经介绍了goto tb相关的关键逻辑，下面进一步看下qemu PageDesc相关的整体实现。<br> PageDesc初始化的地方是page_init函数，可以看出相关的位置是各种tcg资源初始化的地方:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">/* accel/tcg/tcg-all.c */</span><br><span class="line">tcg_init_machine</span><br><span class="line">  +-&gt; page_init</span><br><span class="line">        /*</span><br><span class="line">         * 这个函数里初始化PageDesc的各级表项的配置，它和页表类似的用一个多级表</span><br><span class="line">         * 管理整个物理地址空间。</span><br><span class="line">         *</span><br><span class="line">         * 对于riscv 44bit的物理地址空间来说，如果一个PageDesc管理4KB的页面，</span><br><span class="line">         * 整个物理地址空间的管理分为两级，第二级一项管理1K个页面，那么第一级有</span><br><span class="line">         * 44 - 12 - 10 = 22，2 ^ 22项。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; page_table_config_init</span><br><span class="line">  +-&gt; tb_htable_init</span><br><span class="line">      /* tcg后端翻译需要的资源 */</span><br><span class="line">  +-&gt; tcg_init</span><br></pre></td></tr></table></figure>
 <p> 通过物理地址找见PageDesc的函数：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">page_find_alloc</span><br></pre></td></tr></table></figure>
@@ -274,7 +274,7 @@
 <p> 从PageDesc里去掉一个tb，直接从链表里去掉对应的tb即可：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">tb_page_remove(p, tb)</span><br></pre></td></tr></table></figure>
 <p> PageDesc里tb被去掉的调用路径：(to do test)</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">store_helper</span><br><span class="line">  +--&gt; notdirty_write(env_cpu(env), addr, size, full, retaddr);</span><br><span class="line">    +-&gt; tb_invalidate_phys_page_fast(pages, ram_addr, size, retaddr);</span><br><span class="line">      +-&gt; tb_invalidate_phys_page_range__locked</span><br><span class="line">        +-&gt; tb_phys_invalidate__locked(tb);</span><br><span class="line">          +-&gt; do_tb_phys_invalidate(tb, true);</span><br><span class="line">            +-&gt; qht_remove(&amp;tb_ctx.htable, tb, h)</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">store_helper</span><br><span class="line">  +--&gt; notdirty_write(env_cpu(env), addr, size, full, retaddr);</span><br><span class="line">    +-&gt; tb_invalidate_phys_page_fast(pages, ram_addr, size, retaddr);</span><br><span class="line">      +-&gt; tb_invalidate_phys_page_range__locked</span><br><span class="line">        +-&gt; tb_phys_invalidate__locked(tb);</span><br><span class="line">              /* 如上讲的guest代码被修改后，需要移除对应的tb，相关逻辑的入口是这里*/</span><br><span class="line">          +-&gt; do_tb_phys_invalidate(tb, true);</span><br><span class="line">                /* 移除htable里的tb */</span><br><span class="line">            +-&gt; qht_remove(&amp;tb_ctx.htable, tb, h)</span><br><span class="line">                /* 移除PageDesc里的tb */</span><br><span class="line">            +-&gt; tb_page_remove</span><br><span class="line">         /* 从tb链条里移除tb */</span><br><span class="line">            +-&gt; tb_remove_from_jmp_list(tb, 0);                                             </span><br><span class="line">            +-&gt; tb_remove_from_jmp_list(tb, 1);                                             </span><br><span class="line">            +-&gt; tb_jmp_unlink(tb);                                                          </span><br></pre></td></tr></table></figure>
 
 <p> 我们可以把gdb的断点设在tb_invalidate_phys_page_range__locked上，然后运行一段自修改<br> 代码(<span class="exturl" data-url="aHR0cHM6Ly85dG81YW5zd2VyLmNvbS9ob3ctdG8td3JpdGUtc2VsZi1tb2RpZnlpbmctY29kZS1pbi1j">自修改代码可以参考这里<i class="fa fa-external-link-alt"></i></span>)，看看实际运行的效果。</p>
 <h2 id="指令垮页分析"><a href="#指令垮页分析" class="headerlink" title="指令垮页分析"></a>指令垮页分析</h2><p> 实际上，在riscv 7.1.50的qemu tcg模拟中，只有一个4B指令跨越页边界这一种情况存在了。</p>
@@ -290,7 +290,7 @@
         <div class="reward-container">
   <div></div>
   <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
-    打赏
+    赞赏
   </button>
   <div id="qr" style="display: none;">
       

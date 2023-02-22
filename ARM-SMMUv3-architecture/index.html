@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文梳理IOMMU相关的整体软硬件设计的全貌。具体的硬件以ARM SMMUv3作为例子。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-06-21T05:06:42.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.850Z">
+<meta property="article:modified_time" content="2023-02-22T15:39:04.326Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="SMMU">
@@ -234,7 +234,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-02-22 23:39:04" itemprop="dateModified" datetime="2023-02-22T23:39:04+08:00">2023-02-22</time>
               </span>
 
           
@@ -266,25 +266,13 @@
 </li>
 </ol>
 <p>下面来一一介绍下上面的内容。</p>
-<ol>
-<li>SMMU的固件描述和Linux解析</li>
-</ol>
-<hr>
-<p>  参考[2][3], ACPI(先不关注DT里的描述方法)在IORT表格里描述SMMU和系统里其他部件<br>  的关系。</p>
-<ol start="2">
-<li>SMMU功能简介</li>
-</ol>
-<hr>
-<p>  SMMU为外设提供和地址翻译相关的诸多功能。硬件上, SMMU用三个队列和两个表格支持<br>  其基本功能。</p>
+<h2 id="SMMU的固件描述和Linux解析"><a href="#SMMU的固件描述和Linux解析" class="headerlink" title="SMMU的固件描述和Linux解析"></a>SMMU的固件描述和Linux解析</h2><p>  参考[2][3], ACPI(先不关注DT里的描述方法)在IORT表格里描述SMMU和系统里其他部件<br>  的关系。</p>
+<h2 id="SMMU功能简介"><a href="#SMMU功能简介" class="headerlink" title="SMMU功能简介"></a>SMMU功能简介</h2><p>  SMMU为外设提供和地址翻译相关的诸多功能。硬件上, SMMU用三个队列和两个表格支持<br>  其基本功能。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line">               +----------+</span><br><span class="line">               | CPU core |</span><br><span class="line">               | +-----+  |</span><br><span class="line">               | | MMU |  |</span><br><span class="line">               +-+--+--+--+       +------------------------------------------+</span><br><span class="line">   system bus       v             |                                          |</span><br><span class="line">          -----------------------&gt;|  DDR     +-------+                       |</span><br><span class="line">                   ^              |          |pa     |                       |</span><br><span class="line">             pa    |              |          +-------+                       |</span><br><span class="line">                   |              |                                          |</span><br><span class="line">               +---+-----+        | +---+    +---+    +----------+           |</span><br><span class="line">               |  SMMU   |-------&gt;| |STE|---&gt;|CD |---&gt;|Page table|           |</span><br><span class="line">               |         |        | |   |    +---+    | va -&gt; ipa| (s1)      |</span><br><span class="line">               |         |        | |   |    |.. |    +----------+           |</span><br><span class="line">               |         |        | |   |    +---+                           |</span><br><span class="line">               |  TLB    |        | |   |    |CD |                           |</span><br><span class="line">               |         |        | |   |    +---+                           |</span><br><span class="line">               |STE cache|&lt;-------| |   |    +-----------+                   |</span><br><span class="line">               |         |        | |   |---&gt;|Page table | (s2)              |</span><br><span class="line">               |CD cache |        | |   |    | ipa -&gt; pa |                   |</span><br><span class="line">               |         |        | +---+    +-----------+                   |</span><br><span class="line">               |         |        | |.. |                                    |</span><br><span class="line">               |         |        | +---+                                    |</span><br><span class="line">               |         |        | |STE|                                    |</span><br><span class="line">               |         |        | +---+                                    |</span><br><span class="line">               |         |        |                                          |</span><br><span class="line">               |         |        | +------------------+                     |</span><br><span class="line">               |         |&lt;-------| |command queue     |                     |</span><br><span class="line">               |         |        | +------------------+                     |</span><br><span class="line">               |         |        | +------------------+                     |</span><br><span class="line">               |         |-------&gt;| |event queue       |                     |</span><br><span class="line">               |         |        | +------------------+                     |</span><br><span class="line">               |         |        | +------------------+                     |</span><br><span class="line">               |         |-------&gt;| |pri queue         |                     |</span><br><span class="line">               +---------+        | +------------------+                     |</span><br><span class="line">                   ^              +------------------------------------------+</span><br><span class="line">trasaction with va |              </span><br><span class="line">           +---+       +---+      </span><br><span class="line">           |dev|  ...  |dev|      </span><br><span class="line">           +---+       +---+      </span><br></pre></td></tr></table></figure>
 <p>  如上是一个SMMU硬件的简单示意图, 为了把SMMU相关的一些内存里的数据结构也画下，<br>  上图把SMMU画的很大。一般的，一个SMMU物理硬件会同时服务几个外设，而每个外设又<br>  有可能可以独立的发出多个内存访问，这些内存访问需要靠SMMU相互区分，又要靠SMMU<br>  做地址翻译。SMMU硬件靠STE(stream table entry)和CD(context descriptor), 去区分<br>  不同硬件以及相同硬件上的不用内存访问流。如上STE和CD内存里的表格，SMMU硬件可以<br>  认知这些表格，一个外设相关的内存访问信息放在一个STE里，一个外设上的一部分资源<br>  的内存访问信息放在一个CD里。外设和STE的对应关系需要SID(stream id)建立联系，<br>  对于PCI设备，他的SID一般就是BDF，外设硬件在发出的内存访问请求中带上BDF信息，<br>  内存访问请求被SMMU解析，SMMU通过其中的SID找见对应的STE。外设的可以独立发内存<br>  访问请求的单位(比如外设的一个队列)和CD的关系需要SSID(substream id)建立联系，<br>  在PCI设备上，SSID对应的就是PCI协议里说的PASID，这个PASID一般从系统软件中申请<br>  得到，然后分别配置到外设的内存访问单元，和STE一样，设备发出内存访问的时候会<br>  带上这个PASID，SMMU根据PASID找见对应的CD。可以SMMU驱动需要先为对应的设备或者<br>  设备的独立内存访问单元建立STE或者CD，以及填充STE和CD中的域段以支持随后设备的<br>  内存访问。</p>
 <p>  STE和CD里包含页表，和MMU一样，为了加快翻译速度，SMMU也做了TLB。为了加快STE和<br>  CD查找的速度，SMMU里也可能放STE和CD的cache。</p>
 <p>  SMMU的软硬件控制接口，包括SMMU的基本的MMIO寄存器，三个硬件队列。如上，这是三个<br>  硬件队列中command queue用于软件向SMMU发送命令，event queue用于SMMU向软件报异常<br>  事件(包括缺页)，pri queue是和PCI设备配合一起用的，用于硬件向软件上报外设的<br>  page request请求。软件可以通过command queue向硬件发命令，SMMU的命令基本上可以<br>  分为，配置无效化命令，比如无效掉SMMU cache的STE和CD；TLB无效化命令，缺页相关<br>  的命令，比如用于继续stall请求的RESUME命令；prefetch命令；SYNC命令。</p>
-<ol start="3">
-<li>SMMU驱动分析</li>
-</ol>
-<hr>
-<p>  SMMUv3相关的驱动的文件包括arm-smmu-v3.c, io-pgtable-arm.c,<br>  drivers/perf/arm_smmuv3_pmu.c。第一个文件是smmu驱动的主体，第二个文件是和<br>  页表相关的操作，第三个文件是和SMMU PMU(PMCG)相关的东西。第一二个文件编译出来<br>  SMMU驱动，第三个文件编译出SMMU PMCG驱动。</p>
+<h2 id="SMMU驱动分析"><a href="#SMMU驱动分析" class="headerlink" title="SMMU驱动分析"></a>SMMU驱动分析</h2><p>  SMMUv3相关的驱动的文件包括arm-smmu-v3.c, io-pgtable-arm.c,<br>  drivers/perf/arm_smmuv3_pmu.c。第一个文件是smmu驱动的主体，第二个文件是和<br>  页表相关的操作，第三个文件是和SMMU PMU(PMCG)相关的东西。第一二个文件编译出来<br>  SMMU驱动，第三个文件编译出SMMU PMCG驱动。</p>
 <p>  SMMU驱动是一个普通的平台设备驱动。这驱动的probe函数里初始化SMMU硬件，包括：<br>  ACPI/DTS解析，中断初始化，硬件特性解析，SMMU STE初始化，probe里还把SMMU向<br>  iommu子系统注册，以及把iommu_ops回调函数注册给SMMU结构和总线。</p>
 <p>  这其中涉及的SMMU驱动相关的一些数据结构包括：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">struct arm_smmu_device 描述一个物理的SMMU设备。</span><br><span class="line">struct fwnode_handle 描述struct iommu_device的固件描述。</span><br><span class="line">struct arm_smmu_master 描述SMMU物理设备所管理的一个外设, 这个外设可以对应一组</span><br><span class="line">                       stream id, 但是一般是一个外设一个stream id。</span><br><span class="line">struct device</span><br><span class="line">  +-&gt; struct dev_iommu 一个外设device里和iommu相关的东西</span><br><span class="line">    +-&gt; struct iommu_fwspec 一个外设device和iommu硬件相关的东西</span><br><span class="line">      +-&gt; struct fwnode_handle iommu_device的固件描述</span><br></pre></td></tr></table></figure>
@@ -392,20 +380,12 @@ iommu_request_dm_for_dev, iommu_request_dma_domain_for_dev都会最终调用到
 attach_dev这个回调。在vfio里会使用到iommu_attach_group, iommu_attach_device,
 vfio会用UNMANAGED domain。(具体逻辑： todo)
 </code></pre>
-<ol start="4">
-<li>IOMMU接口分析</li>
-</ol>
-<hr>
-<p>  DMA接口和IOMMU的关系在上面已给出。</p>
+<h2 id="IOMMU接口分析"><a href="#IOMMU接口分析" class="headerlink" title="IOMMU接口分析"></a>IOMMU接口分析</h2><p>  DMA接口和IOMMU的关系在上面已给出。</p>
 <p>  目前社区正在上传SVA的相关补丁，SVA的接口也是IOMMU子系统对外接口的一部分, 这<br>  一部分的分析可以参见[5]。目前的SVA接口使用的是DMA domain, 通过SVA的接口触发<br>  在STE表里建立SSID非零的CD表，从而可以实现一个外设，一部分在内核态使用(使用CD0),<br>  一部风在用户态使用(使用其他CD)。</p>
 <p>  VFIO重度使用IOMMU接口, 从这个角度看IOMMU子系统的对外接口参见[6]</p>
-<ol start="5">
-<li>SMMU虚拟化分析</li>
-</ol>
-<hr>
-<p>  Nested SMMU的分析参见[4]。</p>
+<h2 id="SMMU虚拟化分析"><a href="#SMMU虚拟化分析" class="headerlink" title="SMMU虚拟化分析"></a>SMMU虚拟化分析</h2><p>  Nested SMMU的分析参见[4]。</p>
 <p>Reference</p>
-<p>[1] <span class="exturl" data-url="aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc2NhcmVjcm93X2J5ci9hcnRpY2xlL2RldGFpbHMvNTM4NDQxNjI=">http://blog.csdn.net/scarecrow_byr/article/details/53844162<i class="fa fa-external-link-alt"></i></span><br>[2] <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzUyMzQ4MjM0">https://blog.csdn.net/scarecrow_byr/article/details/52348234<i class="fa fa-external-link-alt"></i></span><br>[3] <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzUzODQ0MTYy">https://blog.csdn.net/scarecrow_byr/article/details/53844162<i class="fa fa-external-link-alt"></i></span><br>[4] <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzEwNDYwNjU3MQ==">https://blog.csdn.net/scarecrow_byr/article/details/104606571<i class="fa fa-external-link-alt"></i></span><br>[5] <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzEwMDk4MzYxOQ==">https://blog.csdn.net/scarecrow_byr/article/details/100983619<i class="fa fa-external-link-alt"></i></span><br>[6] <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzUxNDk0NDAx">https://blog.csdn.net/scarecrow_byr/article/details/51494401<i class="fa fa-external-link-alt"></i></span></p>
+<p>[1] <a href="https://wangzhou.github.io/PCI-SMMU-parse-in-ACPI/">https://wangzhou.github.io/PCI-SMMU-parse-in-ACPI/</a><br>[2] <a href="https://wangzhou.github.io/PCI-ACPI%E7%AC%94%E8%AE%B02/">https://wangzhou.github.io/PCI-ACPI笔记2/</a><br>[3] <a href="https://wangzhou.github.io/PCI-SMMU-parse-in-ACPI/">https://wangzhou.github.io/PCI-SMMU-parse-in-ACPI/</a><br>[4] <a href="https://wangzhou.github.io/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">https://wangzhou.github.io/vSVA逻辑分析/</a><br>[5] <a href="https://wangzhou.github.io/Linux-SVA%E7%89%B9%E6%80%A7%E5%88%86%E6%9E%90/">https://wangzhou.github.io/Linux-SVA特性分析/</a><br>[6] <a href="https://wangzhou.github.io/Linux-vfio-driver-arch-analysis/">https://wangzhou.github.io/Linux-vfio-driver-arch-analysis/</a></p>
 
     </div>
 
@@ -415,7 +395,7 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
         <div class="reward-container">
   <div></div>
   <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
-    打赏
+    赞赏
   </button>
   <div id="qr" style="display: none;">
       
@@ -514,6 +494,7 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#SMMU%E7%9A%84%E5%9B%BA%E4%BB%B6%E6%8F%8F%E8%BF%B0%E5%92%8CLinux%E8%A7%A3%E6%9E%90"><span class="nav-number">1.</span> <span class="nav-text">SMMU的固件描述和Linux解析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SMMU%E5%8A%9F%E8%83%BD%E7%AE%80%E4%BB%8B"><span class="nav-number">2.</span> <span class="nav-text">SMMU功能简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SMMU%E9%A9%B1%E5%8A%A8%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">SMMU驱动分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IOMMU%E6%8E%A5%E5%8F%A3%E5%88%86%E6%9E%90"><span class="nav-number">4.</span> <span class="nav-text">IOMMU接口分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SMMU%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90"><span class="nav-number">5.</span> <span class="nav-text">SMMU虚拟化分析</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
