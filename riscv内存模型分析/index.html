@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文整理riscv的内存模型，基于riscv unprivileged ISA 20191213这个版本。其实 对于使用弱内存序的构架，它们的内存模型都是比较相似的，无非是细节上有可能有 一点不一样，本文也可以做为弱内存序相关的一个基础介绍。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="riscv内存模型分析">
+<meta property="og:url" content="http://wangzhou.github.io/riscv%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文整理riscv的内存模型，基于riscv unprivileged ISA 20191213这个版本。其实 对于使用弱内存序的构架，它们的内存模型都是比较相似的，无非是细节上有可能有 一点不一样，本文也可以做为弱内存序相关的一个基础介绍。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-02-25T09:43:09.000Z">
+<meta property="article:modified_time" content="2023-02-25T09:45:30.845Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="riscv">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/riscv%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>riscv内存模型分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">87</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">207</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/riscv%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          riscv内存模型分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-02-25 17:43:09 / 修改时间：17:45:30" itemprop="dateCreated datePublished" datetime="2023-02-25T17:43:09+08:00">2023-02-25</time>
+            </span>
+
+          
+            <div class="post-description">本文整理riscv的内存模型，基于riscv unprivileged ISA 20191213这个版本。其实 对于使用弱内存序的构架，它们的内存模型都是比较相似的，无非是细节上有可能有 一点不一样，本文也可以做为弱内存序相关的一个基础介绍。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p> 各个CPU构架的弱内存模型都会定义一些规则，这些规则约束各种内存序，在这些规则之外<br> 各种内存访问都是可以乱序的，所谓barrier指令只是其中的一些规则，这些规则用指令的<br> 方式显示约束了内存序，所以，只从barrier指令去看内存序，始终是只能看到其中的一部分，<br> 整体认识上还是模模糊糊。如果编程中会遇到可能的内存序问题，这些规则怎么说也的通读<br> 一遍，不然基本上就是一个“能跑就行”的程序。</p>
+<p> riscv协议在Chapter 14定义了这些规则(ARMv8/v9协议在2.3章定义了相关规则)，在附录里<br> 专门做了这些规则的解释(RVWMO Explanatory Material, Version 0.1)，在附录里还有内存<br> 序相关的形式化验证模型(Formal Memory Model Specifications, Version 0.1)。</p>
+<p> 注意内存序(consistency)和cache一致性(coherence)是两个不同的概念，前者是说的是硬件<br> 故意放松一些指令执行上的循序，依此来提高硬件性能，指令的这种乱序行为是程序员可以<br> 直接感知的，本文讨论的就是内存序的相关问题，而后者指的是，多核系统上，因为多核<br> 共享内存或者cache而引发的数据存储一致性上的问题，硬件需要用一定的cache一致性协议<br> (比如MESI协议)在硬件层面解决这个问题。</p>
+<h2 id="riscv内存序规则"><a href="#riscv内存序规则" class="headerlink" title="riscv内存序规则"></a>riscv内存序规则</h2><p> riscv在Chapter 14定义了它的弱内存序，定义的逻辑是这样的，”Memory Model Primitives”<br> 这一节是一些术语的定义，”Syntactic Dependencies”这一节定义的是两个指令关系的名称，<br> 这一节并没有定义内存序的规则，后面定义规则时依赖这一节里定义的指令关系，”Preserved Program Order”<br> 这一节定义的是riscv弱内存序的规则，这一节是这一章的主体，一共定义了13条规则(rule)，<br> 随后在”Memory Model Axioms”这一节里定义了三条公理(Axioms)，这些约束大部分是符合<br> 我们的直观的认识，但是也有一些和直观的认知是不同的。学习这些规则时，我们要认识到<br> 这些规则之外的情况，这些情况都是可以乱序的，barrier指令正是对有可能出现的乱序情况<br> 的约束。下面逐条看下这些规则:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">• Overlapping-Address Orderings</span><br><span class="line"></span><br><span class="line">  1. b is a store, and a and b access overlapping memory addresses  </span><br><span class="line"></span><br><span class="line">  2. a and b are loads, x is a byte read by both a and b, there is no store to x</span><br><span class="line">     between a and b in program order, and a and b return values for x written by</span><br><span class="line">     different memory operations  </span><br><span class="line"></span><br><span class="line">  3. a is generated by an AMO or SC instruction, b is a load, and b returns a value</span><br><span class="line">     written by a  </span><br></pre></td></tr></table></figure>
+<p> 访存地址有重合的情况，第一条规则是说后面的store不能跑到前面的指令之前执行。</p>
+<p> 第二条规则就比较绕了，直接翻译是，a和b是load操作，x是a和b读到的值，a和b之间没有<br> store修改x内存里的值，a和b load的值会被不同的内存写操作改变。这一条规则进一步的<br> 解释是，两个load读同一个地址上值，新的load不能读到旧load读到的值，但是，还有进一步<br> 考虑两种情况，第一种是a和b之间有store修改x的值，这种情况下a和b不保序，第二种情况<br> 是，a和b读到的值是被不同写内存操作修改的值，这种情况a和b也不保序。</p>
+<p> 第三条规则是说，后面的load不能超过之前由AMO/SC触发的写操作，直观的理解也是这样。</p>
+<p> 注意，根据如上的定义，当a是一个普通的store，b是一个load，他们访问相同地址，load<br> 是可以跑到store之前的，不过load到的值是store缓存在store buff里的值，这个就是Intel<br> TSO内存序上唯一放松的内存序。(todo: 待确定)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">• Explicit Synchronization </span><br><span class="line"></span><br><span class="line">  4. There is a FENCE instruction that orders a before b</span><br><span class="line"></span><br><span class="line">  5. a has an acquire annotation</span><br><span class="line"></span><br><span class="line">  6. b has a release annotation</span><br><span class="line"></span><br><span class="line">  7. a and b both have RCsc annotations </span><br><span class="line"></span><br><span class="line">  8. a is paired with b </span><br></pre></td></tr></table></figure>
+<p> 用显示的barrier指令指定内存序的情况，这些去看barrier的定义就好，需要注意的点有：</p>
+<p> acquire语意是说acquire后面的读写指令不能排到acquire之前(没有约束acquire之前读写<br> 指令的顺序)，逻辑示意如下。release的语意正好相反。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">         +-------------+</span><br><span class="line">         | load/store  |---------+</span><br><span class="line">         +-------------+         |</span><br><span class="line">                                 |</span><br><span class="line">----- instruction with acquire --+--</span><br><span class="line">  ^                              |</span><br><span class="line">  |      +-------------+         |</span><br><span class="line">  +------| load/store  |         v</span><br><span class="line">         +-------------+          </span><br></pre></td></tr></table></figure>
+<p> 第七条规则中的RCsc指的是Release Consistency with sequentially-consistent synchronization<br> operation。(todo: 引用了一篇经典的论文?)</p>
+<p> 第八条规则说的a和b是一个pair，是说lr/sc指令组成的pair。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">• Syntactic Dependencies </span><br><span class="line"></span><br><span class="line">  9. b has a syntactic address dependency on a</span><br><span class="line"></span><br><span class="line">  10. b has a syntactic data dependency on a</span><br><span class="line"></span><br><span class="line">  11. b is a store, and b has a syntactic control dependency on a </span><br></pre></td></tr></table></figure>
+<p> 这几条规则说的是指令之间语意上的依赖，和最开始访存地址重合的依赖比较类似。</p>
+<p> 需要注意的是规则11，这条规则提到了“控制依赖”，控制依赖的定义是，指令a和指令b，<br> 如果中间还有一条分支或者间接跳转指令(branch and indirect jump)m，如果a和m存在<br> Syntactic Dependencies，那么b和a之间就存在一个控制依赖，而规则11是说，在a和b之间<br> 存在一个控制依赖时，如果b是个store指令，那么a和b是不能乱序的。</p>
+<p> riscv spec里在“Syntactic Dependencies”这一节定义各种依赖关系的定义，但是只是说<br> 当两条指令满足某种情况时，它们之间叫什么关系，并不是满足这种关系后就有序的约束，<br> riscv spec随后在“Preserved Program Order”这一节借助”Syntactic Dependencies”的定义，<br> 描述内存序的约束，规则9和规则10，直接就说满足地址依赖和数据依赖的两条指令有内存<br> 序上的约束，而规则11是说在满足控制依赖关系时，只对后面是store的情况有序上的约束。</p>
+<p> 规则11的代码示意如下，左边两个是不会乱序的情况，其中一个是汇编实现，一个是对应的<br> C语言实现，最右边的是需要加读barrier的场景。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">load a0, a1(0)         a = read(p1);         a = read(p1); &lt;--- 这个read后需要一个读barrier</span><br><span class="line">beqi a0, #1, lable     if (a == 1)           if (a == 1)</span><br><span class="line">store a2, a3(0)            write(p2, b);         c = read(p2);</span><br></pre></td></tr></table></figure>
+<p> 这条规则是多么的反直觉，但是既然定义成了规则，它就是软硬件约定的编程接口！</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">• Pipeline Dependencies </span><br><span class="line"></span><br><span class="line">  12. b is a load, and there exists some store m between a and b in program order</span><br><span class="line">      such that  m has an address or data dependency on a, and b returns a value</span><br><span class="line">      written by m  </span><br><span class="line"></span><br><span class="line">  13. b is a store, and there exists some instruction m between a and b in program</span><br><span class="line">      order such that m has an address dependency on a  </span><br></pre></td></tr></table></figure>
+<p> 这两条规则是说，依赖之间是可以前后构成依赖链条的。</p>
+<p> 下面是三条Axioms的定义。</p>
+<p> Load Value Axiom: 每个load指令得到值是global memory order上最近一次store的值，这个<br>                   store是global memory order或者是program order上在loadz之前。</p>
+<p> Atomicity Axiom: 这个已经体现在lr/sc指令定义里。</p>
+<p> Progress Axiom: 貌似是说乱序时提前执行总有一定的限制的。</p>
+<h2 id="riscv-barrier指令"><a href="#riscv-barrier指令" class="headerlink" title="riscv barrier指令"></a>riscv barrier指令</h2><p> riscv上barrier有fence和fence.i，相关的指令可以参考<a href="https://wangzhou.github.io/riscv%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%95%B4%E7%90%86/">这里</a>。</p>
+<h2 id="ARM内存序以及barrier指令"><a href="#ARM内存序以及barrier指令" class="headerlink" title="ARM内存序以及barrier指令"></a>ARM内存序以及barrier指令</h2><p> (todo)</p>
+<h2 id="Linux内核内存序介绍"><a href="#Linux内核内存序介绍" class="headerlink" title="Linux内核内存序介绍"></a>Linux内核内存序介绍</h2><p> Linux内核有详细介绍内存序的文档：Documentation/memory-barriers.txt。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><span class="exturl" data-url="aHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj1Ra2JXZ0NTQUVvbw==">https://www.youtube.com/watch?v=QkbWgCSAEoo<i class="fa fa-external-link-alt"></i></span></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" rel="tag"><i class="fa fa-tag"></i> 内存管理</a>
+              <a href="/tags/riscv/" rel="tag"><i class="fa fa-tag"></i> riscv</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/qemu-tcg%E4%B8%ADriscv-page-table-walk%E5%88%86%E6%9E%90/" rel="prev" title="qemu tcg中riscv page table walk分析">
+      <i class="fa fa-chevron-left"></i> qemu tcg中riscv page table walk分析
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#riscv%E5%86%85%E5%AD%98%E5%BA%8F%E8%A7%84%E5%88%99"><span class="nav-number">2.</span> <span class="nav-text">riscv内存序规则</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#riscv-barrier%E6%8C%87%E4%BB%A4"><span class="nav-number">3.</span> <span class="nav-text">riscv barrier指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ARM%E5%86%85%E5%AD%98%E5%BA%8F%E4%BB%A5%E5%8F%8Abarrier%E6%8C%87%E4%BB%A4"><span class="nav-number">4.</span> <span class="nav-text">ARM内存序以及barrier指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E5%86%85%E6%A0%B8%E5%86%85%E5%AD%98%E5%BA%8F%E4%BB%8B%E7%BB%8D"><span class="nav-number">5.</span> <span class="nav-text">Linux内核内存序介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">6.</span> <span class="nav-text">参考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">207</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">87</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
