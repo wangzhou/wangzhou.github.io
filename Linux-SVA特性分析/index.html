@@ -31,7 +31,7 @@
 <meta property="og:description" content="最近Linux社区在上传SVA特性(share virtual memory), 简单讲这个特性可以达到 这样的功能，就是可以是设备直接使用进程里的虚拟地址。如果把设备操作映射到用户态， 就可以在用户态叫设备直接使用进程虚拟地址。设备可以使用进程虚拟地址做DMA，如果 设备功能强大，比如可以执行一段指令，设备甚至可以直接执行相应进程虚拟地址上的 指令。目前SVA特性正处于上传阶段，这个特性的补丁涉">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-06-27T10:08:06.000Z">
-<meta property="article:modified_time" content="2023-02-22T15:18:48.276Z">
+<meta property="article:modified_time" content="2023-03-02T06:20:02.289Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="SMMU">
 <meta property="article:tag" content="Linux内核">
@@ -138,7 +138,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">207</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">208</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -236,7 +236,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-02-22 23:18:48" itemprop="dateModified" datetime="2023-02-22T23:18:48+08:00">2023-02-22</time>
+                <time title="修改时间：2023-03-02 14:20:02" itemprop="dateModified" datetime="2023-03-02T14:20:02+08:00">2023-03-02</time>
               </span>
 
           
@@ -262,7 +262,7 @@
 <p>   基于上一节中提到的使用场景, 我们梳理硬件中的逻辑关系。调用malloc后，其实只是<br>   拿到了一个虚拟地址，内核并没有为申请的地址空间分配实际的物理内存，直到访问这<br>   块地址空间时引发缺页，内核在缺页流程里分配实际的物理内存，然后建立虚拟地址到<br>   物理内存的映射。这个过程需要MMU的参与。设想SVA的场景中，先malloc得到va, 然后<br>   把这个va传给设备，配置设备DMA去访问该地址空间，这时内核并没有为va分配实际的<br>   物理内存，所以设备一侧的访问流程必然需要进行类似的缺页请求。支持设备侧缺页<br>   请求的硬件设备就是上面所示的SMMU，其中对于PCI设备，还需要ATS、PRI硬件特性支持。<br>   平台设备需要SMMU stall mode支持(使用event queue)。PCI设备和平台设备都需要<br>   PASID特性的支持。</p>
 <p>   如上图所示，引入SVA后，MMU和SMMU使用相同的进程页表, SMMU使用STE表和CD表管理<br>   当前SMMU下设备的页表，其中STE表用来区分设备，CD表用来区分同一个设备上分配给<br>   不同进程使用的硬件资源所对应的进程页表。STE表和CD表都需要SMMU驱动预先分配好。</p>
 <p>   SMMU内部使用command queue，event queue，pri queue做基本的事件管理。当有相应<br>   硬件事件发生时，硬件把相应的描述符写入event queue或者pri queue, 然后上报中断。<br>   软件使用command queue下发相应的命令操作硬件。</p>
-<p>   PCI设备和平台设备的硬件缺页流程有一些差异，下面分别介绍。对于PCI设备，ATS,<br>   PRI和PASID的概念同时存在于PCIe和SMMU规范中。对于ATS的介绍可以参考这里:<br>   <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzc0Mjc2OTQwJUUzJTgwJTgyJUU3JUFFJTgwJUU1JThEJTk1JUU4JUFFJUIyJUVGJUJDJThDQVRTJUU3JTg5JUI5JUU2JTgwJUE3">https://blog.csdn.net/scarecrow_byr/article/details/74276940。简单讲，ATS特性<i class="fa fa-external-link-alt"></i></span><br>   由设备侧的ATC和SMMU侧的ATS同时支持，其目的是在设备中缓存va对应的pa，设备随后<br>   使用pa做内存访问时无需经过SMMU页表转换，可以提高性能。PRI(page request<br>   interface)也是需要设备和SMMU一起工作，PCIe设备可以发出缺页请求，SMMU硬件在解<br>   析到缺页请求后可以直接将缺页请求写入PRI queueu, 软件在建立好页表后，可以通过<br>   CMD queue发送PRI response给PCIe设备。具体的ATS和PRI的实现是硬件相关的，目前<br>   市面上还没有实现这两个硬件特性的PCIe设备，但是我们可以设想一下ATS和PRI的硬件<br>   实现，最好的实现应该是软件透明的，也就是软件配置给设备DMA的访问地址是va, 软件<br>   控制DMA发起后，硬件先发起ATC请求，从SMMU请求该va对应的pa，如果SMMU里已经有va<br>   到pa的映射，那么设备可以得到pa，然后设备再用pa发起一次内存访问，该访问将直接<br>   访问对应pa地址，不在SMMU做地址翻译，如果SMMU没有va到pa的映射, 那么设备得到<br>   这个消息后会继续向SMMU发PRI请求，设备得到从SMMU来的PRI response后发送内存访问<br>   请求，该请求就可以在SMMU中翻译得到pa, 最终访问到物理内存。</p>
+<p>   PCI设备和平台设备的硬件缺页流程有一些差异，下面分别介绍。对于PCI设备，ATS,<br>   PRI和PASID的概念同时存在于PCIe和SMMU规范中。ATS的介绍可以参考<a href="https://wangzhou.github.io/PCIe-ATS%E5%8D%8F%E8%AE%AE%E5%88%86%E6%9E%90/">这里</a>简单讲，ATS特性<br>   由设备侧的ATC和SMMU侧的ATS同时支持，其目的是在设备中缓存va对应的pa，设备随后<br>   使用pa做内存访问时无需经过SMMU页表转换，可以提高性能。PRI(page request<br>   interface)也是需要设备和SMMU一起工作，PCIe设备可以发出缺页请求，SMMU硬件在解<br>   析到缺页请求后可以直接将缺页请求写入PRI queueu, 软件在建立好页表后，可以通过<br>   CMD queue发送PRI response给PCIe设备。具体的ATS和PRI的实现是硬件相关的，目前<br>   市面上还没有实现这两个硬件特性的PCIe设备，但是我们可以设想一下ATS和PRI的硬件<br>   实现，最好的实现应该是软件透明的，也就是软件配置给设备DMA的访问地址是va, 软件<br>   控制DMA发起后，硬件先发起ATC请求，从SMMU请求该va对应的pa，如果SMMU里已经有va<br>   到pa的映射，那么设备可以得到pa，然后设备再用pa发起一次内存访问，该访问将直接<br>   访问对应pa地址，不在SMMU做地址翻译，如果SMMU没有va到pa的映射, 那么设备得到<br>   这个消息后会继续向SMMU发PRI请求，设备得到从SMMU来的PRI response后发送内存访问<br>   请求，该请求就可以在SMMU中翻译得到pa, 最终访问到物理内存。</p>
 <p>   PRI请求是基于PCIe协议的, 平台设备无法用PRI发起缺页请求。实际上，平台设备是无法<br>   靠自身发起缺页请求的，SMMU用stall模式支持平台设备的缺页，当一个平台设备的内存<br>   访问请求到达SMMU后，如果SMMU里没有为va做到pa的映射，硬件会给SMMU的event queue<br>   里写一个信息，SMMU的event queue中断处理里可以做缺页处理，然后SMMU可以回信息给<br>   设备(fix me: 请求设备重发，还是smmu缺页处理后已经把该访问翻译后送到上游总线)。<br>   实际上, SMMU使用event queue来处理各种错误异常，这里的stall模式是借用了event<br>   queue来处理缺页。</p>
 <p>   可以注意到PRI和stall模式完成缺页的区别是，PRI缺页的时候并不是在IO实际发生的<br>   时候，因为如果PRI response表示PRI请求失败，硬件完全可以不发起后续的IO操作。<br>   而stall模式，完全发生在IO请求的途中。所以，他被叫做stall模式。</p>
 <h2 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">struct device</span><br><span class="line">        +-&gt; struct iommu_param</span><br><span class="line">                +-&gt; struct iommu_fault_param</span><br><span class="line">                        +-&gt; handler(struct iommu_fault, void *)</span><br><span class="line">                        +-&gt; faults list</span><br><span class="line">                +-&gt; struct iopf_device_param</span><br><span class="line">                     +-&gt; struct iopf_queue</span><br><span class="line">                             +-&gt; work queue</span><br><span class="line">                             +-&gt; devices list</span><br><span class="line">                     +-&gt; wait queue</span><br><span class="line">                +-&gt; struct iommu_sva_param</span><br></pre></td></tr></table></figure>
@@ -316,7 +316,7 @@
 </ul>
 <h2 id="性能分析"><a href="#性能分析" class="headerlink" title="性能分析"></a>性能分析</h2><pre><code>[...]
 </code></pre>
-<h2 id="虚拟化"><a href="#虚拟化" class="headerlink" title="虚拟化"></a>虚拟化</h2><p> <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXIvYXJ0aWNsZS9kZXRhaWxzLzEwNDYwNjU3MQ==">https://blog.csdn.net/scarecrow_byr/article/details/104606571<i class="fa fa-external-link-alt"></i></span></p>
+<h2 id="虚拟化"><a href="#虚拟化" class="headerlink" title="虚拟化"></a>虚拟化</h2><p> SVA虚拟化的基本逻辑可以参考<a href="https://wangzhou.github.io/vSVA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">这里</a>。</p>
 
     </div>
 
@@ -442,7 +442,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">207</span>
+          <span class="site-state-item-count">208</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
