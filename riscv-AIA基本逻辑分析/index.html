@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析riscv AIA的基本逻辑。目前，相关的代码还在社区review，分析使用的代码为， qemu使用v7.1.50主线代码，内核使用https:&#x2F;&#x2F;github.com&#x2F;avpatel&#x2F;linux riscv_aia_v2分支。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="riscv AIA基本逻辑分析">
+<meta property="og:url" content="http://wangzhou.github.io/riscv-AIA%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析riscv AIA的基本逻辑。目前，相关的代码还在社区review，分析使用的代码为， qemu使用v7.1.50主线代码，内核使用https:&#x2F;&#x2F;github.com&#x2F;avpatel&#x2F;linux riscv_aia_v2分支。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-03-15T14:05:25.000Z">
+<meta property="article:modified_time" content="2023-03-15T14:08:17.285Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="中断">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="riscv">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/riscv-AIA%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>riscv AIA基本逻辑分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">87</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">210</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/riscv-AIA%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          riscv AIA基本逻辑分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-03-15 22:05:25 / 修改时间：22:08:17" itemprop="dateCreated datePublished" datetime="2023-03-15T22:05:25+08:00">2023-03-15</time>
+            </span>
+
+          
+            <div class="post-description">本文分析riscv AIA的基本逻辑。目前，相关的代码还在社区review，分析使用的代码为， qemu使用v7.1.50主线代码，内核使用https://github.com/avpatel/linux riscv_aia_v2分支。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="AIA基本逻辑"><a href="#AIA基本逻辑" class="headerlink" title="AIA基本逻辑"></a>AIA基本逻辑</h2><p> 如下是AIA中APLIC和IMSIC的一个示意图：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">+------------+    +-------+    +-------------+    +---------------------------+</span><br><span class="line">|PCIe device |    | IOMMU |    | Bus network |    |   IMSIC                   |</span><br><span class="line">+------------+    |       |    |             |    |                           |</span><br><span class="line">        \         |       |    |             |    |  +---------------------+  |    +--------+</span><br><span class="line">         ---------+-------+-\  |             |    |  |M mode interrupt file|--+---&gt;| Hart 1 |</span><br><span class="line">                  |       |  \ |             |    |  +---------------------+  |    |        |</span><br><span class="line">                  +-------+   \|             |    |  +---------------------+  |    |        |</span><br><span class="line">                               +-------------+---&gt;|  |S mode interrupt file|--+---&gt;|        |</span><br><span class="line">+----------------+   +-----+  -+-------------+-/  |  +---------------------+  |    |        |</span><br><span class="line">|Platform device |--&gt;|APLIC| / |             |    |  +----------------------+ |    |        |</span><br><span class="line">+----------------+   |     |/  |             |    |  |Guest interrupt file 1|-+---&gt;|        |</span><br><span class="line">                     |     |   --------------+    |  +----------------------+ |    |        |</span><br><span class="line">+----------------+   |     |                      |  +----------------------+ |    |        |</span><br><span class="line">|Platform device |--&gt;|     |                      |  |Guest interrupt file 2|-+---&gt;|        |</span><br><span class="line">+----------------+   +-----+                      |  +----------------------+ |    |        |</span><br><span class="line">                                                  |  +----------------------+ |    |        |</span><br><span class="line">                                                  |  |Guest interrupt file N|-+---&gt;|        |</span><br><span class="line">                                                  |  +----------------------+ |    +--------+</span><br><span class="line">                                                  +---------------------------+</span><br></pre></td></tr></table></figure>
+<p> 一个hart上M mode、S mode以及不同的vCPU都有不同的IMSIC interrupt file，每个IMSIC<br> interrupt file对下游设备提供一个MSI doorbell接口。PCIe设备写这个MSI doorbell接口<br> 触发MSI中断，APLIC写这个MSI doorbell接口也可以触发MSI中断。APLIC作为次一级的中断<br> 控制器可以把下游设备的线中断汇集到一个MSI中断上。</p>
+<p> 标识一个MSI中断需要两个信息，一个CPU的外部中断，比如S mode external interrupt,<br> 另外一个是写入MSI doorbell的MSI message，对应的中断编号，前者叫major identity，<br> 后者叫minor identity。所谓interrupt file就是minor identity的线性表，里面保存着<br> 对应中断的配置情况，比如，enable/pending等状态。各个minor identity标识的中断的<br> 优先级随编号增大而降低。</p>
+<p> 具体上看，每个interrupt file包含一个enable表和一个pending表，表中每个bit表示每个<br> MSI中的enable和pending状态。一个interrupt file支持的MSI中断个数，最小是63，最大<br> 是2047，从下面eip/eie寄存器的定义也可以得到这里的最大最小值，当eip/eie是32bit时，<br> 64个eip/eie寄存器可以表示的最大值是2048，当eip/eie是64bit时，协议定义奇数eip/eie<br> 是不存在的，这样可以表示的最大值也是2048。从下面qemu仿真中可以看到interrupt file<br> 在AIA硬件内部。</p>
+<p> IMSIC通过一组CSR寄存器向外暴露信息或者接收CPU的配置。拿S mode的对应寄存器举例，<br> 相关的寄存器有：</p>
+<ul>
+<li><p>siselect/sireg</p>
+<p>AIA使用siselect控制把如下寄存器映射到sireg上，这样通过两个CSR就可以访问一堆寄<br>存器，通过这种间接方式访问的寄存器有: eidelivery/eithreshold/eip0-eip63/eie0-eie63。</p>
+<p>eidelivery控制imsic是否可以报中断给hart，其中有一个可选配置项是可以控制是否把<br>来自PLIC的中断直接报给hart。eithreshold可以设置优先级，比这个优先级高的中断才<br>能报给hart。eip0-eip63/eie0-eie63就是相关中断的pending/enable状态，一个bit表示<br>一个中断的相关状态。</p>
+</li>
+<li><p>stopi(S mode top interrupt)</p>
+<p>读这个寄存器可以得到S mode下当前要处理的最高优先级的中断，包括major中断号和中断<br>优先级编号。(todo: 需要新增这个CSR的逻辑)</p>
+</li>
+<li><p>sseteipnum/sclreipnum/sseteienum/sclreienum</p>
+<p>如上寄存器名字里，第一个s表示是S mode，set表示置1，clr表示清0，ei表示是外部中断，<br>p表示pending bit，num之前的e表示是enable bit，num表示操作的对象是中断的minor<br>identity编号。所以，这几个寄存器直接操作interrupt file里具体中断的pending和enable<br>状态。</p>
+</li>
+<li><p>stopei(S mode top external interrupt)</p>
+<p>读这个寄存器可以得到S mode下当前要处理的最高优先级的外部中断的minor interrupt号。</p>
+</li>
+<li><p>seteipnum_le/seteipnum_be</p>
+<p>这两个寄存器是MSI doorbell寄存器，在对应MSI doorbell page的最开始，一个是小端<br>格式，一个是大端格式，根据系统大小端配置，使用对应的寄存器。</p>
+</li>
+</ul>
+<p> 可以看到riscv的MSI支持和ARM的GICv3(ITS)很不一样，imsic用一个表(逻辑上我们把pend/enable<br> 看成一个表)表示所有支持的MSI中断，这样PCI设备发出的MSI message其实对应的minor<br> interrupt identity，imsic收到minor interrupt identity后，直接配置对应的bit并且<br> 根据相关逻辑配置stopei, sseteipnum/sclreipnum/sseteienum/sclreienum也可以直接配置<br> interrupt file里的对应bit。而GICv3 ITS使用PCI设备相关的表格保存设备MSI中断对应的<br> 中断号，而且这些表格保存在内存里，可以想象GICv3在收到MSI message(ARM系统上一般<br> 一个PCI设备的MSI message从0开始依此递增)后应该从硬件报文里把设备信息(BDF)提取出来，<br> 然后再用设备信息去查找相关的表格得到MSI中断的硬件中断号，为了把这样的信息配置给<br> ITS，GICv3里就还需要设计各种command以及附带的command queue。从如上的分析中，我们<br> 可以看出为啥AIA设计比GICv3简单很多但是基本功能都支持的一些原因。</p>
+<h2 id="APLIC的基本逻辑"><a href="#APLIC的基本逻辑" class="headerlink" title="APLIC的基本逻辑"></a>APLIC的基本逻辑</h2><p> (todo: …)</p>
+<h2 id="IMSIC-DTS节点定义"><a href="#IMSIC-DTS节点定义" class="headerlink" title="IMSIC DTS节点定义"></a>IMSIC DTS节点定义</h2><p> IMSIC DTS节点各个域段的描述可以参考:<br> Linux/Documentation/devicetree/bindings/interrupt-controller/riscv.imsics.yaml。</p>
+<p> 整个系统(包括NUMA系统)为M mode和S mode各创建一个imsic节点，如下是S mode的节点:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">imsics@28000000 &#123;                                               </span><br><span class="line">        phandle = &lt;0x12&gt;;                                       </span><br><span class="line">        riscv,group-index-shift = &lt;0x18&gt;;                       </span><br><span class="line">        riscv,group-index-bits = &lt;0x01&gt;;                        </span><br><span class="line">        riscv,hart-index-bits = &lt;0x02&gt;;                         </span><br><span class="line">        riscv,num-ids = &lt;0xff&gt;;                                 </span><br><span class="line">        reg = &lt;0x00 0x28000000 0x00 0x4000 0x00 0x29000000 0x00 0x4000&gt;;</span><br><span class="line">        interrupts-extended = &lt;0x10 0x09 0x0e 0x09 0x0c 0x09 0x0a 0x09 0x08 0x09 0x06 0x09 0x04 0x09 0x02 0x09&gt;;</span><br><span class="line">        msi-controller;                                         </span><br><span class="line">        interrupt-controller;                                   </span><br><span class="line">        #interrupt-cells = &lt;0x00&gt;;                              </span><br><span class="line">        compatible = &quot;riscv,imsics&quot;;                            </span><br><span class="line">&#125;;                                                              </span><br></pre></td></tr></table></figure>
+<p> 其中一堆group/hart-index等信息都是为了描述这个系统上各个cpu(vcpu)对应的MSI doorbell<br> 页面所在的位置。如上binding文件中描述了MSI doorbell page地址的计算方式：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">XLEN-1           &gt;=24                                 12    0</span><br><span class="line">|                  |                                  |     |</span><br><span class="line">-------------------------------------------------------------</span><br><span class="line">|xxxxxx|Group Index|xxxxxxxxxxx|HART Index|Guest Index|  0  |</span><br><span class="line">-------------------------------------------------------------</span><br></pre></td></tr></table></figure>
+<p> group是NUMA node的概念，系统中不同NUMA节点上的MSI doorbell page所用的基地址不同，<br> 如上的系统有两个NUMA节点，所以reg域段有0x28000000和0x29000000两个基地址，每个NUMA<br> 节点上的MSI doorbell page按照如上的格式计算，格式中Guest Index/HART index的偏移和<br> 位宽在在DTS节点中定义在，没有定义的话就取binding文件中定义的默认值。</p>
+<p> 所以，按照上面的DTS，我们可以得到有两个NUMA节点，每个NUMA节点里有4个CPU的场景下，<br> 这个系统上每个CPU的S mode MSI doorbell page的地址是：</p>
+<p> 0x28000000 0x28001000 0x28002000 0x28003000<br> 0x29000000 0x29001000 0x29002000 0x29003000</p>
+<h2 id="AIA-qemu模拟"><a href="#AIA-qemu模拟" class="headerlink" title="AIA qemu模拟"></a>AIA qemu模拟</h2><p> qemu tcg模拟imsic设备的驱动在：qemu/hw/int/riscv_imsic.c, riscv_aplic.c</p>
+<ul>
+<li>imsic基本逻辑</li>
+</ul>
+<p> imsic实例创建的接口是riscv_imsic_create，具体平台可以调用这个函数创建imsic设备,<br> imsic设备对外暴露一些规格相关的属性，比如mmode/hartid/num-pages/num-irqs，平台<br> 初始化的时候先根据对应的配置生成imsic dts节点，然后根据对应的配置模拟imsic设备。</p>
+<p> imsic会暴露一些CSR寄存器给hart，在imsic的realize函数里调用hart侧的注册接口把访问<br> 具体寄存器的回调函数提供给hart的CSR访问框架:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">riscv_imsic_realize</span><br><span class="line">  +-&gt; riscv_cpu_set_aia_ireg_rmw_fn(..., riscv_imsic_rmw, ...)</span><br></pre></td></tr></table></figure>
+<p> imsic创建一组MMIO模拟MSI doorbell寄存器seteipnum_le/seteipnum_be。</p>
+<p> imsic的内部模拟逻辑也很直白，内部创建interrupt file以及相关寄存器的内存，来自设备<br> 的MSI message触发interrupt file的变化以及中断上报，来自CPU的CSR寄存器访问获得或者<br> 改变interrupt file以及imsic的配置状态。</p>
+<p> (todo: aplic逻辑分析)</p>
+<h2 id="AIA-Linux内核驱动"><a href="#AIA-Linux内核驱动" class="headerlink" title="AIA Linux内核驱动"></a>AIA Linux内核驱动</h2><p> Linux内核imsic的驱动在：Linux/drivers/irqchip/irq-riscv-imsic.c, irq-riscv-aplic.c</p>
+<ul>
+<li>imsic基本逻辑</li>
+</ul>
+<p> imsic在Linux内核里抽象为一个独立的中断控制器，代码构架和PLIC的逻辑基本上是一致的,<br> PLIC的内核驱动可以参考<a href="https://wangzhou.github.io/riscv-plic%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">这里</a></p>
+<p> (todo: aplic逻辑分析)</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"><i class="fa fa-tag"></i> 中断</a>
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/riscv/" rel="tag"><i class="fa fa-tag"></i> riscv</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/opensbi%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E6%A8%A1%E5%9E%8B/" rel="prev" title="opensbi设备驱动模型">
+      <i class="fa fa-chevron-left"></i> opensbi设备驱动模型
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/qemu-tcg%E4%B8%AD%E9%97%B4%E7%A0%81%E4%BC%98%E5%8C%96%E5%92%8C%E5%90%8E%E7%AB%AF%E7%BF%BB%E8%AF%91/" rel="next" title="qemu tcg中间码优化和后端翻译">
+      qemu tcg中间码优化和后端翻译 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#AIA%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">AIA基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#APLIC%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">2.</span> <span class="nav-text">APLIC的基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IMSIC-DTS%E8%8A%82%E7%82%B9%E5%AE%9A%E4%B9%89"><span class="nav-number">3.</span> <span class="nav-text">IMSIC DTS节点定义</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AIA-qemu%E6%A8%A1%E6%8B%9F"><span class="nav-number">4.</span> <span class="nav-text">AIA qemu模拟</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AIA-Linux%E5%86%85%E6%A0%B8%E9%A9%B1%E5%8A%A8"><span class="nav-number">5.</span> <span class="nav-text">AIA Linux内核驱动</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">210</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">87</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
