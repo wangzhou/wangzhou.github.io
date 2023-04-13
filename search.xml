@@ -1022,7 +1022,7 @@ cat trace &gt; ~/smmu_test
     <title>Linux initramfs分析</title>
     <url>/Linux-initramfs%E5%88%86%E6%9E%90/</url>
     <content><![CDATA[<h1 id="代码逻辑"><a href="#代码逻辑" class="headerlink" title="代码逻辑"></a>代码逻辑</h1><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* 从内核的c代码入口看起 */</span><br><span class="line">start_kernel</span><br><span class="line">      /* 这个函数已经接近start_kernel末尾，但是内容却无比丰富 */</span><br><span class="line">  +-&gt; arch_call_rest_init</span><br><span class="line">        /* 在这个函数里拉起1号进程和2号线程 */</span><br><span class="line">    +-&gt; rest_init</span><br><span class="line">          /*</span><br><span class="line">           * kernel_init是1号进程对应的函数，这个函数有点特殊，这个函数除了最终</span><br><span class="line">           * 拉起第一个用户态进程外，还做了一堆初始化操作。</span><br><span class="line">           */</span><br><span class="line">      |</span><br><span class="line">    --+-&gt; user_mode_thread(kernel_init, NULL, CLONE_FS)</span><br><span class="line">      |</span><br><span class="line">        +-&gt; kernel_init</span><br><span class="line">              /* 进来啥也不干，先等2号线程起来 */</span><br><span class="line">              wait_for_complete(...)</span><br><span class="line">              /*</span><br><span class="line">               * 继续初始化一堆东西: smp, smp schedule, work queue, 各种驱动的初始化,</span><br><span class="line">               * 各种__init函数的调用，跑内核自带的各种测试，等待initramfs解压完成，</span><br><span class="line">               * 其中最后一个和本文的主题相关，在这之前的do_basic_setup()里会开始</span><br><span class="line">               * 做initramfs/initrd的解压。</span><br><span class="line">               */</span><br><span class="line">          +-&gt; kernel_init_freeable</span><br><span class="line">            +-&gt; do_basic_setup</span><br><span class="line">                  /*</span><br><span class="line">                   * 这是一个rootfs_initcall修饰过的函数，在do_basic_setup依次调用</span><br><span class="line">                   * 各种类型的__init函数的时候，会调用到。这个函数的本质是把do_populate_rootfs</span><br><span class="line">                   * 放到一个workqueue里去执行。</span><br><span class="line">                   *</span><br><span class="line">                   * 对于rootfs.cpio.gz的压缩过的内存文件系统，这个函数里会做相关</span><br><span class="line">                   * 的解压缩操作。</span><br><span class="line">                   */</span><br><span class="line">              +-&gt; populate_rootfs</span><br><span class="line">                +-&gt; async_schedule_domain(do_populate_rootfs, ...)</span><br><span class="line">            +-&gt; wait_for_initramfs</span><br><span class="line"></span><br><span class="line">      |   /* 创建threadd这个内核线程，这个线程是所有内核线程的父线程，他就是2号线程 */</span><br><span class="line">    --+-&gt; kernel_thread(kthreadd, NULL, CLONE_FS | CLONE_FILES)</span><br><span class="line">      |</span><br><span class="line"></span><br><span class="line">      +-&gt; cpu_startup_entry()</span><br></pre></td></tr></table></figure>
-<p> 总结下如上的线程模型，内核执行到这里会拉起1号和2好进程，这个时候会出现3个进程并发<br> 的场景，这三个进程分别是0/1/2号进程。kernel_init会等2好线程启动后才会继续跑。可以<br> initramfs的解压缩是被放到内核线程里去跑的，1号线程会异步的等initramfs解压缩完后<br> 再继续跑。</p>
+<p> 总结下如上的线程模型，内核执行到这里会拉起1号和2好进程，这个时候会出现3个进程并发<br> 的场景，这三个进程分别是0/1/2号进程。kernel_init会等2好线程启动后才会继续跑。可见<br> initramfs的解压缩是被放到内核线程里去跑的，1号线程会异步的等initramfs解压缩完后<br> 再继续跑。</p>
 <p> 1号线程等解压完成在wait_for_initramfs里，这个函数用了wait_event，这个函数wait<br> 在D状态(TASK_UNINTERRUPTIBLE)，这个状态的线程只能被特定事件唤醒，内核里会定时检查<br> D状态的线程，如果超过一定事件没有被唤醒(一般是120s)，就会报异常。所以，如果解压<br> 过程超过120s，会导致等待时间超过120s，进而报异常(linux/kernel/hung_task.c)。</p>
 ]]></content>
       <tags>
@@ -6206,9 +6206,10 @@ shadow: files ldap
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* linux/init/main.c，kernel_init会拉起一号进程，在这之前会在smp_init里拉起从核 */</span><br><span class="line">kernel_init</span><br><span class="line">  +-&gt; smp_init</span><br><span class="line">        /* 在一个循环里一个接一个的拉起从核 */</span><br><span class="line">    +-&gt; bringup_noboot_cpus</span><br><span class="line">          /* 拉起一个core的函数 */</span><br><span class="line">      +-&gt; cpu_up</span><br><span class="line">        +-&gt; _cpu_up</span><br><span class="line">          [...]</span><br><span class="line">          /* 最终会一路调到riscv的实现函数(linux/arch/riscv/kernel/smpboot.c) */</span><br><span class="line">          +-&gt; __cpu_up</span><br><span class="line">            +-&gt; start_secondary_cpu</span><br><span class="line">                  /*</span><br><span class="line">                   * sbi_cpu_start, 传入的启动参数包括：启动地址，task_struct指针，</span><br><span class="line">                   * 栈指针。sbi_cpu_start的接口通过a0传启动地址，通过a1传打包</span><br><span class="line">                   * task_struct指针和栈指针的数据结构的地址。opensbi中不处理这</span><br><span class="line">                   * 两个参数，在启动内核的时候又通过a0和a1传给内核，内核解析a1</span><br><span class="line">                   * 地址上的数据，得到task_struct指针和栈指针。</span><br><span class="line">                   */</span><br><span class="line">              +-&gt; cpu_ops[cpu]-&gt;cpu_start</span><br></pre></td></tr></table></figure>
 ]]></content>
       <tags>
+        <tag>QEMU</tag>
+        <tag>计算机体系结构</tag>
         <tag>Linux内核</tag>
         <tag>opensbi</tag>
-        <tag>QEMU，计算机体系结构</tag>
       </tags>
   </entry>
   <entry>
@@ -7417,6 +7418,32 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
       <tags>
         <tag>qemu</tag>
         <tag>编译链接</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>qemu insn_start中间码分析</title>
+    <url>/qemu-insn-start%E4%B8%AD%E9%97%B4%E7%A0%81%E5%88%86%E6%9E%90/</url>
+    <content><![CDATA[<p>qemu在每一个guest指令的中间码实现之间都要插入一条insn_start的中间码：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">translator_loop</span><br><span class="line">  +-&gt; while () &#123;</span><br><span class="line">         ops-&gt;insn_start(db, cpu);                                               </span><br><span class="line"></span><br><span class="line">         /* 循环翻译一个tb里的guest指令 */</span><br><span class="line">         [...]</span><br><span class="line">      &#125;</span><br></pre></td></tr></table></figure>
+<p>插入insn_start的行为靠guest相关的一个回调函数完成，riscv上是riscv_tr_insn_start,<br>不通构架下基本都是插入一条insn_start指令，只不过insn_start指令带的参数个数有可能<br>是不一样的。riscv上带来pc和0两个参数。</p>
+<p>qemu在后端翻译的时候解析insn_start并把guest pc等信息保存在TCGContext的gen_insn_end_off<br>和gen_insn_data表项里，其中前者保存的是每条guest指令对应的host指令的地址，后者保<br>存的是每条guest指令对应的guest pc以及其它信息。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">tcg_gen_code</span><br><span class="line">  +-&gt; case INDEX_op_insn_start:</span><br><span class="line"></span><br><span class="line">      /* 比如，如果是第一条guest指令，num_insns为0的位置记录的就是0 */</span><br><span class="line">      size_t off = tcg_current_code_size(s);                          </span><br><span class="line">      s-&gt;gen_insn_end_off[num_insns] = off;                           </span><br><span class="line"></span><br><span class="line">      /* guest pc以及可能的其它参数记录在如下表里 */</span><br><span class="line">      s-&gt;gen_insn_data[num_insns][i] = a;                             </span><br></pre></td></tr></table></figure>
+<p>qemu在翻译完一个tb后，根据如上保存的信息，在生成代码的尾部生成对应的信息:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">tb_gen_code</span><br><span class="line">  +-&gt; tcg_gen_code</span><br><span class="line">  +-&gt; encode_search</span><br></pre></td></tr></table></figure>
+
+<p>如上的准备是为了guest产生异常的时候可以精确的找到guest pc，还是用riscv举例，像ecall<br>这种主动产生的异常，在模拟触发异常时同步更新下guest pc就好:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">trans_ecall</span><br><span class="line">  +-&gt; generate_exception(ctx, RISCV_EXCP_U_ECALL)</span><br><span class="line">    +-&gt; tcg_gen_movi_tl(cpu_pc, ctx-&gt;base.pc_next)</span><br><span class="line">    +-&gt; gen_helper_raise_exception(cpu_env, tcg_constant_i32(excp))</span><br></pre></td></tr></table></figure>
+<p>注意qemu在模拟的时候为了性能不会每条guest指令都更新cpu_env的guest cpu，只是在需要<br>的时候才更新。</p>
+<p>但是除了ecall指令触发的U_ECALL这种异常，CPU上其它的异常都是被动产生的，比如下面的<br>图上，guest insn0/insn1就可能触发各种被动的异常，比如guest insn1是存储指令，那么<br>在执行它对应的host指令时就可能跑到模拟触发缺页异常，qemu会跳出当前的翻译执行大循环，<br>跳到异常模拟的地方，异常模拟的地方会把异常上下文报告给软件，其中就包括guest insn1<br>的pc。被动异常可能发生在各种guest指令上，所以qemu就记录了如上guest pc和host pc的<br>对照表，被动异常发生时通过host pc反查到guest pc并更新到guest cpu_env上。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">pc_0:   guest insn0       IR0       host insn0</span><br><span class="line">                          IR1       host insn1</span><br><span class="line">                                    host insn2</span><br><span class="line"></span><br><span class="line">pc_1:   guest insn1       IR3       host insn3</span><br><span class="line">                          IR4       host insn4</span><br><span class="line">                          IR5       host insn5</span><br><span class="line">                                    host insn6</span><br></pre></td></tr></table></figure>
+<p>如下是相关的代码逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">cpu_loop_exit_restore(CPUState *cpu, uintptr_t pc)                         </span><br><span class="line">  +-&gt; cpu_restore_state(cpu, pc, true);                                       </span><br><span class="line">    +-&gt; cpu_restore_state_from_tb</span><br><span class="line">      /* 反查guest pc */</span><br><span class="line">      [...]</span><br><span class="line">      /* 更新guest pc */</span><br><span class="line">      restore_state_to_opc()</span><br><span class="line">  +-&gt; cpu_loop_exit(cpu);                                                         </span><br></pre></td></tr></table></figure>
+
+<p>注意，load/store操纵的guest va不要和load/store指令的地址搞混，load/store指令本身<br>的地址还是要靠如上的方式获得。</p>
+<p>qemu里host和target的概念比较绕，这里再次明确下，qemu/tcg/README其实有澄清。对于<br>qemu这个大的范围target指的就是被模拟的CPU构架，host就是qemu进程运行的CPU，但是<br>TCG里，target表示生成代码的CPU构架，就是qemu里的host。</p>
+]]></content>
+      <tags>
+        <tag>QEMU</tag>
       </tags>
   </entry>
 </search>
