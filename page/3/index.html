@@ -133,7 +133,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">213</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">214</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -196,6 +196,78 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/riscv-AIA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/riscv-AIA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">riscv AIA逻辑分析</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-12-05 22:30:28" itemprop="dateCreated datePublished" datetime="2022-12-05T22:30:28+08:00">2022-12-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-03-02 20:20:36" itemprop="dateModified" datetime="2023-03-02T20:20:36+08:00">2023-03-02</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>本文分析riscv AIA的基本逻辑。目前，相关的代码还在社区review，分析使用的代码为， qemu使用v7.1.50主线代码，kvmtool使用https://github.com/avpatel/kvmtool riscv_aia_v1分支， 内核使用https://github.com/avpatel/linux riscv_kvm_aia_v1分支。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/riscv-AIA%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -820,78 +892,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">riscv KVM虚拟化分析</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2022-09-01 21:25:16" itemprop="dateCreated datePublished" datetime="2022-09-01T21:25:16+08:00">2022-09-01</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-12-06 09:09:40" itemprop="dateModified" datetime="2022-12-06T09:09:40+08:00">2022-12-06</time>
-              </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>本文分析Linux内核里KVM相关的逻辑，体系架构基于riscv。具体调试的时候，我们 使用了两层的qemu模型，第一层qemu使能了riscv的h扩展，第二层qemu使用kvm启动。 全文使用从上到下的思路分析，如果需要了解相关的硬件特性可以直接跳到最后。 使用v5.19-rc8内核代码、6.2.0 qemu代码作为分析代码。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/riscv-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%88%86%E6%9E%90/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -963,7 +963,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">213</span>
+          <span class="site-state-item-count">214</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

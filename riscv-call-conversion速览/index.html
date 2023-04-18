@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是对riscv call conversion的一个速记，其中会反汇编简单的代码，然后分析 和call conversion相关的地方。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="riscv call conversion速览">
+<meta property="og:url" content="http://wangzhou.github.io/riscv-call-conversion%E9%80%9F%E8%A7%88/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文是对riscv call conversion的一个速记，其中会反汇编简单的代码，然后分析 和call conversion相关的地方。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-04-18T13:18:32.000Z">
+<meta property="article:modified_time" content="2023-04-18T13:21:47.090Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="riscv">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/riscv-call-conversion%E9%80%9F%E8%A7%88/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>riscv call conversion速览 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">87</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">214</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/riscv-call-conversion%E9%80%9F%E8%A7%88/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          riscv call conversion速览
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-04-18 21:18:32 / 修改时间：21:21:47" itemprop="dateCreated datePublished" datetime="2023-04-18T21:18:32+08:00">2023-04-18</time>
+            </span>
+
+          
+            <div class="post-description">本文是对riscv call conversion的一个速记，其中会反汇编简单的代码，然后分析 和call conversion相关的地方。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>riscv call conversion的协议在<span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3Jpc2N2LW5vbi1pc2EvcmlzY3YtZWxmLXBzYWJpLWRvYy9yZWxlYXNlcy9kb3dubG9hZC92MS4wL3Jpc2N2LWFiaS5wZGY=">这里<i class="fa fa-external-link-alt"></i></span>。所谓call conversion是指函数调用过程中二进制<br>接口的定义。如果一个程序都相同的编译器构建，自然二进制的接口是一样，但是，程序难免<br>要使用各种库，这样程序构建的时候就是直接链接库的二进制，双方的二进制接口就要对齐。</p>
+<p>其实，只要是不同的二进制程序之间有相互关联都存在二进制接口对齐的问题，必须定义相关<br>的准则，比如一个内核模块和内核之间的ABI问题，在一个内核版本上编译好的内核模块在不<br>同的内核上可能就不能使用，这就需要发行版(这里讨论的是Linux的发行版)在一定版本内<br>ABI是要做到兼容的，比如redhat的发行版在大版本是一定会做到ABI兼容的。</p>
+<p>call conversion定义的就是函数调用之间的准则，比如函数调用的时候怎么传递函数入参，<br>怎么保存寄存器等等。下面的章节逐一介绍下。</p>
+<h2 id="寄存器相关的约定"><a href="#寄存器相关的约定" class="headerlink" title="寄存器相关的约定"></a>寄存器相关的约定</h2><p>函数调用到了新函数，要使用通用寄存器进行计算，但是这些寄存器上还有发起调用函数的<br>数据，必须把通用寄存器上的值先保存起来，等新函数使用完寄存器后，返回发起调用函数<br>执行后续代码的时候再恢复回来原先寄存器上的值。这就有两种办法，一种是发起调用的函<br>数负责恢复和保存寄存器，一种是在被调函数里使用寄存器之前先保存旧值，使用完再把把<br>寄存器的旧值恢复回去，一般CPU都会把整个通用寄存器(GPR)分成这两种寄存器，前者叫作<br>caller saved registers, 后者叫做callee saved registers。</p>
+<p>我们先看caller saved registers，从被调函数看，它可以放心的使用caller saved registers，<br>因为调用函数已经做了保存，调用函数负责在调用被调函数之前保存caller saved registers，<br>调用函数并不需要保存所有的caller saved registers，它只要保存自己使用的caller saved<br>registers。</p>
+<p>被调函数只需要保存以及恢复它使用的callee saved registers就好，对于callee saved<br>registers需要先保存再使用。</p>
+<p>riscv定义的caller saved register有ra、t0-t6、a0-a7，定义的callee saved register<br>有sp、s0-s11，浮点也有对应的caller/callee saved registers。t0-t6、a0-a7和s0-s11<br>的属性是直接定义的，但是ra和sp的属性是天然自带的。ra保存函数的返回地址，涉及到的<br>指令是: jal rd, offset或者jalr rd, offset(rs1)，比如用jal ra, offset实现函数调用，<br>jal把pc跳到pc + offset，并把jal的下一条指令的地址保存到ra，子函数要靠ra返回到父<br>函数的调用点，同理父函数的ra保存的是父函数的返回地址，所以在父函数在调用子函数之<br>前要保存父函数自己的返回地址。sp是栈指针，进入函数首先就要开栈，为函数的临时变量<br>准备存储空间，离开函数之前退栈，撤销函数的临时变量存储空间。</p>
+<p>riscv定义的函数参数传递方式是使用a0-a7作为入参，使用a0-a1传递返回值，如果函数入参<br>寄存器放不下，使用调用函数栈传递参数，多余的参数从栈顶到栈底依此排列。</p>
+<p>写个小程序，然后反汇编后对照的看下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line">int add(int a, int b)</span><br><span class="line">&#123;</span><br><span class="line">	return a + b;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main()</span><br><span class="line">&#123;</span><br><span class="line">	int a = 1, b = 2, c = 5;</span><br><span class="line"></span><br><span class="line">	c += add(a, b);</span><br><span class="line"></span><br><span class="line">	return c;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">0000000000000612 &lt;main&gt;:</span><br><span class="line"> 612:	1101                	addi	sp,sp,-32    开栈</span><br><span class="line"> 614:	ec06                	sd	ra,24(sp)    ra是caller save，下面638行会覆盖ra，所以这里比如caller save</span><br><span class="line"> 616:	e822                	sd	s0,16(sp)    s0 callee save, 保存完就可以用</span><br><span class="line"> 618:	1000                	addi	s0,sp,32     main函数上下文使用s0作为帧指针</span><br><span class="line"> 61a:	4785                	li	a5,1</span><br><span class="line"> 61c:	fef42223          	sw	a5,-28(s0)</span><br><span class="line"> 620:	4789                	li	a5,2</span><br><span class="line"> 622:	fef42423          	sw	a5,-24(s0)</span><br><span class="line"> 626:	4795                	li	a5,5</span><br><span class="line"> 628:	fef42623          	sw	a5,-20(s0)   a/b/c逐个入栈，其实没有必要。还有很多没有必要的入栈</span><br><span class="line"> 62c:	fe842703          	lw	a4,-24(s0)</span><br><span class="line"> 630:	fe442783          	lw	a5,-28(s0)</span><br><span class="line"> 634:	85ba                	mv	a1,a4        准备add入参</span><br><span class="line"> 636:	853e                	mv	a0,a5</span><br><span class="line"> 638:	fb3ff0ef          	jal	ra,5ea &lt;add&gt; 函数调用</span><br><span class="line"> 63c:	87aa                	mv	a5,a0        函数返回值a0</span><br><span class="line"> 63e:	873e                	mv	a4,a5</span><br><span class="line"> 640:	fec42783          	lw	a5,-20(s0)   从栈上读到c</span><br><span class="line"> 644:	9fb9                	addw	a5,a5,a4     c和函数返回值做加法</span><br><span class="line"> 646:	fef42623          	sw	a5,-20(s0)</span><br><span class="line"> 64a:	fec42783          	lw	a5,-20(s0)</span><br><span class="line"> 64e:	853e                	mv	a0,a5        准备main的返回值</span><br><span class="line"> 650:	60e2                	ld	ra,24(sp)    恢复caller save的ra，为ret做准备</span><br><span class="line"> 652:	6442                	ld	s0,16(sp)    恢复callee save的s0</span><br><span class="line"> 654:	6105                	addi	sp,sp,32     退栈</span><br><span class="line"> 656:	8082                	ret                  函数返回</span><br><span class="line"></span><br><span class="line">00000000000005ea &lt;add&gt;:</span><br><span class="line"> 5ea:	1101                	addi	sp,sp,-32    开栈</span><br><span class="line"> 5ec:	ec22                	sd	s0,24(sp)    callee save, 然后在函数上下文才能用s0做帧指针</span><br><span class="line"> 5ee:	1000                	addi	s0,sp,32     上面保存了s0，所以这里把s0用做帧指针</span><br><span class="line"> 5f0:	87aa                	mv	a5,a0        </span><br><span class="line"> 5f2:	872e                	mv	a4,a1</span><br><span class="line"> 5f4:	fef42623          	sw	a5,-20(s0)</span><br><span class="line"> 5f8:	87ba                	mv	a5,a4</span><br><span class="line"> 5fa:	fef42423          	sw	a5,-24(s0)</span><br><span class="line"> 5fe:	fec42703          	lw	a4,-20(s0)</span><br><span class="line"> 602:	fe842783          	lw	a5,-24(s0)</span><br><span class="line"> 606:	9fb9                	addw	a5,a5,a4</span><br><span class="line"> 608:	2781                	sext.w	a5,a5</span><br><span class="line"> 60a:	853e                	mv	a0,a5</span><br><span class="line"> 60c:	6462                	ld	s0,24(sp)    恢复callee save寄存器</span><br><span class="line"> 60e:	6105                	addi	sp,sp,32     退栈</span><br><span class="line"> 610:	8082                	ret                  函数返回</span><br></pre></td></tr></table></figure>
+
+<p>函数参数用栈传递的情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">int add(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j)</span><br><span class="line">&#123;</span><br><span class="line">	return a + b + c + d + e + f + g + h + i + j;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main()</span><br><span class="line">&#123;</span><br><span class="line">	int a = 1, b = 2, c = 5;</span><br><span class="line">	</span><br><span class="line">	c += add(a, b, 3, 4, 5, 6, 7, 8, 9, 10);</span><br><span class="line"></span><br><span class="line">	return c;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">0000000000000680 &lt;main&gt;:</span><br><span class="line"> 680:	7179                	addi	sp,sp,-48</span><br><span class="line"> 682:	f406                	sd	ra,40(sp)</span><br><span class="line"> 684:	f022                	sd	s0,32(sp)</span><br><span class="line"> 686:	1800                	addi	s0,sp,48</span><br><span class="line"> 688:	4785                	li	a5,1</span><br><span class="line"> 68a:	fef42223          	sw	a5,-28(s0)</span><br><span class="line"> 68e:	4789                	li	a5,2</span><br><span class="line"> 690:	fef42423          	sw	a5,-24(s0)</span><br><span class="line"> 694:	4795                	li	a5,5</span><br><span class="line"> 696:	fef42623          	sw	a5,-20(s0)</span><br><span class="line"> 69a:	fe842583          	lw	a1,-24(s0)</span><br><span class="line"> 69e:	fe442503          	lw	a0,-28(s0)</span><br><span class="line"> 6a2:	47a9                	li	a5,10</span><br><span class="line"> 6a4:	e43e                	sd	a5,8(sp)</span><br><span class="line"> 6a6:	47a5                	li	a5,9</span><br><span class="line"> 6a8:	e03e                	sd	a5,0(sp)   &lt;--- 可以看出超过入参寄存器的参数</span><br><span class="line"> 6aa:	48a1                	li	a7,8            放到调用函数(caller)栈一开始的位置</span><br><span class="line"> 6ac:	481d                	li	a6,7</span><br><span class="line"> 6ae:	4799                	li	a5,6</span><br><span class="line"> 6b0:	4715                	li	a4,5</span><br><span class="line"> 6b2:	4691                	li	a3,4</span><br><span class="line"> 6b4:	460d                	li	a2,3</span><br><span class="line"> 6b6:	f35ff0ef          	jal	ra,5ea &lt;add&gt;</span><br><span class="line"> 6ba:	87aa                	mv	a5,a0</span><br><span class="line"> 6bc:	873e                	mv	a4,a5</span><br><span class="line"> 6be:	fec42783          	lw	a5,-20(s0)</span><br><span class="line"> [...]</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/riscv/" rel="tag"><i class="fa fa-tag"></i> riscv</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/qemu-insn-start%E4%B8%AD%E9%97%B4%E7%A0%81%E5%88%86%E6%9E%90/" rel="prev" title="qemu insn_start中间码分析">
+      <i class="fa fa-chevron-left"></i> qemu insn_start中间码分析
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%84%E5%AD%98%E5%99%A8%E7%9B%B8%E5%85%B3%E7%9A%84%E7%BA%A6%E5%AE%9A"><span class="nav-number">2.</span> <span class="nav-text">寄存器相关的约定</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">214</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">87</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
