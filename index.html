@@ -133,7 +133,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">215</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">216</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -196,6 +196,72 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu-tcg%E5%90%8E%E7%AB%AF%E7%BF%BB%E8%AF%91%E5%9F%BA%E6%9C%AC%E6%A8%A1%E5%9E%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/qemu-tcg%E5%90%8E%E7%AB%AF%E7%BF%BB%E8%AF%91%E5%9F%BA%E6%9C%AC%E6%A8%A1%E5%9E%8B/" class="post-title-link" itemprop="url">qemu tcg后端翻译基本模型</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-04-23 13:08:54 / 修改时间：13:10:58" itemprop="dateCreated datePublished" datetime="2023-04-23T13:08:54+08:00">2023-04-23</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>之前写了一个《qemu tcg中间码优化和后端翻译》的分析文章，这个文章涉及的细节 太多，本篇想要描述的是一个东西，但是我们不提代码，着重分析qemu tcg后端翻译 的基本模型。分析中的guest构架使用riscv，host构架使用arm64。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/qemu-tcg%E5%90%8E%E7%AB%AF%E7%BF%BB%E8%AF%91%E5%9F%BA%E6%9C%AC%E6%A8%A1%E5%9E%8B/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -561,7 +627,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-04-13 09:09:41" itemprop="dateModified" datetime="2023-04-13T09:09:41+08:00">2023-04-13</time>
+                <time title="修改时间：2023-04-21 17:22:44" itemprop="dateModified" datetime="2023-04-21T17:22:44+08:00">2023-04-21</time>
               </span>
 
           
@@ -802,72 +868,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu-tcg%E4%B8%ADriscv-page-table-walk%E5%88%86%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/qemu-tcg%E4%B8%ADriscv-page-table-walk%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">qemu tcg中riscv page table walk分析</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2023-02-24 22:15:32 / 修改时间：22:18:41" itemprop="dateCreated datePublished" datetime="2023-02-24T22:15:32+08:00">2023-02-24</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>本文分析riscv上page table walk的逻辑，这部分逻辑一般是硬件完成了，我们这里 分析qemu tcg对page table walk的模拟实现，从模拟中我们也可以看到其中的基本逻辑， 本文会分析整个page table walk的细节，并且分析整个两级地址翻译的流程，只有这样 才能彻底看清整个地址翻译流程。分析基于的qemu版本是v7.1.50。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/qemu-tcg%E4%B8%ADriscv-page-table-walk%E5%88%86%E6%9E%90/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -939,7 +939,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">215</span>
+          <span class="site-state-item-count">216</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

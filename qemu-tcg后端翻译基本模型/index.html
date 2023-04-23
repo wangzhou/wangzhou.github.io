@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="之前写了一个《qemu tcg中间码优化和后端翻译》的分析文章，这个文章涉及的细节 太多，本篇想要描述的是一个东西，但是我们不提代码，着重分析qemu tcg后端翻译 的基本模型。分析中的guest构架使用riscv，host构架使用arm64。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="qemu tcg后端翻译基本模型">
+<meta property="og:url" content="http://wangzhou.github.io/qemu-tcg%E5%90%8E%E7%AB%AF%E7%BF%BB%E8%AF%91%E5%9F%BA%E6%9C%AC%E6%A8%A1%E5%9E%8B/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="之前写了一个《qemu tcg中间码优化和后端翻译》的分析文章，这个文章涉及的细节 太多，本篇想要描述的是一个东西，但是我们不提代码，着重分析qemu tcg后端翻译 的基本模型。分析中的guest构架使用riscv，host构架使用arm64。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-04-23T05:08:54.000Z">
+<meta property="article:modified_time" content="2023-04-23T05:10:58.054Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="QEMU">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/qemu-tcg%E5%90%8E%E7%AB%AF%E7%BF%BB%E8%AF%91%E5%9F%BA%E6%9C%AC%E6%A8%A1%E5%9E%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>qemu tcg后端翻译基本模型 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">87</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">216</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu-tcg%E5%90%8E%E7%AB%AF%E7%BF%BB%E8%AF%91%E5%9F%BA%E6%9C%AC%E6%A8%A1%E5%9E%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          qemu tcg后端翻译基本模型
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-04-23 13:08:54 / 修改时间：13:10:58" itemprop="dateCreated datePublished" datetime="2023-04-23T13:08:54+08:00">2023-04-23</time>
+            </span>
+
+          
+            <div class="post-description">之前写了一个《qemu tcg中间码优化和后端翻译》的分析文章，这个文章涉及的细节 太多，本篇想要描述的是一个东西，但是我们不提代码，着重分析qemu tcg后端翻译 的基本模型。分析中的guest构架使用riscv，host构架使用arm64。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="qemu后端翻译干的是件什么事"><a href="#qemu后端翻译干的是件什么事" class="headerlink" title="qemu后端翻译干的是件什么事"></a>qemu后端翻译干的是件什么事</h2><p>qemu用tcg模拟guest指令执行，qemu把guest指令先翻译成中间码，然后再把中间码翻译成<br>host指令，host指令可以最终在host cpu上执行，这样就完成了翻译。</p>
+<p>本文我们关注的是后端翻译模型，也就是中间码翻译成host指令的过程。中间码是一套完整<br>的指令集定义，使用中间码可以完整的表述guest指令的行为，看一个小例子对这种描述会<br>又更直观的感受。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">addi            sp,sp,-32                  &lt;-- guest汇编</span><br><span class="line">sd              s0,24(sp)</span><br><span class="line"></span><br><span class="line">add_i64 x2/sp,x2/sp,$0xffffffffffffffe0    &lt;-- 中间码</span><br><span class="line">add_i64 tmp4,x2/sp,$0x18</span><br><span class="line">qemu_st_i64 x8/s0,tmp4,leq,0</span><br></pre></td></tr></table></figure>
+<p>我们看如上guest那条store指令，它被翻译成了两条中间码，第一条add_i64是用来计算sd<br>要store的地址，计算出的地址保存在tmp4这个虚拟寄存器里，第二条中间码把s0的值store<br>到tmp4描述的内存上，qemu用中间码和虚拟寄存器完整的表述guest的逻辑。这里qemu_st_i64<br>这个中间码表示一个store操作，store的数据和地址都用虚拟寄存器描述，所以在qemu_st_i64<br>之前要用add_i64先计算出store的地址，并保存在虚拟寄存器里。</p>
+<p>qemu中，其它的guest指令也是这样先翻译成中间码和虚拟寄存器的表示，后端翻译基于中间<br>码和虚拟寄存器进行。上面的中间码表述中，x2/sp和x8/s0还是guest上寄存器的名字，但是<br>逻辑上guest上的寄存器都已经映射到qemu虚拟寄存器，所以中间码指令中的所有寄存器都是<br>qemu的虚拟寄存器。</p>
+<p>现在假设我们已经得到一串中间码，我们再翻过头来看看要怎么完成模拟。qemu模拟的guest<br>cpu系统说到底就是host内存里表示的guest cpu的软件结构体的状态以及guest内存的状态，<br>qemu中间码已经完整的描述了guest状态改变的激励，拿上面addi和sd guest指令的模拟为例，<br>模拟addi的中间码是addi_64 x2/sp,x2/sp,$0xffffffffffffffe0，表示要把guest的sp加上<br>-32，sd的中间码表示要把guest sp + 24指向的地址上的值改成s0的值。我们拿到如上中间码<br>或者guest指令，甚至可以直接写c代码去完成模拟。qemu为了追求效率把中间码翻译成host<br>指令来完成模拟。</p>
+<p>我们把上面的几条中间码写在一起：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">add_i64 x2/sp,x2/sp,$0xffffffffffffffe0</span><br><span class="line">add_i64 tmp4,x2/sp,$0x18</span><br><span class="line">qemu_st_i64 x8/s0,tmp4,leq,0</span><br></pre></td></tr></table></figure>
+<p>这几条中间码只是表意，实际真正更新guest cpu的数据结构和guest地址还需要host指令完成，<br>所以实际翻译后的host指令可能是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">ldr      x20, [x19, #0x10]    把guest cpu中的sp load到host的x20寄存器</span><br><span class="line">sub      x20, x20, #0x20      使用host sub指令完成guest sp的计算</span><br><span class="line">str      x20, [x19, #0x10]    更新guest cpu中sp的值</span><br><span class="line">add      x21, x20, #0x18      使用host add指令计算store的地址，并保存到host的x21寄存器</span><br><span class="line">ldr      x22, [x19, #0x40]    把guest cpu中的s0 load到host的x22寄存器</span><br><span class="line">str      x22, [x21, xzr]      使用host str指令更新guest地址上的值</span><br></pre></td></tr></table></figure>
+<p>qemu的后端翻译就是完成如上功能，总结起来就是：1. 分配host物理寄存器；2. 生成host<br>指令；3. host和guest之间的状态同步。</p>
+<h2 id="分配host物理寄存器"><a href="#分配host物理寄存器" class="headerlink" title="分配host物理寄存器"></a>分配host物理寄存器</h2><p>先看下分配host物理寄存器会遇到什么问题。首先，虚拟寄存器和host物理寄存器是两个独<br>立的概念，虚拟寄存器可能会很多，而物理寄存器的个数是有限的，虚拟寄存器有自己的生<br>命周期，虚拟寄存器生命周期结束后，它所使用的物理寄存器就可以给其它虚拟寄存器使用。<br>因为host物理寄存器数目有限，就有可能出现host物理寄存器不够分的情况，这时候就需要<br>把已经分配但是目前还没有用到的host物理寄存器的值保存到内存，这样就可以腾出host物<br>理寄存器来使用。</p>
+<p>qemu在处理host物理寄存器分配的时候，分了两步处理，第一步先确定虚拟寄存器的生命周<br>期，一般叫做寄存器活性分析，第二步根据虚拟寄存器活性分析的结果具体分配物理寄存器。</p>
+<p>针对一段中间码，qemu对其做逆序遍历，依此确定虚拟寄存器的生命周期。如果一个虚拟寄<br>存器后续还中间码使用，那它还是live的，如果后面没有中间码用了，它就dead了。</p>
+<p>所以，一个虚拟寄存器dead与否是和具体中间码一起看的，一个虚拟寄存器可能在前几个中<br>间码中是live的(虽然这几个中间码并没有使用这个虚拟寄存器)，最后一个使用它的中间码<br>后这个虚拟寄存器就dead了。qemu里只要记录虚拟寄存器被引用时的状态就好。</p>
+<p>我们随便截取一段中间码看下，每条中间码后面数字表示出哪个虚拟寄存器dead了，其中0、<br>1、2等等表示这条中间码的第0个第1个第2个虚拟寄存器dead了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">add_i64 x2/sp,x2/sp,$0xffffffffffffffe0  sync: 0  dead: 1 2  pref=0x3ff80000</span><br><span class="line">add_i64 tmp4,x2/sp,$0x18                 pref=0xffffffff</span><br><span class="line">qemu_st_i64 x8/s0,tmp4,leq,0             dead: 0 1</span><br><span class="line">add_i64 x8/s0,x2/sp,$0x20                sync: 0  pref=0x3ff80000</span><br><span class="line">mov_i64 x15/a5,$0x1                      sync: 0  dead: 0  pref=0xffffffff   &lt;- 8</span><br><span class="line">add_i64 tmp4,x8/s0,$0xffffffffffffffe4   pref=0xffffffff</span><br><span class="line">qemu_st_i64 $0x1,tmp4,leul,0             dead: 0 1</span><br><span class="line">mov_i64 x15/a5,$0x2                      sync: 0  dead: 0  pref=0xffffffff   &lt;- 7</span><br><span class="line">add_i64 tmp4,x8/s0,$0xffffffffffffffe8   pref=0xffffffff</span><br><span class="line">qemu_st_i64 $0x2,tmp4,leul,0             dead: 0 1</span><br><span class="line">add_i64 tmp4,x8/s0,$0xffffffffffffffec   pref=0xffffffff</span><br><span class="line">qemu_st_i64 $0x0,tmp4,leul,0             dead: 0 1</span><br><span class="line">add_i64 tmp4,x8/s0,$0xffffffffffffffe4   dead: 2  pref=0xffffffff</span><br><span class="line">qemu_ld_i64 x14/a4,tmp4,lesl,0           sync: 0  dead: 1  pref=0x3ff80000</span><br><span class="line">add_i64 tmp4,x8/s0,$0xffffffffffffffe8   dead: 2  pref=0xffffffff</span><br><span class="line">qemu_ld_i64 x15/a5,tmp4,lesl,0           dead: 1  pref=0xffffffff            &lt;- 6 ---</span><br><span class="line">add_i64 tmp4,x15/a5,x14/a4               dead: 1 2  pref=0xffffffff          &lt;- 5</span><br><span class="line">ext32s_i64 x15/a5,tmp4                   sync: 0  dead: 1  pref=0xffffffff   &lt;- 4 ---</span><br><span class="line">add_i64 tmp4,x8/s0,$0xffffffffffffffec   pref=0xffffffff</span><br><span class="line">qemu_st_i64 x15/a5,tmp4,leul,0           dead: 0 1                           &lt;- 3</span><br><span class="line">add_i64 tmp4,x8/s0,$0xffffffffffffffec   dead: 1 2  pref=0xffffffff</span><br><span class="line">qemu_ld_i64 x15/a5,tmp4,lesl,0           sync: 0  dead: 1  pref=0xffffffff   &lt;- 2 ---</span><br><span class="line">mov_i64 x10/a0,x15/a5                    sync: 0  dead: 0 1  pref=0xffffffff &lt;- 1</span><br></pre></td></tr></table></figure>
+<p>我们拿x15寄存器为例，逆序遍历的时，位置1的中间码中的x15(下面叫p1的x15)后面没有中<br>间码用了，所以p1的x15是dead。p2的x15因为在p1要用，所以p2的x15是live。p3的x15是dead，<br>因为p2直接直接更新了x15，就是p3以下没有中间码使用p3的x15。p4的x15是live，因为p3<br>要使用p4的x15。p5的x15是dead，因为p4刷新了x15的值，p5以下没有中间码引用p5的x15。<br>p6/p7/p8的x15同样分析。</p>
+<p>qemu在寄存器活性分析阶段，把每个中间码里的虚拟寄存器的活性做好标记，依次存到每个<br>中间码的life域段。然后再顺序遍历每个中间码分配物理寄存器。还是用上面这段中间码举<br>例，比如为p8的x15分配了host物理寄存器x20，因为p8的x15是dead，那么host这个x20寄存<br>器就可以在p8这条中间码后继续参与host物理寄存器分配，但是对于p4的x15，比如给p4的<br>x15分配了host物理寄存器x21，这个x21就必须一直被占用着，因为p3要用p4的x15，p3之后<br>x15 dead，对应的物理寄存器x21就可以再次参与host物理寄存器分配。</p>
+<h2 id="生成host指令以及状态同步"><a href="#生成host指令以及状态同步" class="headerlink" title="生成host指令以及状态同步"></a>生成host指令以及状态同步</h2><p>我们把状态同步和host指令生成放到一起看，因为所谓状态同步也要生成host指令进行。</p>
+<p>对于中间码的输入虚拟寄存器，需要先判断这个输入寄存器的值是保存在内存上，还是已经<br>保存在host物理寄存器上了，如果还在内存上，qemu就要分配host物理寄存器，然后插入host<br>上的load指令把内存上的值load到host物理寄存器上，如果虚拟寄存器的值已经在host物理<br>寄存器上，那么它直接就可以参与计算。对于中间码的输出虚拟寄存器，qemu需要为它分配<br>host物理寄存器。</p>
+<p>中间码的输入和输出寄存器都有着落了，qemu就可以尝试把中间码翻译成host指令。这个翻<br>译可能直接就可以翻译成一条host指令，也可能需要再插入几条host指令调整下。</p>
+<p>guest指令对应的中间码执行完后，需要把guest指令的输出同步回guest CPU数据结构，所以<br>qemu在这里还需要插入host store指令把数据刷回guest CPU。qemu在寄存器活性分析的时候<br>会把需要做同步的虚拟寄存器打上sync的标记，生成host指令的时候遇见sync标记就可以直接<br>插入host指令做同步。</p>
+<p>并不需要每个guest指令执行完都要把信息刷回guest CPU数据结构，虽然guest CPU的信息<br>是定义在guest CPU数据结构中的，但是我们是模拟guest CPU，只要不破坏模拟的逻辑，host<br>物理寄存器上的值就可以先不刷回guest CPU数据结构。那什么时候需要刷回guest CPU，整个<br>TB执行完时，虚拟寄存器需要被同步回guest CPU，当中间码可能导致guest CPU异常时，需要<br>做同步，因为触发异常后，guest CPU跳转到异常处理地址，并且向软件报告异常处理的上下<br>文，其中guest CPU的通用寄存器就都是从guest CPU数据结构获取。</p>
+<h2 id="加入BB的概念"><a href="#加入BB的概念" class="headerlink" title="加入BB的概念"></a>加入BB的概念</h2><p>上面讲的寄存器分配和状态同步其实还不完整，如上的中间码里是没有跳转的(br/brcond)，<br>qemu的一个翻译块(TB)里是可以存在跳转中间码的，在有跳转中间码的情况下，上面逆序遍<br>历确定虚拟寄存器活性的办法就会有问题。为此qemu中在TB的基础上又引入了Basic Block(BB)<br>的概念，简单讲在一个BB内中间码都是顺序执行的，这样如上的逻辑在BB内还是成立的。所以，<br>在BB的结尾就要dead全部虚拟寄存器，并且把guest CPU对应的虚拟寄存器向guest CPU数据<br>结构做同步。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/QEMU/" rel="tag"><i class="fa fa-tag"></i> QEMU</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/qemu-set-label%E4%B8%AD%E9%97%B4%E7%A0%81%E5%88%86%E6%9E%90/" rel="prev" title="qemu set_label中间码分析">
+      <i class="fa fa-chevron-left"></i> qemu set_label中间码分析
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu%E5%90%8E%E7%AB%AF%E7%BF%BB%E8%AF%91%E5%B9%B2%E7%9A%84%E6%98%AF%E4%BB%B6%E4%BB%80%E4%B9%88%E4%BA%8B"><span class="nav-number">1.</span> <span class="nav-text">qemu后端翻译干的是件什么事</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%86%E9%85%8Dhost%E7%89%A9%E7%90%86%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">2.</span> <span class="nav-text">分配host物理寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%94%9F%E6%88%90host%E6%8C%87%E4%BB%A4%E4%BB%A5%E5%8F%8A%E7%8A%B6%E6%80%81%E5%90%8C%E6%AD%A5"><span class="nav-number">3.</span> <span class="nav-text">生成host指令以及状态同步</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8A%A0%E5%85%A5BB%E7%9A%84%E6%A6%82%E5%BF%B5"><span class="nav-number">4.</span> <span class="nav-text">加入BB的概念</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">216</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">87</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
