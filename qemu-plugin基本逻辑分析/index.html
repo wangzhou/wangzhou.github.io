@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析qemu plugin的实现机制，了解qemu plugin的机制后，我们可以很容易的写 一个plugin出来，用qemu plugin的方式为qemu增加新的功能。分析基于的qemu版本是 v7.1.50。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="qemu plugin基本逻辑分析">
+<meta property="og:url" content="http://wangzhou.github.io/qemu-plugin%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析qemu plugin的实现机制，了解qemu plugin的机制后，我们可以很容易的写 一个plugin出来，用qemu plugin的方式为qemu增加新的功能。分析基于的qemu版本是 v7.1.50。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-05-13T07:57:20.000Z">
+<meta property="article:modified_time" content="2023-05-13T07:58:40.372Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="QEMU">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/qemu-plugin%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>qemu plugin基本逻辑分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">87</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">219</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu-plugin%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          qemu plugin基本逻辑分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-05-13 15:57:20 / 修改时间：15:58:40" itemprop="dateCreated datePublished" datetime="2023-05-13T15:57:20+08:00">2023-05-13</time>
+            </span>
+
+          
+            <div class="post-description">本文分析qemu plugin的实现机制，了解qemu plugin的机制后，我们可以很容易的写 一个plugin出来，用qemu plugin的方式为qemu增加新的功能。分析基于的qemu版本是 v7.1.50。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="qemu-plugin基本概念以及使用"><a href="#qemu-plugin基本概念以及使用" class="headerlink" title="qemu plugin基本概念以及使用"></a>qemu plugin基本概念以及使用</h2><p>qemu tcg支持用插件的方式为qemu新增功能，qemu源码里作为示例自带了几个插件，我们先<br>编译使用下qemu自带的cache插件。</p>
+<p>一般情况下qemu tcg是不模拟cache的，qemu自带了一个简单模拟cache的插件。我们在配置<br>qemu的时候要带上–enable-plugins，编译完qemu后，进入qemu/build/contrib/plugins/,<br>在这个目录下运行make，之后可以看见qemu的自带的plugin都编译出了，其中就有cache的<br>plugin: libcache.so。</p>
+<p>按如下运行命令，可以带着cache plugin运行qemu，-d plugin输出plugin里的打印信息，<br>-D指定打印信息输出的文件：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">qemu-system-riscv64 -m 256m -nographic -machine virt \</span><br><span class="line">-kernel ~/repos/linux/arch/riscv/boot/Image \</span><br><span class="line">-append &quot;console=ttyS0 root=/dev/ram rdinit=/init&quot; \</span><br><span class="line">-initrd ~/repos/buildroot/output/images/rootfs.cpio.gz \</span><br><span class="line">-plugin ~/repos/qemu/build/contrib/plugins/libcache.so \</span><br><span class="line">-d plugin -D ~/qemu_cache_plugin_log</span><br></pre></td></tr></table></figure>
+<p>如上运行qemu后，linux内核启动从1s到了30s，可见qemu带plugin运行的速度是很慢的。</p>
+<h2 id="qemu-plugin机制分析"><a href="#qemu-plugin机制分析" class="headerlink" title="qemu plugin机制分析"></a>qemu plugin机制分析</h2><p>qemu要实现plugin就必然向外，也就是向plugin提供一组API接口，plugin使用这组API向qemu<br>注册以及获取qemu模拟的guest的信息。qemu内部为了支持plugin机制也会增加plugin的核心<br>实现代码。</p>
+<p>首先我们从qemu user mode入手看下qemu是如何解析命令行里输入的plugin so的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">main</span><br><span class="line">  +-&gt; handle_arg_plugin(const char *arg)</span><br><span class="line">    +-&gt; qemu_plugin_opt_parse(const char *optarg, QemuPluginList *head)</span><br></pre></td></tr></table></figure>
+<p>可以看见qemu user mode会把解析到的每个plugin的信息放到qemu_plugin_desc，再把所有<br>的qemu_plugin_desc保存到一个叫plugins的全局链表里。</p>
+<p>main函数里随后会使用qemu_plugin_load_list加载plugin so:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">qemu_plugin_load_list()</span><br><span class="line">  +-&gt; plugin_load()</span><br><span class="line">    +-&gt; ctx-&gt;handle = g_module_open(desc-&gt;path, G_MODULE_BIND_LOCAL);</span><br><span class="line">    +-&gt; g_module_symbol(ctx-&gt;handle, &quot;qemu_plugin_install&quot;, &amp;sym));</span><br><span class="line">        install = (qemu_plugin_install_func_t) sym;                                 </span><br><span class="line">    +-&gt; g_hash_table_lookup(plugin.id_ht, &amp;ctx-&gt;id);</span><br><span class="line">    +-&gt; QTAILQ_INSERT_TAIL(&amp;plugin.ctxs, ctx, entry);</span><br><span class="line">    +-&gt; install(ctx-&gt;id, info, desc-&gt;argc, desc-&gt;argv);                        </span><br></pre></td></tr></table></figure>
+<p>qemu内部对一个plugin的信息保存在qemu_plugin_ctx里，qemu全局的plugin信息保存到<br>struct qemu_plugin_state plugin里，注意上面的qemu_plugin_desc保存的只是plugin对应<br>的文件路径、参数等信息。struct qemu_plugin_state plugin里会用链表和哈希表分别记录<br>所有plugin。</p>
+<p>qemu针对每个plugin，打开对应的动态库，执行动态库里名为qemu_plugin_install的函数。<br>每个plugin必须实现这个注册接口。</p>
+<p>我们以libcache看看plugin怎么实现qemu_plugin_install。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">/* qemu/contrib/plugins/cache.c */</span><br><span class="line">qemu_plugin_install(qemu_plugin_id_t id, const qemu_info_t *info, int argc, char **argv)</span><br><span class="line">  [...]</span><br><span class="line">  +-&gt; qemu_plugin_register_vcpu_tb_trans_cb(id, vcpu_tb_trans);                   </span><br><span class="line">    +-&gt; plugin_register_cb(id, QEMU_PLUGIN_EV_VCPU_TB_TRANS, cb);                   </span><br><span class="line">  +-&gt; qemu_plugin_register_atexit_cb(id, plugin_exit, NULL);                      </span><br></pre></td></tr></table></figure>
+<p>这个函数做了一些自己plugin的初始化后，调用了qemu plugin API注册了vcpu_tb_trans和<br>plugin_exit两个函数。所谓注册，就是把这两个函数保存到了plugin对应qemu_plugin_ctx<br>(后面简称ctx)的qemu_plugin_cb(后面简称cb)里，注意ctx里的cb是个数组，不同的数组项<br>描述不同的event，比如如上的QEMU_PLUGIN_EV_VCPU_TB_TRANS就是一个event，qemu在翻译<br>执行主流程里会调用这些注册的回调函数。</p>
+<p>我们可以先观察下如上vcpu_tb_trans的行为，去掉其中业务相关的逻辑，其主逻辑如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">vcpu_tb_trans()</span><br><span class="line">  +-&gt; n_insns = qemu_plugin_tb_n_insns(tb);                                       </span><br><span class="line">  +-&gt; for (i = 0; i &lt; n_insns; i++) &#123;                                             </span><br><span class="line">      struct qemu_plugin_insn *insn = qemu_plugin_tb_get_insn(tb, i);         </span><br><span class="line">      effective_addr = (uint64_t) qemu_plugin_insn_vaddr(insn);</span><br><span class="line">      [...]</span><br><span class="line">      qemu_plugin_register_vcpu_mem_cb(insn, vcpu_mem_access, QEMU_PLUGIN_CB_NO_REGS, rw, data);</span><br><span class="line">      qemu_plugin_register_vcpu_insn_exec_cb(insn, vcpu_insn_exec, QEMU_PLUGIN_CB_NO_REGS, data);</span><br><span class="line">  +-&gt; &#125;                                                                           </span><br></pre></td></tr></table></figure>
+<p>这个函数对于一个tb，调用qemu plugin的API得到guest指令数目、每个指令相关信息，并<br>针对每条guest指令使用qemu plugin API注册相关的回调函数，比如这里对每条guest指令<br>注册了vcpu_mem_access和vcpu_insn_exec两个函数。不同注册函数注册的回调函数在qemu<br>翻译执行主循环的不同位置被触发，plugin需要根据API的语意使用API注册回调函数。</p>
+<p>我们进一步分析qemu内部是怎么实现回调函数的注册和触发的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">void qemu_plugin_register_vcpu_mem_cb(struct qemu_plugin_insn *insn,            </span><br><span class="line">                                      qemu_plugin_vcpu_mem_cb_t cb,             </span><br><span class="line">                                      enum qemu_plugin_cb_flags flags,          </span><br><span class="line">                                      enum qemu_plugin_mem_rw rw,               </span><br><span class="line">                                      void *udata)                              </span><br><span class="line">&#123;                                                                               </span><br><span class="line">    plugin_register_vcpu_mem_cb(&amp;insn-&gt;cbs[PLUGIN_CB_MEM][PLUGIN_CB_REGULAR],   </span><br><span class="line">                                    cb, flags, rw, udata);                      </span><br><span class="line">&#125;                                                                               </span><br></pre></td></tr></table></figure>
+<p>从qemu_plugin_insn的内部结构可以看出来，针对一个guest指令，plugin可以注册两大类<br>回调函数：PLUGIN_CB_MEM和PLUGIN_CB_INSN，每一类里又分: PLUGIN_CB_REGULAR和PLUGIN_CB_INLINE。<br>被注册的函数以及相关的参数统统保存在insn的对应cb里(qemu_plugin_dyn_cb)。这里只是<br>保存了相关注册函数信息，被注册的函数还没有和qemu主流程关联在一起，和qemu主流程关<br>联的过程还是在qemu主流程里实现。</p>
+<p>整个qemu翻译的主流程中被插入了plugin的桩函数以及桩函数的替换逻辑:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">/* qemu/accel/tcg/translator.c */</span><br><span class="line">translator_loop</span><br><span class="line">  +-&gt; plugin_enabled = plugin_gen_tb_start()</span><br><span class="line">  +-&gt; while (true) &#123;</span><br><span class="line">          if (plugin_enabled) &#123;                                                   </span><br><span class="line">              plugin_gen_insn_start(cpu, db);                                     </span><br><span class="line">                +-&gt; plugin_gen_empty_callback(PLUGIN_GEN_FROM_INSN)</span><br><span class="line">                  +-&gt; gen_wrapped(from, PLUGIN_GEN_ENABLE_MEM_HELPER, gen_empty_mem_helper)</span><br><span class="line">                    +-&gt; gen_plugin_cb_start(from, type, 0);                                         </span><br><span class="line">                    +-&gt; func();                                                                     </span><br><span class="line">                    +-&gt; tcg_gen_plugin_cb_end();                                                    </span><br><span class="line">                  +-&gt; gen_wrapped(from, PLUGIN_GEN_CB_UDATA, gen_empty_udata_cb);             </span><br><span class="line">                  +-&gt; gen_wrapped(from, PLUGIN_GEN_CB_INLINE, gen_empty_inline_cb);           </span><br><span class="line">          &#125;                                                                       </span><br><span class="line"></span><br><span class="line">          ops-&gt;translate_insn(db, cpu);                                       </span><br><span class="line"></span><br><span class="line">          if (plugin_enabled) &#123;                                                   </span><br><span class="line">              plugin_gen_insn_end();                                              </span><br><span class="line">          &#125;                                                                       </span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">  +-&gt; if (plugin_enabled) &#123;                                                       </span><br><span class="line">          plugin_gen_tb_end(cpu);                                                 </span><br><span class="line">      &#125;                                                                           </span><br></pre></td></tr></table></figure>
+<p>plugin_gen_tb_start/plugin_gen_insn_start/plugin_gen_insn_end用来插入桩函数，<br>plugin_gen_tb_end主要用来做桩函数的替换。</p>
+<p>我们顺序看一个plugin_gen_insn_start的处理。可以看见，这里插入了一些中间码，大概的<br>情况是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">plugin_cb_start PLUGIN_GEN_FROM_INSN, PLUGIN_GEN_ENABLE_MEM_HELPER</span><br><span class="line">movi_64 ptr, 0</span><br><span class="line">/* 清空CPUState里plugin_mem_cbs保存的memory相关的回调函数 */</span><br><span class="line">st_i64 ptr CPUState, offset of plugin_mem_cbs</span><br><span class="line">plugin_cb_end</span><br><span class="line"></span><br><span class="line">plugin_cb_start PLUGIN_GEN_FROM_TB, PLUGIN_GEN_CB_UDATA</span><br><span class="line">ld_i32 cpu_index CPUState, offset of cpu_index</span><br><span class="line">call plugin_vcpu_udata_cb cpu_index, udata</span><br><span class="line">plugin_cb_end</span><br><span class="line"></span><br><span class="line">plugin_cb_start PLUGIN_GEN_FROM_TB, PLUGIN_GEN_CB_INLINE</span><br><span class="line">ld_i64 val, ptr, 0</span><br><span class="line">addi_i64 val, val, 0xdeadface</span><br><span class="line">st_i64 val, val, 0</span><br><span class="line">plugin_cb_end</span><br></pre></td></tr></table></figure>
+<p>如上的plugin_vcpu_udata_cb是一个空的桩函数。</p>
+<p>qemu在plugin_gen_tb_end把plugin注册的回调函数插入qemu翻译执行逻辑里，使用的基本方<br>法就是使用qemu_plugin_insn中保存的回调函数替换如上的桩函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">plugin_gen_tb_end</span><br><span class="line">  +-&gt; qemu_plugin_tb_trans_cb(cpu, ptb);                                          </span><br><span class="line">  +-&gt; plugin_gen_inject(ptb);                                                     </span><br></pre></td></tr></table></figure>
+<p>qemu_plugin_tb_trans_cb扫描qemu全局的plugin，针对每个plugin，调用之前注册的<br>QEMU_PLUGIN_EV_VCPU_TB_TRANS event对应的回调函数。具体到上面的cache plugin就是<br>其中的vcpu_tb_trans函数。</p>
+<p>我们就用cache的vcpu_tb_trans继续分析，这个函数里最主要的针对tb里的每个guest指令<br>调用qemu plugin API注册回调函数，如上，其实这里的注册就是把回调函数保存到guest指<br>令insn结构体里，我们具体看其中一个：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">qemu_plugin_register_vcpu_mem_cb(insn, vcpu_mem_access, QEMU_PLUGIN_CB_NO_REGS, rw, data);</span><br><span class="line">  +-&gt; plugin_register_vcpu_mem_cb(&amp;insn-&gt;cbs[PLUGIN_CB_MEM][PLUGIN_CB_REGULAR], cb, flags, rw, udata);</span><br></pre></td></tr></table></figure>
+
+<p>plugin_gen_inject用注册的回调函数替换掉如上call中间码里的函数地址，并对输入参数做<br>必要的调整：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">plugin_gen_inject(ptb)</span><br><span class="line"></span><br><span class="line">  QTAILQ_FOREACH(op, &amp;tcg_ctx-&gt;ops, link)</span><br><span class="line">    switch (op-&gt;opc)</span><br><span class="line">    [...]</span><br><span class="line">    case INDEX_op_plugin_cb_start:                                          </span><br><span class="line"></span><br><span class="line">      enum plugin_gen_from from = op-&gt;args[0];                            </span><br><span class="line">      enum plugin_gen_cb type = op-&gt;args[1];                              </span><br><span class="line">                                                                          </span><br><span class="line">      switch (from)</span><br><span class="line">      [...]</span><br><span class="line">      case PLUGIN_GEN_FROM_INSN:                                          </span><br><span class="line">        switch (type)</span><br><span class="line">        case PLUGIN_GEN_CB_UDATA:                                       </span><br><span class="line">          plugin_gen_insn_udata(plugin_tb, op, insn_idx);             </span><br><span class="line">          break;                                                      </span><br><span class="line">        case PLUGIN_GEN_CB_INLINE:                                      </span><br><span class="line">          plugin_gen_insn_inline(plugin_tb, op, insn_idx);            </span><br><span class="line">          break;                                                      </span><br><span class="line">        case PLUGIN_GEN_ENABLE_MEM_HELPER:                              </span><br><span class="line">          plugin_gen_enable_mem_helper(plugin_tb, op, insn_idx);      </span><br><span class="line">          break;                                                      </span><br></pre></td></tr></table></figure>
+<p>如上代码识别plugin_tb_start开头的一段中间码，然后做匹配位置的函数替换以及参数生成。<br>还是看如上PLUGIN_GEN_FROM_INSN对应的处理(语意是获取指令执行之前的信息)，如上插入<br>了三段以plugin_cb_start开头的中间码，这里的三个case分别处理相关的中间码。</p>
+<p>我们深入看下plugin_gen_enable_mem_helper的处理。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line">plugin_gen_enable_mem_helper</span><br><span class="line">  +-&gt; inject_mem_enable_helper(insn, begin_op);                                   </span><br><span class="line">        /*</span><br><span class="line">         * 如果对这个指令没有注册memory类型的回调, 或者没有calls_helpers? 就删掉</span><br><span class="line">         * 之前的中间码桩。不做任何操作直接返回了。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; plugin_insn-&gt;mem_helper = plugin_insn-&gt;calls_helpers &amp;&amp; n_cbs;              </span><br><span class="line">        if (likely(!plugin_insn-&gt;mem_helper)) &#123;                                     </span><br><span class="line">            rm_ops(begin_op);                                                       </span><br><span class="line">            return;                                                                 </span><br><span class="line">        &#125;                                                                           </span><br><span class="line">	/* 把注册的回调插入plugin的dyn_cb_arr_ht哈希表里 */</span><br><span class="line">    +-&gt; qemu_plugin_add_dyn_cb_arr(arr);                                            </span><br><span class="line">        /* 通过改变中间码插入回调函数 */</span><br><span class="line">    +-&gt; inject_mem_helper(begin_op, arr);                                           </span><br><span class="line">      /*                                                                          </span><br><span class="line">       * 在end后插入op，copy begin后的op到新op上，并做必要的修改，返回的begin_op</span><br><span class="line">       * 指向后一个节点，op指向最新的&quot;end&quot;。比如，这里了是新加了mov IR, 并修改mov</span><br><span class="line">       * 的输入为注册回调描述结构的地址:</span><br><span class="line">       *</span><br><span class="line">       * begin -&gt; mov -&gt; st -&gt; end -&gt; op(mov)</span><br><span class="line">       */</span><br><span class="line">      op = copy_const_ptr(&amp;begin_op, end_op, arr);                                </span><br><span class="line">                                                                                  </span><br><span class="line">      /* 用上面同样的方法修改store指令：begin -&gt; mov -&gt; st -&gt; end -&gt; mov -&gt; st */                                                                         </span><br><span class="line">      op = copy_st_ptr(&amp;begin_op, op);                                            </span><br><span class="line"></span><br><span class="line">      /*                                                                          </span><br><span class="line">       * 把中间码的桩都删去，只留下修改后的mov和st:</span><br><span class="line">       * begin -&gt; mov -&gt; st -&gt; end -&gt; mov -&gt; st                                 </span><br><span class="line">       * &lt;-------- remove -------&gt; </span><br><span class="line">       */                                                                         </span><br><span class="line">      rm_ops_range(orig_op, end_op);                                              </span><br></pre></td></tr></table></figure>
+<p>经过上述操作，最终结果是把plugin中注册的回调函数保存到了CPUState的plugin_mem_cbs。</p>
+<p>原来的中间码序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">plugin_cb_start PLUGIN_GEN_FROM_INSN, PLUGIN_GEN_ENABLE_MEM_HELPER</span><br><span class="line">movi_64 ptr, 0</span><br><span class="line">st_i64 ptr CPUState, offset of plugin_mem_cbs</span><br><span class="line">plugin_cb_end</span><br></pre></td></tr></table></figure>
+<p>变成了：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">movi_64 ptr, arr地址</span><br><span class="line">st_i64 ptr CPUState, offset of plugin_mem_cbs</span><br></pre></td></tr></table></figure>
+
+<p>在load/store的实现里(其中调用helper函数里)，qemu调用qemu_plugin_vcpu_mem_cb的到<br>CPUState中保存的memory相关回调，并执行。</p>
+<p>如上我们分析了一个qemu处理plugin的特例情况，其它plugin插桩以及替换的原理也是一样<br>的，比如对于plugin_cb_start PLUGIN_GEN_FROM_TB, PLUGIN_GEN_CB_UDATA的情况，qemu<br>直接用call IR插入了一个空helper函数，后面的替换直接修改call IR里保存的函数地址以及<br>函数入参就好了。</p>
+<p>如上我们大致根据plugin的执行流程分析其工作原理，下面在横向的维度上把plugin的基本<br>概念再展开下。</p>
+<p>从plugin_gen_from的定义上看，qemu plugin的插桩点包括：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">/* TB翻译前 */                                                              </span><br><span class="line">PLUGIN_GEN_FROM_TB,                                                         </span><br><span class="line"></span><br><span class="line">/* guest指令翻译前 */                                                       </span><br><span class="line">PLUGIN_GEN_FROM_INSN,                                                       </span><br><span class="line"></span><br><span class="line">/* memory操作相关的点 */</span><br><span class="line">PLUGIN_GEN_FROM_MEM,                                                        </span><br><span class="line"></span><br><span class="line">/* guest指令翻译后 */                                                       </span><br><span class="line">PLUGIN_GEN_AFTER_INSN,                                                      </span><br></pre></td></tr></table></figure>
+<p>指令和TB的插桩点在qemu翻译执行的主循环里，如上的分析中已经有涉及。PLUGIN_GEN_FROM_MEM<br>在load/store的公共实现代码里插桩时会用到，在qemu/tcg/tcg-op.c里load/store IR的实现<br>tcg_gen_qemu_ld/st_i32/i64会调用plugin_gen_mem_callbacks插入参数为PLUGIN_GEN_FROM_MEM<br>的plugin_cb_start/end，以及空的helper桩函数。</p>
+<p>可以看到，qemu对应中间码使用插入helper桩函数再替换的方式支持plugin。对于helper函数<br>里需要支持plugin时，qemu把回调函数先保存到CPUState里，然后在helper里直接调用回调<br>函数，这个就是我们上面重点分析的例子里的情形。</p>
+<h2 id="写一个自己的qemu-plugin"><a href="#写一个自己的qemu-plugin" class="headerlink" title="写一个自己的qemu plugin"></a>写一个自己的qemu plugin</h2><p>如上分析了qemu plugin的逻辑，我们再从plugin的角度看看qemu都提供的那些API出来，以<br>及他们的大概用法。我们还是从cache plugin入手，然后横向展开看看。</p>
+<p>如上分析里，cache plugin首先使用qemu_plugin_register_vcpu_tb_trans_cb注册了在tb<br>翻译结束会调用的回调函数(vcpu_tb_trans)，这个回调函数可以得到tb里guest指令的句柄，<br>从而plugin里可以继续针对guest指令注册回调函数。</p>
+<p>我们先看下第一层，也就是除了tb翻译完成可以注册回调，还有那些地方可以注册回调。qemu<br>里还提供了如下注册plugin的地方：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">QEMU_PLUGIN_EV_VCPU_INIT</span><br><span class="line">QEMU_PLUGIN_EV_VCPU_EXIT</span><br><span class="line">QEMU_PLUGIN_EV_VCPU_TB_TRANS</span><br><span class="line">QEMU_PLUGIN_EV_VCPU_IDLE</span><br><span class="line">QEMU_PLUGIN_EV_VCPU_RESUME</span><br><span class="line">QEMU_PLUGIN_EV_VCPU_SYSCALL</span><br><span class="line">QEMU_PLUGIN_EV_VCPU_SYSCALL_RET</span><br><span class="line">QEMU_PLUGIN_EV_FLUSH</span><br><span class="line">QEMU_PLUGIN_EV_ATEXIT</span><br></pre></td></tr></table></figure>
+<p>如上的每个地方，qemu都提供了一个API来注册回调，比如QEMU_PLUGIN_EV_VCPU_INIT对应<br>的API就是qemu_plugin_register_vcpu_init_cb。如上回调点大概意思可以猜出来，但是要<br>知道确切意思还的去看qemu的代码，qemu并没有把自己执行的模型表述的很清楚。</p>
+<p>cache plugin里针对tb里的每个guest指令注册了vcpu_mem_access和vcpu_insn_exec，我们<br>看看针对指令都可以怎么注册回调函数。针对guest指令可以注册内存读写相关的回调和指令<br>执行相关的回调，每种类型又分为cb和inline:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">qemu_plugin_register_vcpu_mem_cb</span><br><span class="line">qemu_plugin_register_vcpu_mem_inline</span><br><span class="line"></span><br><span class="line">qemu_plugin_register_vcpu_insn_exec_cb</span><br><span class="line">qemu_plugin_register_vcpu_insn_exec_inline</span><br></pre></td></tr></table></figure>
+<p>对于指令执行相关的回调，qemu会在每个指令执行前调用，对于内存读写相关的回调，qemu<br>会在访存指令的helper实现函数以及访存指令完成时调用。cb类型的回调是plugin里实现回调<br>函数，qemu主流程里调用plugin里定义的函数来实现信息记录的，而所谓inline并没有调用<br>helper函数记录信息，而是在plugin里定义操作指令和操作的目的地址，qemu主流程里每当<br>到了调用点就对目的地址做相关的操作，目前qemu定义的操作还只有add，可以看出，inline<br>是一种轻量级的记录方式，qemu内部实现上，只需要根据plugin提供的操作地址稍微调整下<br>主流程里的桩中间码就可以做到。</p>
+<p>qemu针对tb执行也提供了可以注册回调的入口：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">qemu_plugin_register_vcpu_tb_exec_cb</span><br><span class="line">qemu_plugin_register_vcpu_tb_exec_inline</span><br></pre></td></tr></table></figure>
+<p>使用如上API注册回调，qemu会在执行tb前调用回调或者像上面分析中提到的那样更新注册<br>地址上的数据。</p>
+<p>qemu plugin里需要获得guest指令或者tb的一些参数，为此qemu还对外提供了一组获取guest<br>指令或者tb的信息的辅助函数。这些辅助函数以及上述所提到的API在include/qemu/qemu-plugin.h<br>里均有定义。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/QEMU/" rel="tag"><i class="fa fa-tag"></i> QEMU</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/cmake%E4%BD%BF%E7%94%A8%E9%80%9F%E8%AE%B0/" rel="prev" title="cmake使用速记">
+      <i class="fa fa-chevron-left"></i> cmake使用速记
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/qemu-QSIMPLEQ%E9%80%9F%E8%AE%B0/" rel="next" title="qemu QSIMPLEQ速记">
+      qemu QSIMPLEQ速记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu-plugin%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5%E4%BB%A5%E5%8F%8A%E4%BD%BF%E7%94%A8"><span class="nav-number">1.</span> <span class="nav-text">qemu plugin基本概念以及使用</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu-plugin%E6%9C%BA%E5%88%B6%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">qemu plugin机制分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%99%E4%B8%80%E4%B8%AA%E8%87%AA%E5%B7%B1%E7%9A%84qemu-plugin"><span class="nav-number">3.</span> <span class="nav-text">写一个自己的qemu plugin</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">219</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">87</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
