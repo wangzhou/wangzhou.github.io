@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是《超标量处理器设计》一书中寄存器重命名的读书笔记。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="超标量处理器rename基本逻辑">
+<meta property="og:url" content="http://wangzhou.github.io/%E8%B6%85%E6%A0%87%E9%87%8F%E5%A4%84%E7%90%86%E5%99%A8rename%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文是《超标量处理器设计》一书中寄存器重命名的读书笔记。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-06-08T12:12:31.000Z">
+<meta property="article:modified_time" content="2023-06-08T12:23:54.644Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/%E8%B6%85%E6%A0%87%E9%87%8F%E5%A4%84%E7%90%86%E5%99%A8rename%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>超标量处理器rename基本逻辑 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">87</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">220</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/%E8%B6%85%E6%A0%87%E9%87%8F%E5%A4%84%E7%90%86%E5%99%A8rename%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          超标量处理器rename基本逻辑
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-06-08 20:12:31 / 修改时间：20:23:54" itemprop="dateCreated datePublished" datetime="2023-06-08T20:12:31+08:00">2023-06-08</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/read/" itemprop="url" rel="index"><span itemprop="name">read</span></a>
+                </span>
+            </span>
+
+          
+            <div class="post-description">本文是《超标量处理器设计》一书中寄存器重命名的读书笔记。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="为什么要寄存器重命名"><a href="#为什么要寄存器重命名" class="headerlink" title="为什么要寄存器重命名"></a>为什么要寄存器重命名</h2><p>指令序列里指令之间存在寄存器依赖的问题，大概分为WAW/WAR/RAW三种类型的寄存器依赖，</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">add r0, r1, r2       add r0, r1, r2        add r3, r0, r2</span><br><span class="line">...                  ...                   ...</span><br><span class="line">add r0, r3, r4       add r4, r0, r3        add r0, r5, r4</span><br><span class="line"></span><br><span class="line">    WAW                   RAW                  WAR</span><br></pre></td></tr></table></figure>
+<p>如上是三种寄存器依赖的示意，如果编译器产生出这样的指令序列，上下两条add指令是不能<br>乱序执行的，因为如果乱序执行就会改变程序的逻辑。上述三种依赖中，只有RAW是真正的依赖，<br>其它两个依赖都可以重新选择第二条add指令的输出寄存器把依赖解除掉。比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">add r0, r1, r2       add r3, r0, r2</span><br><span class="line">...                  ...</span><br><span class="line">add r6, r3, r4       add r7, r5, r4</span><br><span class="line"></span><br><span class="line">    WAW                  WAR</span><br></pre></td></tr></table></figure>
+<p>我们可以把第二条add指令的输出分别变成r6和r7, 这样它们各自两条add指令相互之间就没有<br>依赖，就可以在处理器内部乱序执行(可以假设处理器内部有多个加法器，这样就可以真正的<br>并发执行)。编译器在分配寄存器的时候是可以做这些优化的，但是寄存器资源是有限的，<br>最后编译器生成的指令序列难免会有WAW/WAR依赖存起。</p>
+<p>所谓寄存器重命名其中一个目的就是为了解决如上问题。处理器内部还有一组内部寄存器，<br>一般把程序员可见的寄存器成为架构寄存器，把处理器内部寄存器叫做物理寄存器，物理寄<br>存器的个数远大于构架寄存器，寄存器重命名需要把构架寄存器和物理寄存器对应起来，<br>对于WAW/WAR依赖的情况，就可以把后面指令的输出映射到不同的物理寄存器上。比如:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">add r0, r1, r2   rename   add R0, R1, R2</span><br><span class="line">...              -----&gt;   ...           </span><br><span class="line">add r0, r3, r4            add R6, R3, R4</span><br><span class="line">                                        </span><br><span class="line">    WAW</span><br><span class="line">                                        </span><br><span class="line">add r3, r0, r2   rename   add R3, R0, R2</span><br><span class="line">...              -----&gt;   ...</span><br><span class="line">add r0, r5, r4            add R7, R5, R4</span><br><span class="line"></span><br><span class="line">    WAR</span><br></pre></td></tr></table></figure>
+<p>这样CPU内部计算时，指令之间就可以乱序进行，在指令执行完再把物理寄存器里的指令输出<br>结果提交到架构寄存器。</p>
+<p>超标量处理器内部使用物理寄存器的另一个原因是投机执行，其实在当前PC时刻，处理器内部<br>早就提前投机了很多指令，如果这些指令输出是寄存器，当指令投机执行得到输出值时，只能<br>先保存在物理寄存器，等到指令提交的时候，才能把物理寄存器的值提交到构架寄存器。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">                            +-------+   +----+</span><br><span class="line">                  +-----+--&gt;|issue q|--&gt;| EX |\</span><br><span class="line">                  |issue|   +-------+   +----+ \</span><br><span class="line">                  |logic|                       \</span><br><span class="line">+----+   +----+   |     |   +-------+   +----+   \+-----+    +----+</span><br><span class="line">| IF |--&gt;| ID |--&gt;|     |--&gt;|issue q|--&gt;| EX |---&gt;| MEM |---&gt;| WB |</span><br><span class="line">+----+   +----+   |     |   +-------+   +----+   /+-----+    +----+</span><br><span class="line">                  |     |                       /</span><br><span class="line">                  |     |   +-------+   +----+ /</span><br><span class="line">                  +-----+--&gt;|issue q|--&gt;| EX |/</span><br><span class="line">                            +-------+   +----+</span><br><span class="line">          +--+--+--+--+--+--+--+--+--+--+--+--+--+--+</span><br><span class="line">     ROB  |  |  |  |  |  |  |  |  |  |  |  |  |  |  |</span><br><span class="line">          +--+--+--+--+--+--+--+--+--+--+--+--+--+--+</span><br><span class="line">                 ^                 ^  \-------------/</span><br><span class="line">               issue             commit  retired</span><br></pre></td></tr></table></figure>
+
+<h2 id="怎么样做重命名"><a href="#怎么样做重命名" class="headerlink" title="怎么样做重命名"></a>怎么样做重命名</h2><p>重命名需要把执行的指令流中使用的架构寄存器换成物理寄存器，直观上看需要解决的问题<br>有：1. 需要有一种转换的方法; 2. 需要考虑什么时候释放物理寄存器；3. 当投机执行失败<br>时，对于已经分配的物理寄存器以及相关资源，需要有办法回退到投机执行失败点之前。<br>我们下面一个一个问题考虑下。</p>
+<p>指令其实就和软件上的函数类似，总有指令的输入和输出，指令使用输入参数做一定操作后，<br>通过输出寄存器输出结果(部分指令比如store没有输出寄存器)。所以，我们只要针对输出<br>寄存器做重命名，即给指令的输出寄存器分配物理寄存器，并把分配导致的构架寄存器和物<br>理寄存器的映射关系保存起来，输入寄存器通过查表就可以得到对应的物理寄存器。</p>
+<p>但是，对于一个执行指令流，不同位置的相同构架寄存器对应的物理寄存器必然是不一样的，<br>其实重命名的作用就是造成这种不同，看起来构架寄存器和物理寄存器的映射表(map)似乎不<br>是一一映射的。实际上，map是一个动态的映射，在指令执行流的每个指令上是不断变动的，<br>map的存在是为了在顺序做rename的时候，为后续指令的输入寄存器提供映射到的物理寄存器:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">A: ld a0, [a1]        map: a0-&gt;p0, a1-&gt;p1, ...</span><br><span class="line">B: add a2, a0, a3     map: a0-&gt;p0, a1-&gt;p1, a2-&gt;p2, a3-&gt;p3, ...</span><br><span class="line">   ...</span><br><span class="line">C: mov a0, a4         map: a0-&gt;p4, a1-&gt;p1, a2-&gt;p2, a3-&gt;p3, ...</span><br><span class="line">D: add a5, a0, a6     map: a0-&gt;p4, a1-&gt;p1, a2-&gt;p2, a3-&gt;p3, a4-&gt;p5, a5-&gt;p6, a6-&gt;p7...</span><br></pre></td></tr></table></figure>
+<p>顺着指令执行流，map不断变化。对应单条指令，map表示这一时刻，系统上，构架寄存器和<br>物理寄存器的映射关系。</p>
+<p>《超标量处理器设计》这本书上介绍了三种rename的实现方式，分为使用ROB实现，构架寄存<br>器扩展实现，以及完全使用物理寄存器实现，我们这里只看下最后一种。顾名思义完全使用<br>物理寄存器的实现方式下，构架寄存器和物理寄存器的物理实现只有一组寄存器，我们这里<br>就叫这组寄存器是物理寄存器，而所谓构架寄存器，只是物理寄存器的映射(别名)。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">     add a5, a0, a6    mov a0, a4   add a2, a0, a3  ld a0, [a1]</span><br><span class="line">            v              v              v              v</span><br><span class="line">     +-------------------------------------------------------------------------+</span><br><span class="line">ROB  |      D       |      C       |      B       |      A       |             |</span><br><span class="line">     +-------------------------------------------------------------------------+</span><br><span class="line">                                                         ^                  </span><br><span class="line">                                                       commit        retired</span><br><span class="line"></span><br><span class="line">     add a5, a0, a6    mov a0, a4   add a2, a0, a3  ld a0, [a1]</span><br><span class="line">            v              v              v              v</span><br><span class="line">     +-------------------------------------------------------------------------+</span><br><span class="line">ROB  |      D       |      C       |      B       |      A       |             |</span><br><span class="line">     +-------------------------------------------------------------------------+</span><br><span class="line"></span><br><span class="line">                           ^               </span><br><span class="line">                         commit        retired    a_to_p map: a0-&gt;p0, a2-&gt;p2 ...</span><br><span class="line"></span><br><span class="line">     add a5, a0, a6    mov a0, a4   add a2, a0, a3  ld a0, [a1]</span><br><span class="line">            v              v              v              v</span><br><span class="line">     +-------------------------------------------------------------------------+</span><br><span class="line">ROB  |      D       |      C       |      B       |      A       |             |</span><br><span class="line">     +-------------------------------------------------------------------------+</span><br><span class="line"></span><br><span class="line">         retired    a_to_p map: a0-&gt;p4, a2-&gt;p2, a5-&gt;p6 ...</span><br></pre></td></tr></table></figure>
+<p>上面第一幅图A/B/C/D四条指令都处于投机执行阶段，对应的p0-p7是一定不会映射到架构寄<br>存器上的。第二幅图中，A/B指令被提交，硬件用另一个映射表(a_to_p map)表示架构寄存器<br>实际对应的物理寄存器，可见只要在指令提交的时候，更新输出寄存器在a_to_p map上的映射<br>就好，根据a_to_p map，访问a0/a2架构寄存器实际访问的是物理寄存器p0/p2。第三幅图里，<br>C/D指令提交(我们假设一拍提交两条指令)，C指令的输出寄存器a0被重新映射为p4，同时p0<br>被释放。</p>
+<p>如上已经提到了物理寄存器释放的问题。理论上讲，当一个物理寄存器不再有后续指令使用<br>时，这个物理寄存器就可以释放了，实践上一般把这个条件放松为，当物理寄存器对应的架构<br>寄存器更新时，就可以把之前的物理寄存器释放掉。</p>
+<p>我们具体考虑硬件实现时的“数据结构”，上面已经知道我们需要两个映射表，一个记录构架<br>寄存器和物理寄存器的映射关系(map)，另一个记录构架寄存器访问时实际访问的物理寄存器<br>(a_to_p map)，前者是处理器内部寄存器重命名时使用，后者是在处理器外部访问构架寄存<br>器时使用。指令的构架寄存器被rename成物理寄存器后，相关的信息应该保存在指令流中每个<br>指令对应的ROB内(注意，ROB对应的是指令流，而不是二进制文件中的每条指令，比如一个<br>几条指令组成的循环，执行的时候会在ROB里被“展开”)。为了释放物理寄存器，每个ROB里<br>还要保存对应指令的输出架构寄存器映射的上一个物理寄存器，这样才能在这个指令退休时<br>释放相关物理寄存器，相关的信息在rename的时候拿到并保存到对应的ROB里，这样在map里<br>就应该增加相关信息的维护，就是map里不但记录构架寄存器到物理寄存器的映射，它还记录<br>构架寄存器上次是映射到哪个物理寄存器上的。</p>
+<p>如下图，map是value有两个值，下面只写出了我们专注的值，可以看到C指令的p4,p0表示a0<br>上次是map到p0的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">A: ld a0, [a1]        map: a0-&gt;p0,p?, a1-&gt;p1, ...</span><br><span class="line">B: add a2, a0, a3     map: a2-&gt;p2,p?, a0-&gt;p0,p?, a1-&gt;p1, a3-&gt;p3 ...</span><br><span class="line">   ...</span><br><span class="line">C: mov a0, a4         map: a0-&gt;p4,p0, a1-&gt;p1, a2-&gt;p2,p?, a3-&gt;p3, a4-&gt;p5 ...</span><br><span class="line">D: add a5, a0, a6     map: a0-&gt;p4,p0, a1-&gt;p1, a2-&gt;p2,p?, a3-&gt;p3, a4-&gt;p5, a5-&gt;p6,p?, a6-&gt;p7...</span><br></pre></td></tr></table></figure>
+
+<p>ROB里相关的数据结构示意如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">     add a5, a0, a6    mov a0, a4   add a2, a0, a3  ld a0, [a1]</span><br><span class="line">            v              v              v              v</span><br><span class="line">     +-------------------------------------------------------------------------+</span><br><span class="line">ROB  |      D       |      C       |      B       |      A       |             |</span><br><span class="line">     |              |              |              |              |             |</span><br><span class="line">     |  a5-&gt;p6,p?   |   a0-&gt;p4,p0  |   a2-&gt;p2,p?  |   a0-&gt;p0,p?  |             |</span><br><span class="line">     |  a0-&gt;p4      |   a4-&gt;p5     |   a0-&gt;p0     |   a1-&gt;p1     |             |</span><br><span class="line">     |  a6-&gt;p7      |              |   a3-&gt;p3     |              |             |</span><br><span class="line">     +-------------------------------------------------------------------------+</span><br></pre></td></tr></table></figure>
+
+<h2 id="超标量处理器要考虑的问题"><a href="#超标量处理器要考虑的问题" class="headerlink" title="超标量处理器要考虑的问题"></a>超标量处理器要考虑的问题</h2><p>我们下考虑标量处理器的情况，就是一拍rename一条指令。考虑一个两输入一输出的指令，<br>硬件在这一拍需要做的事有：1. 根据输入构架寄存器，在map表里找到对应的物理寄存器，<br>然后更新对应指令ROB里的映射信息; 2. 对于输出寄存器，需要在物理寄存器空闲列表(free list)<br>里找一个空闲的物理寄存器，然后把输出构架寄存器到物理寄存器的映射写入map，同时还要<br>更新该指令对应ROB里的输出寄存器的映射信息; 3. 硬件需要从map表里读到输出寄存器上次<br>映射的物理寄存器，并把这个信息更新到该指令对应ROB的映射信息里。</p>
+<p>如上的分析中，对应map表，需要3个读口和一个写口，ROB也需要出相关的接口用于映射信息<br>更新。这里的读口和写口可以理解为，硬件读写特定信息时的专门接口，因为硬件上各个读写<br>操作是并行执行的，所以对于特定信息的特定操作需要专门接口。作为软件人员，我们先姑且<br>这样理解硬件，目前并不确定如上操作2和操作3中对同一位置的读写操作是否可以在一拍内<br>完成。</p>
+<p>可以看到如上都是直接对map表的读写，但是，在超标量处理下，一拍需要rename多条指令，<br>比如一拍rename四条指令，我们考虑这个时候硬件实现的方式，可以看出来上面的处理方式<br>已经无法使用，我们从RAW/WAW/WAR三种依赖的rename以及构架寄存器的前次物理寄存器的映<br>射更新逻辑分析每种情况对应的处理办法。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">1: add r0, r1, r2   rename    add p0, p4, p5</span><br><span class="line">2: add r0, r3, r0   ------&gt;   add p1, p6, p0</span><br><span class="line">3: sub r5, r4, r6             sub p2, p7, p8</span><br><span class="line">4: sub r0, r8, r9             sub p3, p9, p10</span><br></pre></td></tr></table></figure>
+<p>超标量处理器需要在一拍内把如上的四条指令重命名为右边所示的情况, 并且更新map表的<br>相关内容。如果这四条指令相互之间没有依赖，如上的分析结果还是成立的，只不过之前是<br>对一条指令操作，现在是并行对四条指令操作。</p>
+<p>但是如果这四条指令之间有依赖，情况就会不一样。如上，第一条指令和第二条指令存起RAW<br>和WAW的依赖，我们先看RAW依赖。因为第一条指令的输出物理寄存器是这一拍才从free list<br>里拿到的，所以第二条指令的输入寄存器r0所对应的物理寄存器显然应该使用直接从free list<br>里拿到的p0，而不是从map表里读取。</p>
+<p>对于输出寄存器的rename，只要一拍同时在free list里取出四个空闲的物理寄存器，把四个<br>输出构架寄存器和物理寄存器做映射，结果分别写入四条指令对应的ROB里。但是，map里的<br>信息要怎么更新？如果没有WAW依赖，直接把四个不同的架构寄存器和物理寄存器的映射写入<br>map表就好。但是，如果存在WAW依赖，这四条指令里会有相同的输出架构寄存器，而map表里<br>每个架构寄存器一个时刻只对应一个物理寄存器。map表的作用是在rename阶段为后续指令的<br>输入寄存器提供对应物理寄存器的查找，所以map表里的内容是针对每条指令动态变化的，如<br>果WAW依赖之间有指令的输出来自WAW依赖指令的输出，那么这就又构成了一个RAW的依赖，正<br>如上面提到的，RAW依赖中的后一条指令的输入寄存器重命名不应该从map表里读，而是直接<br>使用被依赖的指令从free list里拿到的物理寄存器，所以，当存在WAW依赖时，只要直接把<br>最后WAW依赖里最后一条指令的rename信息写入map表就好。以分组的视角看这个问题，把一<br>拍执行的四条指令看成一组指令，这种情况下，map表的作用是以组为粒度给后续组中的指令<br>提供输入寄存器重命名的信息。</p>
+<p>WAR依赖并不影响rename的逻辑, 对于第一条指令中的输入寄存器，如果没有RAW，就从map表<br>里读rename信息，如果存在RAW，就按照上面RAW的方式处理，对于后一条指令里的输出寄存器，<br>也是看和其它指令之间有没有WAW，完全按照上面的逻辑处理就可以。</p>
+<p>在rename的时候，还要从map表里读到输出构架寄存器上次映射的物理寄存器，然后把这个信<br>息写入对应指令的ROB。没有WAW依赖时，这个信息还是读map表获取，WAW依赖存在时，直接<br>按照依赖关系拿到这个信息。</p>
+<h2 id="重命名恢复"><a href="#重命名恢复" class="headerlink" title="重命名恢复"></a>重命名恢复</h2><p>超标量处理存在投机执行，投机执行的指令按照上面讲的进行rename，rename过程中会占据<br>各种资源，当处理器可以确认投机失败时，就需要丢弃投机执行的指令，并且释放相关的资<br>源，我们看下rename相关的资源要如何释放。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">             out of order execute</span><br><span class="line">            /---------------------\</span><br><span class="line">     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+</span><br><span class="line">ROB  |  |  |  |  |  |j |  |  |  |  |  |  |  |  |  |  |  |</span><br><span class="line">     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+</span><br><span class="line">     -&gt;--/           |              \---------/ \--------&gt;</span><br><span class="line">  input_insn         |               completed   retired</span><br><span class="line">                     v</span><br><span class="line">                 save map to checkpoint</span><br></pre></td></tr></table></figure>
+<p>上面是ROB的一个示意图，硬件取指令后从input_insn的位置不断把指令放入ROB，j表示一条<br>跳转指令，放进ROB的指令都已经完成了rename，处理器内部可能有很多指令在并发乱序执行，<br>有的指令可能已经执行完处于完成状态(completed)，有的指令已经提交处于退休状态(retired)。<br>当一个时刻处理器发现j这个跳转指令分支预测做错了，就是input_insn和j指令之间投机执<br>行的指令取错了，处理器应该停止继续fetch指令，并丢弃j指令之前的指令，map表应该恢复<br>到j指令rename时的状态，然后从正确的跳转地址继续取指令执行。</p>
+<p>如上所示的是用checkpoint做map恢复的方式，这种方式很直白，对于每个跳转指令，在其<br>rename的时候都把当时的map表保存到checkpoint里，遇到需要回退的时候就直接用保存起来<br>的checkpoint恢复map。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">     +-------------------------------------------------------------------------+</span><br><span class="line">ROB  |      D       |      C       |      B       |      jump    |             |</span><br><span class="line">     |  a5-&gt;p6,p1   |   a0-&gt;p4,p3  |   a2-&gt;p2,p5  |   a0-&gt;p0,p7  |             |</span><br><span class="line">     +-------------------------------------------------------------------------+</span><br><span class="line">        -&gt;--/</span><br><span class="line">     input_insn</span><br><span class="line"></span><br><span class="line">        map3 &lt;---------  map2  &lt;-------  map1  &lt;---------  map</span><br><span class="line">             ---------&gt;        -------&gt;        ---------&gt;</span><br></pre></td></tr></table></figure>
+<p>如上所示还有一种walk的方法，就是按照ROB里保存的“前一个映射的物理寄存器”这个信息<br>反向的一步一步回退到jump时的map。当前的map表是map3, 从jump指令到D指令，每个指令<br>rename的过程，就是修改map表上，当前指令输出架构寄存器到物理寄存器的映射的过程，<br>只要根据ROB里的信息，把map3一步一步改回map即可。比如，D指令ROB a5-&gt;p6,p1表示D指令<br>rename的结果是把a5映射到物理寄存器p6，但是a5之前是被映射到p1上的，那么，就在map3<br>的基础上把a5改映射到p1，同理把a0映射到p3，a2映射到p5，就得到了jump rename后的map表。</p>
+<p>书中还介绍了利用a_to_p map表还原map表的方法。当检测到分支预测失败的时候，继续执行<br>分支指令前的指令，直到到出错的分支指令，这时a_to_p map表的值和分支指令对应的map<br>表的值是完全一样的，直接把a_to_map的值拷贝到map就可以完成恢复。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/qemu-QSIMPLEQ%E9%80%9F%E8%AE%B0/" rel="prev" title="qemu QSIMPLEQ速记">
+      <i class="fa fa-chevron-left"></i> qemu QSIMPLEQ速记
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E5%AF%84%E5%AD%98%E5%99%A8%E9%87%8D%E5%91%BD%E5%90%8D"><span class="nav-number">1.</span> <span class="nav-text">为什么要寄存器重命名</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%80%8E%E4%B9%88%E6%A0%B7%E5%81%9A%E9%87%8D%E5%91%BD%E5%90%8D"><span class="nav-number">2.</span> <span class="nav-text">怎么样做重命名</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B6%85%E6%A0%87%E9%87%8F%E5%A4%84%E7%90%86%E5%99%A8%E8%A6%81%E8%80%83%E8%99%91%E7%9A%84%E9%97%AE%E9%A2%98"><span class="nav-number">3.</span> <span class="nav-text">超标量处理器要考虑的问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%87%8D%E5%91%BD%E5%90%8D%E6%81%A2%E5%A4%8D"><span class="nav-number">4.</span> <span class="nav-text">重命名恢复</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">220</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">87</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
