@@ -7703,6 +7703,7 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
 <p>在gem5代码根目录下运行：</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">./build/RISCV/gem5.opt --debug-flags=O3PipeView --debug-file=trace.out configs/example/se.py --cpu-type=O3CPU --caches --cmd /home/sherlock/test</span><br></pre></td></tr></table></figure>
 <p>输出log在gem5/m5out/trace.out，用如上同样的方法在Konata里打开trace.out，就可以得到<br>如下的pipeline图形化输出:<br><img src="/%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8gem5-konata%E8%B7%9F%E8%B8%AACPU%E6%B5%81%E6%B0%B4%E7%BA%BF/gem5_konata.png" alt="Konata展示gem5 pipeline"><br>上图中横坐标是时间，单位是CPU的cycle，纵坐标是指令进入流水线的先后顺序，单位就是<br>一条指令，横坐标每个不同的颜色表示不同的流水线阶段，比如F是fetch、Dc是decode、Rn<br>是Rename、Is是issue、Cm是commit。图中明亮的部分是流水线中正常退休的指令，灰色部分<br>是被flush掉的指令，比如一开始CPU一拍取8条指令，实际上第一条指令就是一个跳转指令，<br>后面的1-15条指令都取错了，后面CPU检测到分支预测失败后就会flush掉之前错误取入的指令。</p>
+<h2 id="Konata调试"><a href="#Konata调试" class="headerlink" title="Konata调试"></a>Konata调试</h2><p>如果你自己hack了Konata这个软件，怎么去调试它呢？在它的help有Toggle Dev Tool这个按钮，<br>点击它就可以显示出调试界面，调试界面点击source可以打开Konata的代码，你可以点击代码<br>行数位置添加断点，如果简单的问题可能可以大概猜到出问题的地方，遇到复杂的问题就要<br>去熟悉JS前端的知识了。</p>
 ]]></content>
       <tags>
         <tag>计算机体系结构</tag>
@@ -7733,6 +7734,8 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
 </ul>
 <p>指令被flush离开流水线需要对流水线中很多部件做flush操作，清空里面和被flush指令相关<br>的信息，ROB是其中一个需要被flush的硬件部件，这里对ROB的操作主要就是更新ROB上指令<br>进入点的标记。可见flush指令会和指令进入ROB存在同步问题，逻辑上应该先flush掉ROB中<br>的指令再把新指令写入ROB。</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">  young                                                            old</span><br><span class="line">+--------+--------+--------+--------+--------+--------+--------+--------+</span><br><span class="line">|        |        | insn_4 | insn_3 | insn_2 | insn_1 | insn_x | insn_y |</span><br><span class="line">+--------+--------+--------+--------+--------+--------+--------+--------+</span><br><span class="line">             ^                          ^                  ^</span><br><span class="line">          allocate                    commit            retired</span><br></pre></td></tr></table></figure>
+
+<p>ROB里allocate和commit之间(包括commit)的指令是当前正在处理器里执行的指令，这些指令<br>可能正在等资源，可能正在执行，也可能已经执行完毕正在等退休，但是这些指令的都是投机<br>执行的，在commit阶段处理器判断是正确执行的指令才可以退休。当这些正在处理器里运行的<br>指令在某个状态发现投机不对时就会触发指令的flush。</p>
 ]]></content>
       <tags>
         <tag>计算机体系结构</tag>

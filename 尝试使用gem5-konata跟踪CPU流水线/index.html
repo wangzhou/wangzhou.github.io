@@ -32,7 +32,7 @@
 <meta property="og:locale" content="zh_CN">
 <meta property="og:image" content="http://wangzhou.github.io/%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8gem5-konata%E8%B7%9F%E8%B8%AACPU%E6%B5%81%E6%B0%B4%E7%BA%BF/gem5_konata.png">
 <meta property="article:published_time" content="2023-06-18T09:27:49.000Z">
-<meta property="article:modified_time" content="2023-06-18T10:08:02.638Z">
+<meta property="article:modified_time" content="2023-06-28T16:00:02.385Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="gem5">
@@ -229,10 +229,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2023-06-18 17:27:49 / 修改时间：18:08:02" itemprop="dateCreated datePublished" datetime="2023-06-18T17:27:49+08:00">2023-06-18</time>
+              <time title="创建时间：2023-06-18 17:27:49" itemprop="dateCreated datePublished" datetime="2023-06-18T17:27:49+08:00">2023-06-18</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-06-29 00:00:02" itemprop="dateModified" datetime="2023-06-29T00:00:02+08:00">2023-06-29</time>
+              </span>
 
           
             <div class="post-description">本文记录使用gem5输出riscv处理器pipeline trace的一个尝试。</div>
@@ -255,6 +261,7 @@
 <p>在gem5代码根目录下运行：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">./build/RISCV/gem5.opt --debug-flags=O3PipeView --debug-file=trace.out configs/example/se.py --cpu-type=O3CPU --caches --cmd /home/sherlock/test</span><br></pre></td></tr></table></figure>
 <p>输出log在gem5/m5out/trace.out，用如上同样的方法在Konata里打开trace.out，就可以得到<br>如下的pipeline图形化输出:<br><img src="/%E5%B0%9D%E8%AF%95%E4%BD%BF%E7%94%A8gem5-konata%E8%B7%9F%E8%B8%AACPU%E6%B5%81%E6%B0%B4%E7%BA%BF/gem5_konata.png" alt="Konata展示gem5 pipeline"><br>上图中横坐标是时间，单位是CPU的cycle，纵坐标是指令进入流水线的先后顺序，单位就是<br>一条指令，横坐标每个不同的颜色表示不同的流水线阶段，比如F是fetch、Dc是decode、Rn<br>是Rename、Is是issue、Cm是commit。图中明亮的部分是流水线中正常退休的指令，灰色部分<br>是被flush掉的指令，比如一开始CPU一拍取8条指令，实际上第一条指令就是一个跳转指令，<br>后面的1-15条指令都取错了，后面CPU检测到分支预测失败后就会flush掉之前错误取入的指令。</p>
+<h2 id="Konata调试"><a href="#Konata调试" class="headerlink" title="Konata调试"></a>Konata调试</h2><p>如果你自己hack了Konata这个软件，怎么去调试它呢？在它的help有Toggle Dev Tool这个按钮，<br>点击它就可以显示出调试界面，调试界面点击source可以打开Konata的代码，你可以点击代码<br>行数位置添加断点，如果简单的问题可能可以大概猜到出问题的地方，遇到复杂的问题就要<br>去熟悉JS前端的知识了。</p>
 
     </div>
 
@@ -363,7 +370,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%83%8C%E6%99%AF%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">背景介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B7%E4%BD%93%E6%AD%A5%E9%AA%A4"><span class="nav-number">2.</span> <span class="nav-text">具体步骤</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%83%8C%E6%99%AF%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">背景介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B7%E4%BD%93%E6%AD%A5%E9%AA%A4"><span class="nav-number">2.</span> <span class="nav-text">具体步骤</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Konata%E8%B0%83%E8%AF%95"><span class="nav-number">3.</span> <span class="nav-text">Konata调试</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
