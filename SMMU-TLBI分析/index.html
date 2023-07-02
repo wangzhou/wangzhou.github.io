@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文分析SMMU-v3 tlbi相关的硬件语义和linux相关驱动代码的实现。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-06-19T02:28:42.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.830Z">
+<meta property="article:modified_time" content="2023-06-30T08:06:16.653Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="SMMU">
@@ -137,12 +137,12 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">223</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">225</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
 
-    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
 
   </li>
         <li class="menu-item menu-item-read">
@@ -235,7 +235,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-06-30 16:06:16" itemprop="dateModified" datetime="2023-06-30T16:06:16+08:00">2023-06-30</time>
               </span>
 
           
@@ -250,11 +250,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <ol>
-<li>SMMU E2H支持</li>
-</ol>
-<hr>
-<p> SMMU SVA支持的patchset里有一个补丁：iommu/arm-smmu-v3: Add support for VHE<br> 这个补丁的基本逻辑是, CPU支持VHE，且内核支持时，host kernel工作在EL2，在SVA<br> 下，因为需要做DVM tlbi广播，且tlbi广播在同一个EL里生效，所以需要SMMU这边的TLB<br> 也打上EL2的标记。这个是通过设置设备对应的STE里的STRW生效的，这个配置对SMMU tlb<br> 影响是全局的。</p>
+        <h2 id="SMMU-E2H支持"><a href="#SMMU-E2H支持" class="headerlink" title="SMMU E2H支持"></a>SMMU E2H支持</h2><p> SMMU SVA支持的patchset里有一个补丁：iommu/arm-smmu-v3: Add support for VHE<br> 这个补丁的基本逻辑是, CPU支持VHE，且内核支持时，host kernel工作在EL2，在SVA<br> 下，因为需要做DVM tlbi广播，且tlbi广播在同一个EL里生效，所以需要SMMU这边的TLB<br> 也打上EL2的标记。这个是通过设置设备对应的STE里的STRW生效的，这个配置对SMMU tlb<br> 影响是全局的。</p>
 <p> 这里面还有三个逻辑：</p>
 <ol>
 <li><p>要使得DVM tlbi的广播生效，还要设置下SMMU CR2.E2H寄存器(使得ASID标记生效)。<br>这个补丁里配置了E2H。</p>
@@ -265,16 +261,8 @@
 </li>
 </ol>
 <p> 这个补丁做了上述的修改，使得SVA和内核地址的tlbi在VHE使能的时候都可以正常使用。</p>
-<ol start="2">
-<li>SMMU tlbi相关命令</li>
-</ol>
-<hr>
-<p> SMMU spec 4.4章节介绍了tlbi相关的command, 上面提到的相关tlbi命令在这一章节中<br> 都有详细的描述。EL2和NH的标记在上面已经介绍。关于VA和ASID标记的区别在于做tlb<br> 无效化的时候作用的范围是不一样的。简单的讲带ASID的tlbi会无效化对应asid的tlb，<br> 理论上讲，SVA需要用这个，但是现在SVA用的是DVM，还没有用到带ASID的tlbi，在实际<br> 分析的时候，还看到no-strict时使用的是带ASID的tlbi，这个下面结合代码来分析。<br> 直接带VA的tlbi可以对一段地址做tlb无效化，相关的command域段里的值有: scale,<br> num, asid, address, tg, ttl, leaf。当SMMU硬件支持tlbi by range(IDR3_RIL = 1)时，<br> 还可以用带VA的tlbi实现tlbi by range.</p>
-<ol start="3">
-<li>linux SMMU驱动里的实现</li>
-</ol>
-<hr>
-<p> 因为SVA没有用tlbi，所以我们主要分析内核dma内存中的tlbi就好了。</p>
+<h2 id="SMMU-tlbi相关命令"><a href="#SMMU-tlbi相关命令" class="headerlink" title="SMMU tlbi相关命令"></a>SMMU tlbi相关命令</h2><p> SMMU spec 4.4章节介绍了tlbi相关的command, 上面提到的相关tlbi命令在这一章节中<br> 都有详细的描述。EL2和NH的标记在上面已经介绍。关于VA和ASID标记的区别在于做tlb<br> 无效化的时候作用的范围是不一样的。简单的讲带ASID的tlbi会无效化对应asid的tlb，<br> 理论上讲，SVA需要用这个，但是现在SVA用的是DVM，还没有用到带ASID的tlbi，在实际<br> 分析的时候，还看到no-strict时使用的是带ASID的tlbi，这个下面结合代码来分析。<br> 直接带VA的tlbi可以对一段地址做tlb无效化，相关的command域段里的值有: scale,<br> num, asid, address, tg, ttl, leaf。当SMMU硬件支持tlbi by range(IDR3_RIL = 1)时，<br> 还可以用带VA的tlbi实现tlbi by range.</p>
+<h2 id="linux-SMMU驱动里的实现"><a href="#linux-SMMU驱动里的实现" class="headerlink" title="linux SMMU驱动里的实现"></a>linux SMMU驱动里的实现</h2><p> 因为SVA没有用tlbi，所以我们主要分析内核dma内存中的tlbi就好了。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">/* drivers/iommu/dma-iommu.c */</span><br><span class="line">iommu_dma_free</span><br><span class="line">  +-&gt; __iommu_dma_unmap</span><br><span class="line">    /* 用来init iotlb_gather，为以后做tlbi by range做准备 */</span><br><span class="line">    +-&gt; iommu_iotlb_gather_init</span><br><span class="line">    +-&gt; iommu_unmap_fast</span><br><span class="line">      ...</span><br><span class="line"> +-&gt; arm_smmu_unmap</span><br><span class="line">   /* drivers/iommu/io-pgtable-arm.c, 这一步跳的有点大:) */</span><br><span class="line">   +-&gt; arm_lpae_unmap </span><br><span class="line">     +-&gt; __arm_lpae_unmap</span><br><span class="line">       +-&gt; io_pgtable_tlb_add_page</span><br><span class="line">  /* drivers/iommu/arm/arm-smmu-v3/arm-smmu-v3.c */</span><br><span class="line">  +-&gt; arm_smmu_tlb_inv_page_nosync </span><br><span class="line">    /*</span><br><span class="line">     * 不断的收集tlbi的range，遇到不相连的range就做tlbi</span><br><span class="line">     */</span><br><span class="line">    +-&gt; iommu_iotlb_gather_add_page</span><br><span class="line">      +-&gt; iommu_tlb_sync</span><br><span class="line">        /* arm-smmu-v3.c */</span><br><span class="line">        +-&gt; arm_smmu_iotlb_sync</span><br><span class="line">	  /* 使用VA tlbi，range invalidate的逻辑也在这里 */</span><br><span class="line">	  +-&gt; arm_smmu_tlb_inv_range</span><br><span class="line"></span><br><span class="line">    +-&gt; iommu_tlb_sync (如果没有fq_domain，即使用strict mode)</span><br><span class="line">      +-&gt; arm_smmu_iotlb_sync</span><br><span class="line">    ...</span><br></pre></td></tr></table></figure>
 <p> 使用no-strict模式会起一个定时器, 在队列满或者定时器到时做tlbi。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">/* drivers/iommu/iova.c */</span><br><span class="line">iova_domain_flush</span><br><span class="line">  /* drivers/iommu/dma-iommu.c */</span><br><span class="line">  +-&gt; iommu_dma_flush_iotlb_all</span><br><span class="line">    /* arm-smmu-v3.c */</span><br><span class="line">    +-&gt; arm_smmu_flush_iotlb_all</span><br><span class="line">      /* 这个函数里会下发带ASID的tlb */</span><br><span class="line">      +-&gt; arm_smmu_tlb_inv_context</span><br></pre></td></tr></table></figure>
@@ -386,6 +374,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#SMMU-E2H%E6%94%AF%E6%8C%81"><span class="nav-number">1.</span> <span class="nav-text">SMMU E2H支持</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SMMU-tlbi%E7%9B%B8%E5%85%B3%E5%91%BD%E4%BB%A4"><span class="nav-number">2.</span> <span class="nav-text">SMMU tlbi相关命令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#linux-SMMU%E9%A9%B1%E5%8A%A8%E9%87%8C%E7%9A%84%E5%AE%9E%E7%8E%B0"><span class="nav-number">3.</span> <span class="nav-text">linux SMMU驱动里的实现</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -401,12 +390,12 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">223</span>
+          <span class="site-state-item-count">225</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
-        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-count">2</span>
         <span class="site-state-item-name">分类</span>
       </div>
       <div class="site-state-item site-state-tags">
@@ -499,6 +488,26 @@
 
 
 
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
 
 
 

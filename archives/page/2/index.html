@@ -133,12 +133,12 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">223</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">225</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
 
-    <a href="/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
 
   </li>
         <li class="menu-item menu-item-read">
@@ -204,13 +204,53 @@
     <div class="posts-collapse">
       <div class="collection-title">
         
-        <span class="collection-header">太棒了! 目前共计 223 篇日志。 继续努力。</span>
+        <span class="collection-header">太棒了! 目前共计 225 篇日志。 继续努力。</span>
       </div>
 
       
     <div class="collection-year">
       <span class="collection-header">2023</span>
     </div>
+
+  <article itemscope itemtype="http://schema.org/Article">
+    <header class="post-header">
+
+      <div class="post-meta">
+        <time itemprop="dateCreated"
+              datetime="2023-04-19T22:06:11+08:00"
+              content="2023-04-19">
+          04-19
+        </time>
+      </div>
+
+      <div class="post-title">
+          <a class="post-title-link" href="/qemu-set-label%E4%B8%AD%E9%97%B4%E7%A0%81%E5%88%86%E6%9E%90/" itemprop="url">
+            <span itemprop="name">qemu set_label中间码分析</span>
+          </a>
+      </div>
+
+    </header>
+  </article>
+
+  <article itemscope itemtype="http://schema.org/Article">
+    <header class="post-header">
+
+      <div class="post-meta">
+        <time itemprop="dateCreated"
+              datetime="2023-04-18T21:18:32+08:00"
+              content="2023-04-18">
+          04-18
+        </time>
+      </div>
+
+      <div class="post-title">
+          <a class="post-title-link" href="/riscv-call-conversion%E9%80%9F%E8%A7%88/" itemprop="url">
+            <span itemprop="name">riscv call conversion速览</span>
+          </a>
+      </div>
+
+    </header>
+  </article>
 
   <article itemscope itemtype="http://schema.org/Article">
     <header class="post-header">
@@ -372,46 +412,6 @@
     </header>
   </article>
 
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2023-02-19T16:26:29+08:00"
-              content="2023-02-19">
-          02-19
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/qemu%E6%A8%A1%E6%8B%9FARM%E6%9E%84%E6%9E%B6%E7%BB%BC%E5%90%88%E5%88%86%E6%9E%90/" itemprop="url">
-            <span itemprop="name">qemu模拟ARM构架综合分析</span>
-          </a>
-      </div>
-
-    </header>
-  </article>
-
-  <article itemscope itemtype="http://schema.org/Article">
-    <header class="post-header">
-
-      <div class="post-meta">
-        <time itemprop="dateCreated"
-              datetime="2023-02-19T16:25:45+08:00"
-              content="2023-02-19">
-          02-19
-        </time>
-      </div>
-
-      <div class="post-title">
-          <a class="post-title-link" href="/qemu%E4%B8%ADbasic-block%E4%BB%A5%E5%8F%8Atcg%E4%B8%AD%E5%90%84%E7%A7%8D%E5%8F%98%E9%87%8F%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" itemprop="url">
-            <span itemprop="name">qemu中basic block以及tcg中各种变量的基本逻辑</span>
-          </a>
-      </div>
-
-    </header>
-  </article>
-
 
     </div>
   </div>
@@ -489,12 +489,12 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">223</span>
+          <span class="site-state-item-count">225</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
       <div class="site-state-item site-state-categories">
-        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-count">2</span>
         <span class="site-state-item-name">分类</span>
       </div>
       <div class="site-state-item site-state-tags">
@@ -587,6 +587,26 @@
 
 
 
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
 
 
 
