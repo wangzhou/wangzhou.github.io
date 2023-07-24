@@ -7868,4 +7868,66 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
         <tag>计算机体系结构</tag>
       </tags>
   </entry>
+  <entry>
+    <title>超标量处理器分支预测基本逻辑</title>
+    <url>/%E8%B6%85%E6%A0%87%E9%87%8F%E5%A4%84%E7%90%86%E5%99%A8%E5%88%86%E6%94%AF%E9%A2%84%E6%B5%8B%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/</url>
+    <content><![CDATA[<h2 id="分支预测基本逻辑"><a href="#分支预测基本逻辑" class="headerlink" title="分支预测基本逻辑"></a>分支预测基本逻辑</h2><p>超标量处理器遇到分支指令的时候会预测下分支指令的目的地址，然后从预测的地址fetch<br>指令执行，这些投机执行的指令处于分支预测的路径上，所以处理器只能把它们的结果缓存<br>在内部，如果后面发现预测的分支是对的，就把投机执行的指令的结果提交，如果后面发现<br>是分支预测错了就需要把投机执行的执行从流水线里抹去。</p>
+<p>所以可以看到硬件上的BP部件一定是顶在流水线最前端的，比如对于一个一拍fetch 4条指令<br>的超标量处理器，第二拍它又可以去fetch 4条指令，但是从哪个地址上去fetch呢，如果第<br>一拍fetch的四条指令里就有分支指令，那么分支预测的结果最好第二拍就可以拿到，否则<br>第二拍的fetch就会空转(stall)，处理器的性能就会下降。</p>
+<p>我们先忽略直接跳转的分支指令，其它分支指令可以分为条件跳转和间接跳转，条件跳转通<br>过动态计算判断条件决定是否发生跳转，一般跳转目的地址的偏移会直接编码到指令里，比<br>如RISCV中的beq等指令，间接跳转的跳转目的地址存放在一个寄存器里，每次跳转寄存器里<br>保存的目的地址都可能是不一样的，CPU做分支预测主要面对的就是如上这两种情况。</p>
+<p>首先，分支可以做预测，一定是要有规律的，一个没有规律的分支是没有办法做预测的。分<br>支预测器通过一定的电路就可以把相应的规律捕捉住，这样下次fetch到同样PC上的跳转指令<br>就可以直接预测跳转的地址。</p>
+<p>对于条件跳转，我们可以这样建模，对于一个PC上的条件跳转指令，发生一次跳转记1，没有<br>发生跳转(就是继续顺序执行指令)记0，那么跳转的历史就是0和1组成的一个序列，对于一个<br>这样的序列，比如，0001000100010001… 分支预测电路要做的工作是找出其中的规律，比如<br>这里的规律就是0001在做反复的重复。</p>
+<p>严格上来讲，跳转情况是过去所有指令执行的结果，当只看分支指令的变化得到的预测正确<br>率低的时候，就要考虑把更多的信息一起加进来进行预测，所以CPU里还会把一段时间的跳转<br>指令的历史保存起来，用这个全局历史信息做分支预测，和这个相比，如上只考虑跳转指令<br>本身历史情况的预测称为依据局部历史信息的分支预测。</p>
+<p>对于间接跳转，一个PC上的跳转指令的目的地址是有限几个，如果用数字标记每个目的地址，<br>间接跳转形成的序列大概是这样的：134213421342，那么其中的规律是就是1342反复重复。<br>因为一个间接跳转可能的目的地址是有限的，一般可以把它们保存在一个表(BTB Branch Target Buffer)，<br>需要做预测的时候，查表即可。</p>
+<p>一般，CPU体系架构的手册都会建议尽量少用间接跳转指令，但是在函数跳转时，还是会用到<br>间接跳转指令，针对函数跳转和返回，CPU里一般采用类似栈的方式保存函数返回指令的跳转<br>目的地址，这种方式一般叫做RAS(return address stack)，CPU在函数跳转时，把返回地址<br>保存到内部的这个栈里，执行函数返回指令时从栈中弹出返回地址。</p>
+<h2 id="各种分支预测方法"><a href="#各种分支预测方法" class="headerlink" title="各种分支预测方法"></a>各种分支预测方法</h2><p>局部历史信息条件跳转预测方法。我们直接直接看书中介绍的方法，必要的时候再看其中的<br>细节和辅助设计。</p>
+<p>首先一个分支指令先对应一个BHR(Branch History Register)，这个寄存器的最大bit数决定<br>了可以完美预测的跳转序列的”循环节”大小，BHR里的每一个值都对应一个两位饱和计数器，<br>预测是根据当前BHR的值对应的两位饱和计数器的值来完成的。</p>
+<p>如下是一个大概的示意图：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">BHR:           PHT(Pattern History Table)</span><br><span class="line">+------+       +------+                             </span><br><span class="line">| 0001 | ----&gt; | 0000 | X</span><br><span class="line">+------+       |      | +-------------------------------+</span><br><span class="line">               |      | |     +-+   +-+   +-+   +-+     |</span><br><span class="line">               | 0001 | |  +--|0|--&gt;|0|--&gt;|1|--&gt;|1|--+  | -&gt; 0</span><br><span class="line">               |      | |  |  | |   | |   | |   | |  |  |</span><br><span class="line">               |      | |  +-&gt;|0|--&gt;|1|--&gt;|0|--&gt;|1|&lt;-+  |</span><br><span class="line">               |      | |     +-+   +-+   +-+   +-+     |</span><br><span class="line">               |      | +-------------------------------+</span><br><span class="line">               | 0010 | ...                               -&gt; 0</span><br><span class="line">               |      |                 </span><br><span class="line">               | ...  | X                 </span><br><span class="line">               |      |                 </span><br><span class="line">               | 0100 | ...                               -&gt; 0</span><br><span class="line">               |      |                 </span><br><span class="line">               | ...  | X</span><br><span class="line">               |      |                 </span><br><span class="line">               | 1000 | ...                               -&gt; 1</span><br><span class="line">               |      |                 </span><br><span class="line">               | ...  | X</span><br><span class="line">               +------+                 </span><br></pre></td></tr></table></figure>
+<p>还是拿如上00010001…这样的条件跳转序列分析，这个序列里，只有四个状态，每个状态<br>的下一次跳转情况都是确定的，也就是当分支预测器检测到这个分支指令的历史是四个状态<br>其中之一时，本次的跳转情况就可以确定了。这么看起来如果可以直接确定，那么都不用两位<br>饱和计数器了，估计这里的两位饱和计数器是防止有零星的意外变化？</p>
+<p>上面可以看出来，BHR的位数和跳转序列规律位数相同时，已经可以做完美预测。当BHR位数<br>比跳转序列规律位数大时，都可以做完美预测，比如，如果这里BHR是5 bit，那么如上序列<br>的pattern就是：00010/00100/01000/10001，不过就是PHT中没有用到的entry也增多了。</p>
+<p>深入看下如上的两位饱和计数器，这个计数器有4个状态，其中两个状态的预测结果是分支跳<br>转，两个状态的预测结果是分支不跳转，分支跳转或不跳转的两个状态分强和弱状态。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">   strong   weak  weak  strong</span><br><span class="line">      no taken      taken</span><br><span class="line">+-------------------------------+</span><br><span class="line">|     +-+   +-+   +-+   +-+     |</span><br><span class="line">|  +--|0|--&gt;|0|--&gt;|1|--&gt;|1|--+  |</span><br><span class="line">|  |  | |   | |   | |   | |  |  |</span><br><span class="line">|  +-&gt;|0|--&gt;|1|--&gt;|0|--&gt;|1|&lt;-+  |</span><br><span class="line">|     +-+   +-+   +-+   +-+     |</span><br><span class="line">+-------------------------------+</span><br></pre></td></tr></table></figure>
+<p>在如上的状态定义下，各个状态的跳转关系是，当处于strong taken态，如果实际又是taken，<br>那么保持strong taken不变，如果实际是no taken，也就是预测失败了，状态移动到weak taken，<br>也就是说一直预测是taken，第一次出现no taken，我们还是认为下次是taken，当处于weak<br>taken时，如果实际是taken，状体转移到strong taken, 如果实际是no taken，也就是又预测<br>错了，状态转移到weak no taken，预测器在两次都预测失败的情况下改变了预测方向。</p>
+<p>todo: 实际硬件实现上的考虑?</p>
+<p>全局历史信息条件跳转预测方法。如上BHR是一个跳转指令taken/not taken的历史，如果BHR<br>里存放的是程序动态执行路径上之前跳转指令的历史，那么预测就是根据之前的”全局”跳转<br>信息的，当然受到物理实现的限制，BHR有一定的取值位数，并不是理想的全局信息。</p>
+<p>间接跳转预测方法。间接跳转和直接跳转都可以用BTB(Branch Target Buffer)保存跳转的<br>目的地址，直接跳转在decode阶段就可以得到物理地址，但是超标量处理器一拍可能fetch多<br>条指令，需要在fetch阶段就得到跳转的目的地址，所以直接跳转也要使用到BTB。</p>
+<p>具体看下函数跳转和返回时的跳转预测，函数跳转可能用直接跳转也可能用间接跳转实现，<br>两者都可以用BTB做跳转预测，一个函数跳转的目的地址是一定的。但是，函数返回一般用<br>return指令+link寄存器的方式实现，这是一个典型的同一位置根据寄存器内值不同，跳转的<br>目的地址不同的间接跳转的场景，如果函数返回地址的预测也用BTB，必然存在一个搜索行为，<br>性能就会比较差。</p>
+<p>RAS的预测方法在函数跳转点处把函数返回地址先保存起来，遇到函数return指令直接pop<br>出RAS中预先保存的函数返回地址。这个方法的关键是要识别函数进入点的跳转指令，因为<br>函数进入可以用直接跳转或者间接跳转实现，而且并不是所有的直接跳转和间接跳转都是函数<br>调用点，一旦匹配错误，所有的预测结果都可能是不准的了。而且，这个方法还要识别return<br>指令，比如在riscv里，return是用jalr指令实现，而jalr可以支持各种间接跳转的场景。</p>
+<p>todo: 怎么做这个识别？</p>
+<h2 id="分支预测失败恢复"><a href="#分支预测失败恢复" class="headerlink" title="分支预测失败恢复"></a>分支预测失败恢复</h2><p>分支预测失败时需要flush掉错误路径上投机执行的指令，关于CPU中flush的一个整体理解<br>可以参考<a href="https://wangzhou.github.io/CPU%E5%BE%AE%E6%9E%B6%E6%9E%84%E9%87%8C%E7%9A%84Flush%E6%A6%82%E5%BF%B5/">这里</a>。然后把处理器里各个部件的状态恢复到分支指令对应的点上。</p>
+]]></content>
+      <categories>
+        <category>read</category>
+      </categories>
+      <tags>
+        <tag>计算机体系结构</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>CPU中cache和MMU的基本逻辑</title>
+    <url>/CPU%E4%B8%ADcache%E5%92%8CMMU%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/</url>
+    <content><![CDATA[<h2 id="处理器角度的存储"><a href="#处理器角度的存储" class="headerlink" title="处理器角度的存储"></a>处理器角度的存储</h2><p>从CPU核角度看，数据存在于cache和内存两个地方，其中cache又分为L1/L2/L3等不同级别,<br>数据的索引用地址描述，对cache可以用虚拟地址或者物理地址做索引，而内存只能用物理<br>地址做索引。</p>
+<p>也就是对于内存的访问，不管是用页表还是用TLB，总是需要先翻译得到物理地址，使用物理<br>地址做访问。内存的访问逻辑比较简单，我们下面重点看cache的访问。</p>
+<p>cache的访问需要快，最好是可以直接使用虚拟地址访问cache，当然先做地址翻译，然后用<br>物理地址访问cache是一定没有错的。但是，用虚拟地址访问cache就会出现同名和重名的问题，<br>同名是相同虚拟地址在不同时间被映射到不同物理地址上，重名是同一时间，一个物理地址<br>有两个虚拟地址映射。</p>
+<p>同名问题比较简单，说白了就是虚拟地址和物理地址的映射关系变了，这个问题有两个解决办法：<br>(1) 可以在变化映射关系的时候把原来虚拟地址对应的cache清理掉；(2) 可以引入新的变量<br>表明不同的虚拟地址到物理地址的映射所属的主体。具体实现上，第一个解决办法需要引入<br>cache清理的命令，第二个解决办法就是引入ASID，使用虚拟地址+ASID的cache索引方式。</p>
+<p>重名问题比较绕，说白了就是一个数据被cache到了不同的cache line上，同步问题需要处理。<br>直接的处理方式是消灭问题本身，使用虚拟地址但是一个物理地址上的数据还是只能被cache<br>到一个cache line上，就没有这个问题了，直接的想法就是使用页内偏移做cache索引，因为<br>一页内，虚拟地址和物理地址是一样的，这样做带来的问题就是cache的容量做不大，理解<br>这个问题前需要看下cache的映射模式。</p>
+<p>《超标量处理器》中把cache的映射模式总结的很清晰: 直接相连是一个地址上的数据只能放<br>到cache的一个固定位置，全相连是一个地址上的数据可以放到cache的全部cache line上，<br>组相连是把cache分成一个个组(set)，一个地址上的数据只可以放到cache的一个组里，但是<br>一个组里有多个cache line，数据可以放到特定组的不同cache line上。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">                          way</span><br><span class="line">      +------------+------------+------------+-------------+</span><br><span class="line">set0  | cache line | cache line | cache line | cache line  |</span><br><span class="line">      +------------+------------+------------+-------------+</span><br><span class="line">      +------------+------------+------------+-------------+</span><br><span class="line">set1  | cache line | cache line | cache line | cache line  |</span><br><span class="line">      +------------+------------+------------+-------------+</span><br><span class="line"></span><br><span class="line">      +------------+------------+------------+-------------+</span><br><span class="line">setN  | cache line | cache line | cache line | cache line  |</span><br><span class="line">      +------------+------------+------------+-------------+</span><br></pre></td></tr></table></figure>
+<p>如上是一个4路(way)组相连的cache，如果一个cache line 64Byte，整个cache是32KB，那么<br>很容易计算出这片cache有32KB/64B/4=128个set，需要7个bit的宽度去描述，加上6个bit描述<br>cache line里各个Byte的地址，已经超过了12bit的页内偏移。所以，32KB的cache要至少做成<br>8路组相连cache，才能使用虚拟地址作为index索引cache。那么我们可以得到一个4KB页面下，<br>特定cache大小最小路数的表出来：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">  8KB   2 way</span><br><span class="line"> 16KB   4 way</span><br><span class="line"> 32KB   8 way</span><br><span class="line"> 64KB  16 way</span><br><span class="line">128KB  32 way</span><br></pre></td></tr></table></figure>
+<p>如果不这样做，也可以硬件搞定重名问题，代价是增加硬件的复杂度。(todo)</p>
+<p>cache的替换算法。相同index的地址数远大于一个set里的way的数目，cache替换算法决定<br>一个set里，谁应该被替换出去为新的访问腾出cache line的位置。</p>
+<p>cache的操作命令有invalid和clean，invalid cache是无效化对应地址的cache，clean cache<br>的语意其实是和dirty cache对应的，clean cache把cache上的数据写回到内存，对于数据<br>只写到cache还没有写回内存的情况，就需要用clean cache把数据同步回内存。</p>
+<h2 id="地址翻译"><a href="#地址翻译" class="headerlink" title="地址翻译"></a>地址翻译</h2><p>这里我们总结下地址翻译里，容易忽略的几个基本逻辑。</p>
+<p>TLB是页表项的cache，这个定义里包含着这些逻辑：页表项的所有内容必须要TLB中有记录，<br>否则的话，在TLB命中的场景下，页表项里的属性无法体现出来。页表项里既有只读也有可写<br>的属性，比如access bit和dirty bit就是可以被硬件动态改变的，硬件对页表项的写操作<br>应该也作用到TLB上，同时TLB和页表项之间应该有同步逻辑。</p>
+<p>todo: TLB具体的写入和同步逻辑分析。</p>
+<p>页表的操作主体有：通过store/load修改和读取；通过MMU硬件隐式的访问和修改。store/load<br>会和cache系统交互，把页表保存到cache或内存上，所以MMU对页表的隐式操作也会和cache<br>系统交互。</p>
+]]></content>
+      <categories>
+        <category>read</category>
+      </categories>
+      <tags>
+        <tag>计算机体系结构</tag>
+      </tags>
+  </entry>
 </search>
