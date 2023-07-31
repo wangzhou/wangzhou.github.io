@@ -1915,35 +1915,19 @@ crypto_comp_compress的时候都是关闭抢占的(是否要关闭调度), 这�
   <entry>
     <title>Linux线程学习- APUE11/12章</title>
     <url>/Linux%E7%BA%BF%E7%A8%8B%E5%AD%A6%E4%B9%A0-APUE11-12%E7%AB%A0/</url>
-    <content><![CDATA[<ol>
-<li>线程的创建和退出</li>
-</ol>
-<hr>
-<p> Linux系统下线程和进程的概念是比较模糊的。一般来说，线程是调度的单位，进程是资源<br> 的单位。本质上来说，内核看到都是一个个线程，但是线程之间可以通过共享资源，相互<br> 之间又划分到不同的进程里。</p>
+    <content><![CDATA[<h2 id="线程的创建和退出"><a href="#线程的创建和退出" class="headerlink" title="线程的创建和退出"></a>线程的创建和退出</h2><p> Linux系统下线程和进程的概念是比较模糊的。一般来说，线程是调度的单位，进程是资源<br> 的单位。本质上来说，内核看到都是一个个线程，但是线程之间可以通过共享资源，相互<br> 之间又划分到不同的进程里。</p>
 <p> 从内核视角上看各种不同的ID会比较清楚。之前的<a href="https://wangzhou.github.io/APUE%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%AC%AC%E4%B9%9D%E7%AB%A0/">这篇文章</a>对进程ID, 线程ID，进程组，<br> 线程组，会话已经有了简单描述。</p>
 <p> 在一个进程的多个线程里调用getpid，这个是一个c库对getpid系统调用的封装，所以这<br> 个函数返回调用线程的进程ID, 这个ID其实就是这个线程组的线程组ID，也是这个线程组<br> 的主线程的内核pid，这个从kernel代码kernel/sys.c getpid的系统调用可以看的很清楚。<br> 使用gettid系统调用可以得到一个线程的对应内核pid。</p>
 <p> 而所谓pthread库的pthread_self()得到的只是pthread库自定义的线程ID，这个东西和上<br> 面内核里真正的各种ID是完全不同的。</p>
 <p> 线程的创建用pthread_create, 用的系统调用是clone。我们考虑线程结束的方法，线程执<br> 行完线程函数后自己会退出，这其中也包括线程函数自己调用pthread_exit把自己结束。<br> 线程也可以被进程中的其他线程取消，取消一个线程使用的函数是：pthread_cancel(pthread_t tid)。<br> 用strace跟踪下，可以发现pthread_cancel中的系统调用是tgkill(tgid, tid, SIGRTMIN),<br> 这个系统调用向线程组tgid里的tid线程发送SIGRTMIN信号。</p>
 <p> 线程可以用pthread_jorn在阻塞等待相关线程结束，并且得到线程结束所带的返回值。</p>
 <p> 线程可以注册退出的时候要调用的函数。使用pthread_cleanup_push, pthread_cleanup_pop。<br> 注册的函数在线程调用pthread_exit或者是线程被pthread_cancel的时候执行，线程正常<br> 执行结束时不执行。用strace -f跟踪进程中所有线程的系统调用可以发现，对应的系统调用<br> 是set_robust_list。</p>
-<ol start="2">
-<li>线程同步的锁</li>
-</ol>
-<hr>
-<p> 线程之间共享变量的时候需要加锁，以pthread库为例，我们有pthread_mutex, pthead_spinlock,<br> pthread读写锁。此外我们还可以自己实现锁，这个的好处是不受具体线程库的限制，<br> 不好的地方是，我们自己实现的锁一定没有pthread库实现的性能高。如下的测试代码中<br> 比较了pthread mutex/spinlock，以及自己实现的spinlock的性能:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL2xvY2tfdGVzdC90ZXN0LmM=">https://github.com/wangzhou/tests/blob/master/lock_test/test.c<i class="fa fa-external-link-alt"></i></span></p>
+<h2 id="线程同步的锁"><a href="#线程同步的锁" class="headerlink" title="线程同步的锁"></a>线程同步的锁</h2><p> 线程之间共享变量的时候需要加锁，以pthread库为例，我们有pthread_mutex, pthead_spinlock,<br> pthread读写锁。此外我们还可以自己实现锁，这个的好处是不受具体线程库的限制，<br> 不好的地方是，我们自己实现的锁一定没有pthread库实现的性能高。如下的测试代码中<br> 比较了pthread mutex/spinlock，以及自己实现的spinlock的性能:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL2xvY2tfdGVzdC90ZXN0LmM=">https://github.com/wangzhou/tests/blob/master/lock_test/test.c<i class="fa fa-external-link-alt"></i></span></p>
 <p> apue这里的例子11-5很好的展示了一个引用计数的实现方式。<br> 一定要避免A-B/B-A这种交叉加锁的情况，但是注意这里只是加锁，减锁的顺序可以随意。</p>
 <p> 如果一定要出现交叉加锁的情况，要做成如果第二把锁没有抢到(所以，第二把锁要用try<br> 锁)，那么已经锁上的第一把锁也要放开，要留出一条通道把可能的死锁情况放过去。过<br> 一段时间再锁上第一把锁，再try第二把锁。</p>
 <p> 11-6的代码对于交叉加锁的处理方式是，需要上第二把锁的时候，直接放开第一把锁，<br> 然后先上第二把锁，再上第一把锁，由于这个时候有个时间的空隙，可能不满足之前的<br> 条件了，所以要再check下之前需要第二把锁的条件。当然apue举这个例子的目的这里是<br> 为了说明可以简化加锁，需要在复杂度和性能之间权衡。</p>
-<ol start="3">
-<li>条件变量和信号量</li>
-</ol>
-<hr>
-<p> 条件变量和信号量都是为了线程/进程之间同步用的，提供了线程/进程之间相互等待、<br> 通知的机制。简单写一个测试:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvdGhyZWFkLmM=">https://github.com/wangzhou/tests/blob/master/pthread/thread.c<i class="fa fa-external-link-alt"></i></span><br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvc2VtLmM=">https://github.com/wangzhou/tests/blob/master/pthread/sem.c<i class="fa fa-external-link-alt"></i></span><br> 在thread.c和sem.c里都会出现同一个问题，如果不在enqueue_msg函数里unlock和发信号<br> 之间增加时延，会出现发送线程一直持有锁，接收线程得不到锁从而无法及时接收的情况。<br> 测试发现，在unlock和发送信号(比如thread.c的pthread_mutex_unlock和pthread_cond_signal)<br> 之间增加usleep(1)的时延就可以使如上的这种情况不出现。</p>
-<ol start="4">
-<li>线程控制</li>
-</ol>
-<hr>
-<p> pthread库还有很多控制接口，这些接口可以改变如上接口的语义，或者增减新的功能。<br> 比如，每种锁的初始化接口都可以控制这些锁在嵌套加锁、不对称加锁等的语义，遇到<br> 这样的情况，可以配置成容许或者是返回错误值; 可以配置锁在线程之间还是进程之间<br> 共享; 可以配置线程栈的大小等; 可以申请线程的私有数据; 可以使得一个函数只执行<br> 一次。</p>
+<h2 id="条件变量和信号量"><a href="#条件变量和信号量" class="headerlink" title="条件变量和信号量"></a>条件变量和信号量</h2><p> 条件变量和信号量都是为了线程/进程之间同步用的，提供了线程/进程之间相互等待、<br> 通知的机制。简单写一个测试:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvdGhyZWFkLmM=">https://github.com/wangzhou/tests/blob/master/pthread/thread.c<i class="fa fa-external-link-alt"></i></span><br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvc2VtLmM=">https://github.com/wangzhou/tests/blob/master/pthread/sem.c<i class="fa fa-external-link-alt"></i></span><br> 在thread.c和sem.c里都会出现同一个问题，如果不在enqueue_msg函数里unlock和发信号<br> 之间增加时延，会出现发送线程一直持有锁，接收线程得不到锁从而无法及时接收的情况。<br> 测试发现，在unlock和发送信号(比如thread.c的pthread_mutex_unlock和pthread_cond_signal)<br> 之间增加usleep(1)的时延就可以使如上的这种情况不出现。</p>
+<h2 id="线程控制"><a href="#线程控制" class="headerlink" title="线程控制"></a>线程控制</h2><p> pthread库还有很多控制接口，这些接口可以改变如上接口的语义，或者增减新的功能。<br> 比如，每种锁的初始化接口都可以控制这些锁在嵌套加锁、不对称加锁等的语义，遇到<br> 这样的情况，可以配置成容许或者是返回错误值; 可以配置锁在线程之间还是进程之间<br> 共享; 可以配置线程栈的大小等; 可以申请线程的私有数据; 可以使得一个函数只执行<br> 一次。</p>
 <p> 简单写一个线程私有数据的测试:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL3B0aHJlYWQvcHJpdi5j">https://github.com/wangzhou/tests/blob/master/pthread/priv.c<i class="fa fa-external-link-alt"></i></span><br> 可以看到，pthread_key_t key1的create没有和线程绑定。基本的逻辑是，pthread_key_create<br> 可以在任意一个线程里，pthread_setspecific和pthread_getspecific是在线程里对应的，<br> 在线程A里set的数据，可以在线程A里通过get拿到，但是在另外的一个线程B里对全局的<br> key1使用pthread_getspecific只能拿到NULL。apue里的例子把pthread_key_create放到<br> 了每个线程里，为了只调用一次pthread_key_create, 还介绍只跑一个函数一次的接口：<br> int pthread_once(pthread_once_t *initflag, void (*initfn)(void))，可以想象这个<br> 函数的实现是先上锁，然后检查initflag，initflag没有置上已经跑过的flag就调用initfn，<br> 如果已经跑过就不用跑了。这个只跑一次的接口在某些库的设计里是很有用的，比如一个<br> 库需要在进程使用的时候初始化一次，这里就可以用相似的设计或者直接用这个API。</p>
 <p> 关于信号可以参考<a href="https://wangzhou.github.io/Linux%E4%BF%A1%E5%8F%B7%E7%AC%94%E8%AE%B0/">这里</a>，线程和信号的细节内容需要另外描述。</p>
 <p> 线程在fork系统调用上遇到的问题，我们自己写一个独立的应用的时候比较难遇到，因为<br> 全局受自己的控制，我们只要一开始fork进程，做好规划就好。但是，当我们要写一个库，<br> 这个库可以被其他上层代码调用，我们的库里又要起独立的线程时，这个问题就会出来。<br> 这个问题的本质是自己写的库里向上层export出了全局的资源，比如，如果库里只出函数<br> 接口，就没有问题，所有库里的资源都在函数的栈上，但是，如果库里有了全局资源，相当<br> 于，我们的库向调用进程里增加了全局的资源，调用进程将需要考虑这些全局资源(当然库<br> 可以向上层的调用者提出诉求或者接口)。具体看，子进程会从父进程那里继承:<br> 全局变量(子进程在没有写之前，如果去读这个变量，依然得到的是父进程里的值，如果拿<br> 这个值去做判断就有可能出错)、各种锁、信号量和条件变量。如果fork出来的进程不是<br> 调用exec系列函数去执行一个新的程序，那么子进程里拥有和父进程一样的锁、信号量和<br> 条件变量。可以通过pthread_atfork提前挂上fork时候的回调函数进行处理，即一定是在<br> prepare回调里先获取所有的锁，在parent、child里再释放所有的锁，注意这里的获取释放<br> 的操作和父进程里的可能获取锁的行为做了互斥。</p>
@@ -6946,17 +6930,9 @@ shadow: files ldap
   <entry>
     <title>锁使用的一些笔记</title>
     <url>/%E9%94%81%E4%BD%BF%E7%94%A8%E7%9A%84%E4%B8%80%E4%BA%9B%E7%AC%94%E8%AE%B0/</url>
-    <content><![CDATA[<ol>
-<li>使用的场景</li>
-</ol>
-<hr>
-<p>   当一个数据结构有多个并发的流程去访问的时候，可以加锁去做互斥，这样数据的<br>   一致性的到保护。并发流程有多种表现形式，比如在linux内核里，内核线程，中断，<br>   来自用户态的系统调用等都可以并发起来; 用户态的话, 各个线程，信号(信号处理<br>   函数里不能使用锁)可以并发。</p>
+    <content><![CDATA[<h2 id="使用的场景"><a href="#使用的场景" class="headerlink" title="使用的场景"></a>使用的场景</h2><p>   当一个数据结构有多个并发的流程去访问的时候，可以加锁去做互斥，这样数据的<br>   一致性的到保护。并发流程有多种表现形式，比如在linux内核里，内核线程，中断，<br>   来自用户态的系统调用等都可以并发起来; 用户态的话, 各个线程，信号(信号处理<br>   函数里不能使用锁)可以并发。</p>
 <p>   加锁其实就是多个执行流在临界区外排队(这里不考虑try锁，就是那种试一下可以加上<br>   就加锁，不可以加上当场就返回的锁)。我们也可以给临界区配置一个原子变量标记，<br>   每个执行流在先抢到这个标记才可以操作保护的数据结构, 操作完保护的数据结构，<br>   退出临界区的时候释放这个标记。原子变量标记的方式，其实是用try锁去保护相应的<br>   数据结构。但是try锁没有了排队等待，需要在加锁失败时做必要的处理。</p>
-<ol start="2">
-<li>使用时注意的事项</li>
-</ol>
-<hr>
-<ul>
+<h2 id="使用时注意的事项"><a href="#使用时注意的事项" class="headerlink" title="使用时注意的事项"></a>使用时注意的事项</h2><ul>
 <li><p>锁使用时最需要注意的就是死锁，死锁的最典型方式是两把锁交叉加锁:</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">  	thread1        thread2</span><br><span class="line"></span><br><span class="line">lock1          lock2</span><br><span class="line">[...]          [...]</span><br><span class="line">lock2          lock1</span><br></pre></td></tr></table></figure>
 <p>如上，thread1加了lock1，执行下面的代码，thead2加了lock2。这时, thread1想<br>要加lock2，但是加不上，thread2想要加lock1的，但是也加不上。</p>
@@ -6970,29 +6946,13 @@ shadow: files ldap
  所以在不可以sleep的场景里，我们要用spinlock锁, 和mutex比较，spinlock不sleep，
  所以，spinlock也适用于临界区很短的加锁保护。
 </code></pre>
-<ol start="3">
-<li>调试锁相关代码</li>
-</ol>
-<hr>
-<p>   一般我们写好Linux内核里所相关的代码，可以打开内核里死锁检测:<br>   <span class="exturl" data-url="aHR0cHM6Ly93d3cuY25ibG9ncy5jb20vYXJub2xkbHUvcC84NTgwMzg3Lmh0bWw=">https://www.cnblogs.com/arnoldlu/p/8580387.html<i class="fa fa-external-link-alt"></i></span><br>   hange检测: Kernel hacking —&gt; Debug Lockups and Hangs</p>
+<h2 id="调试锁相关代码"><a href="#调试锁相关代码" class="headerlink" title="调试锁相关代码"></a>调试锁相关代码</h2><p>   一般我们写好Linux内核里所相关的代码，可以打开内核里死锁检测:<br>   <span class="exturl" data-url="aHR0cHM6Ly93d3cuY25ibG9ncy5jb20vYXJub2xkbHUvcC84NTgwMzg3Lmh0bWw=">https://www.cnblogs.com/arnoldlu/p/8580387.html<i class="fa fa-external-link-alt"></i></span><br>   hange检测: Kernel hacking —&gt; Debug Lockups and Hangs</p>
 <p>   死锁检测会检测出潜在的死锁位置，然后输出报告。<br>   hange检测在超出配置的超时时间后会把调用栈打出来。</p>
 <p>   不过这些检测打开后会对系统性能有较大的影响，这些配置只能在调试版本里打开。</p>
 <p>   (to do: 用户态死锁检测的工具)</p>
-<ol start="4">
-<li>加锁后相关的性能问题</li>
-</ol>
-<hr>
-<p>   为了维护并发访问的资源，所以需要加锁。所以，加锁之后有可能带来的性能下降，<br>   本质上是各个执行流相互等待带来的开销。所以，要提高性能，还是要把各个执行流的<br>   相互依赖解开。</p>
-<ol start="5">
-<li>加锁对构架演进的影响</li>
-</ol>
-<hr>
-<p>   锁临界区太大，会对后续添加新的锁进来产生影响，比较容易造成各种死锁问题。</p>
-<ol start="6">
-<li>锁的实现</li>
-</ol>
-<hr>
-<p>   (to do: spinlock, q spinlock, 原子变量简单实现spinlock, mutex)</p>
+<h2 id="加锁后相关的性能问题"><a href="#加锁后相关的性能问题" class="headerlink" title="加锁后相关的性能问题"></a>加锁后相关的性能问题</h2><p>   为了维护并发访问的资源，所以需要加锁。所以，加锁之后有可能带来的性能下降，<br>   本质上是各个执行流相互等待带来的开销。所以，要提高性能，还是要把各个执行流的<br>   相互依赖解开。</p>
+<h2 id="加锁对构架演进的影响"><a href="#加锁对构架演进的影响" class="headerlink" title="加锁对构架演进的影响"></a>加锁对构架演进的影响</h2><p>   锁临界区太大，会对后续添加新的锁进来产生影响，比较容易造成各种死锁问题。</p>
+<h2 id="锁的实现"><a href="#锁的实现" class="headerlink" title="锁的实现"></a>锁的实现</h2><p>   (to do: spinlock, q spinlock, 原子变量简单实现spinlock, mutex)</p>
 ]]></content>
       <tags>
         <tag>Linux用户态编程</tag>
@@ -7920,7 +7880,7 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
 <p>cache的操作命令有invalid和clean，invalid cache是无效化对应地址的cache，clean cache<br>的语意其实是和dirty cache对应的，clean cache把cache上的数据写回到内存，对于数据<br>只写到cache还没有写回内存的情况，就需要用clean cache把数据同步回内存。</p>
 <h2 id="地址翻译"><a href="#地址翻译" class="headerlink" title="地址翻译"></a>地址翻译</h2><p>这里我们总结下地址翻译里，容易忽略的几个基本逻辑。</p>
 <p>TLB是页表项的cache，这个定义里包含着这些逻辑：页表项的所有内容必须要TLB中有记录，<br>否则的话，在TLB命中的场景下，页表项里的属性无法体现出来。页表项里既有只读也有可写<br>的属性，比如access bit和dirty bit就是可以被硬件动态改变的，硬件对页表项的写操作<br>应该也作用到TLB上，同时TLB和页表项之间应该有同步逻辑。</p>
-<p>todo: TLB具体的写入和同步逻辑分析。</p>
+<p>这里我们想象下页表项里的access bit和dirty bit的基本逻辑。首先，我们定义在页表项里<br>有access bit和dirty bit这两个bit，当CPU访问一个page时，对应的access bit会被硬件<br>配置成1，当CPU写一个page时，对应的dirty bit会被硬件配置成1。access/dirty bit的定义<br>描述是基于页表项的，所以不管怎么说，满足条件时页表项上的对应bit是一定要更新的。<br>当TLB里有access/dirty bit相关的信息时，硬件可以优化更新页表项上对应bit的行为，如果<br>TLB里相关的bit已经是1，硬件就可以不去更新页表项的对应bit，因为TLB和页表项里的内容<br>是一样的。可以看出以上逻辑成立的基础是TLB和页表项需要保持同步，这个同步可以软件来<br>做也可以硬件来做，最终会表现为软硬件接口的不同。如果软件来做，那么软件在更新页表<br>项上的access/dirty bit时，需要flush掉对应的TLB，软硬件接口定义上也要明确指出这个<br>问题。</p>
 <p>页表的操作主体有：通过store/load修改和读取；通过MMU硬件隐式的访问和修改。store/load<br>会和cache系统交互，把页表保存到cache或内存上，所以MMU对页表的隐式操作也会和cache<br>系统交互。</p>
 ]]></content>
       <categories>
@@ -7928,6 +7888,29 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
       </categories>
       <tags>
         <tag>计算机体系结构</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>glibc协程的使用方法</title>
+    <url>/glibc%E5%8D%8F%E7%A8%8B%E7%9A%84%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95/</url>
+    <content><![CDATA[<p>有很多实现协程的方式，glibc里实现的协程叫做ucontext。我们可以先从相关的头文件里<br>看下ucontext的基本数据结构和API。</p>
+<p>glibc代码的glibc/stdlib/ucontext.h是ucontext的几个API，ucontext数据结构是构架相关<br>的，定义在sys/ucontext.h，比如对于riscv的定义在：sysdeps/unix/sysv/linux/riscv/sys/ucontext.h。</p>
+<p>具体看API之间，先看下协程(coroutine)的基本概念。协程可以在用户态实现执行上下文的<br>切换，可以看成一个轻量级的线程，但是，线程是系统层面实现的机制，没办法自己控制调度，<br>线程本身的调度就是内核调度，线程自己看不到调度，而协程API可以控制程序执行流直接<br>跳到一个上下文上执行。</p>
+<p>在用户态一个上下文的定义就寄存器集合+栈(严格讲还要加上内存)，协程在两个用户态上下<br>文上切换也就是要：1. 定义用户态上下文；2. 给出相关的用户态上下文获取、修改、配置以及<br>切换的API。</p>
+<p>ucontext_t描述一个用户态上下文，显示是体系结构相关的，程序员可以直接操作里面的数据。<br>riscv下这个结构大概是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">typedef struct ucontext_t</span><br><span class="line">  &#123;</span><br><span class="line">    unsigned long int  __uc_flags;</span><br><span class="line">    struct ucontext_t *uc_link;</span><br><span class="line">    /* 其中有stack的基地址(ss_sp)，大小(ss_size)和flag(ss_flags) */</span><br><span class="line">    stack_t            uc_stack;</span><br><span class="line">    sigset_t           uc_sigmask;</span><br><span class="line">    /* There&#x27;s some padding here to allow sigset_t to be expanded in the</span><br><span class="line">       future.  Though this is unlikely, other architectures put uc_sigmask</span><br><span class="line">       at the end of this structure and explicitly state it can be</span><br><span class="line">       expanded, so we didn&#x27;t want to box ourselves in here.  */</span><br><span class="line">    char               __glibc_reserved[1024 / 8 - sizeof (sigset_t)];</span><br><span class="line">    /* We can&#x27;t put uc_sigmask at the end of this structure because we need</span><br><span class="line">       to be able to expand sigcontext in the future.  For example, the</span><br><span class="line">       vector ISA extension will almost certainly add ISA state.  We want</span><br><span class="line">       to ensure all user-visible ISA state can be saved and restored via a</span><br><span class="line">       ucontext, so we&#x27;re putting this at the end in order to allow for</span><br><span class="line">       infinite extensibility.  Since we know this will be extended and we</span><br><span class="line">       assume sigset_t won&#x27;t be extended an extreme amount, we&#x27;re</span><br><span class="line">       prioritizing this.  */</span><br><span class="line">    /* 其中定义riscv的通用寄存器和浮点寄存器 */</span><br><span class="line">    mcontext_t uc_mcontext;</span><br><span class="line">  &#125; ucontext_t;</span><br></pre></td></tr></table></figure>
+
+<p>如下函数就是所有ucontext_t相关的API，头文件的注释写的比较清楚了，我们后面只做补充解释。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* Get user context and store it in variable pointed to by UCP.  */</span><br><span class="line">extern int getcontext (ucontext_t *__ucp) __THROWNL;</span><br><span class="line"></span><br><span class="line">/* Set user context from information of variable pointed to by UCP.  */</span><br><span class="line">extern int setcontext (const ucontext_t *__ucp) __THROWNL;</span><br><span class="line"></span><br><span class="line">/* Save current context in context variable pointed to by OUCP and set</span><br><span class="line">   context from variable pointed to by UCP.  */</span><br><span class="line">extern int swapcontext (ucontext_t *__restrict __oucp,</span><br><span class="line">			const ucontext_t *__restrict __ucp)</span><br><span class="line">  __THROWNL __INDIRECT_RETURN;</span><br><span class="line"></span><br><span class="line">/* Manipulate user context UCP to continue with calling functions FUNC</span><br><span class="line">   and the ARGC-1 parameters following ARGC when the context is used</span><br><span class="line">   the next time in `setcontext&#x27; or `swapcontext&#x27;.</span><br><span class="line"></span><br><span class="line">   We cannot say anything about the parameters FUNC takes; `void&#x27;</span><br><span class="line">   is as good as any other choice.  */</span><br><span class="line">extern void makecontext (ucontext_t *__ucp, void (*__func) (void),</span><br><span class="line">			 int __argc, ...) __THROW;</span><br></pre></td></tr></table></figure>
+<p>makecontext是对__ucp的配置，当下次触发__ucp运行时，使用__ucp的上下文，但是要执行<br>__func，__argc是__func的入参个数，后面依次是每个入参。这里__func的定义是没有参数，<br>但是后面确给了入参信息，使用的时候可以定义带入参的函数，传给makecontext时强制转换<br>成void (* __func)(void)。</p>
+<p>程序员可以直接通过makecontext构造一个新的执行上下文，而不仅仅是通过getcontext获取<br>当前程序的上下文:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">typedef void (* task_t) (void);</span><br><span class="line">ucontext_t nc;</span><br><span class="line"></span><br><span class="line">void new_context(ctx);</span><br><span class="line">void *stack = malloc(4096);</span><br><span class="line"></span><br><span class="line">nc.uc_stack.ss_sp = stack;</span><br><span class="line">nc.uc_stack.ss_size = 4096;</span><br><span class="line">nc.uc_link = NULL;</span><br><span class="line"></span><br><span class="line">makecontext(&amp;uc, (task_t)new_context, 1, ctx);</span><br></pre></td></tr></table></figure>
+
+<p>程序在必要的时候可以直接使用swapcontext执行makecontext构造的上下文：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">ucontext_t curr;</span><br><span class="line"></span><br><span class="line">swapcontext(&amp;curr, &amp;nc);</span><br></pre></td></tr></table></figure>
+]]></content>
+      <tags>
+        <tag>协程</tag>
       </tags>
   </entry>
 </search>

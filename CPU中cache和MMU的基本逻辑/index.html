@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文是《超标量处理器》一书第二章Cache和第三章虚拟存储器的笔记。之前也整理过 有关cache和页表的东西，本文从硬件实现的角度再次整理下，这次整理重点在整体思路 的梳理。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-07-24T15:42:44.000Z">
-<meta property="article:modified_time" content="2023-07-24T15:44:14.407Z">
+<meta property="article:modified_time" content="2023-07-31T10:53:33.639Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta name="twitter:card" content="summary">
@@ -130,12 +130,12 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">89</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">90</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">230</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">231</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -225,10 +225,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2023-07-24 23:42:44 / 修改时间：23:44:14" itemprop="dateCreated datePublished" datetime="2023-07-24T23:42:44+08:00">2023-07-24</time>
+              <time title="创建时间：2023-07-24 23:42:44" itemprop="dateCreated datePublished" datetime="2023-07-24T23:42:44+08:00">2023-07-24</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-07-31 18:53:33" itemprop="dateModified" datetime="2023-07-31T18:53:33+08:00">2023-07-31</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -265,7 +271,7 @@
 <p>cache的操作命令有invalid和clean，invalid cache是无效化对应地址的cache，clean cache<br>的语意其实是和dirty cache对应的，clean cache把cache上的数据写回到内存，对于数据<br>只写到cache还没有写回内存的情况，就需要用clean cache把数据同步回内存。</p>
 <h2 id="地址翻译"><a href="#地址翻译" class="headerlink" title="地址翻译"></a>地址翻译</h2><p>这里我们总结下地址翻译里，容易忽略的几个基本逻辑。</p>
 <p>TLB是页表项的cache，这个定义里包含着这些逻辑：页表项的所有内容必须要TLB中有记录，<br>否则的话，在TLB命中的场景下，页表项里的属性无法体现出来。页表项里既有只读也有可写<br>的属性，比如access bit和dirty bit就是可以被硬件动态改变的，硬件对页表项的写操作<br>应该也作用到TLB上，同时TLB和页表项之间应该有同步逻辑。</p>
-<p>todo: TLB具体的写入和同步逻辑分析。</p>
+<p>这里我们想象下页表项里的access bit和dirty bit的基本逻辑。首先，我们定义在页表项里<br>有access bit和dirty bit这两个bit，当CPU访问一个page时，对应的access bit会被硬件<br>配置成1，当CPU写一个page时，对应的dirty bit会被硬件配置成1。access/dirty bit的定义<br>描述是基于页表项的，所以不管怎么说，满足条件时页表项上的对应bit是一定要更新的。<br>当TLB里有access/dirty bit相关的信息时，硬件可以优化更新页表项上对应bit的行为，如果<br>TLB里相关的bit已经是1，硬件就可以不去更新页表项的对应bit，因为TLB和页表项里的内容<br>是一样的。可以看出以上逻辑成立的基础是TLB和页表项需要保持同步，这个同步可以软件来<br>做也可以硬件来做，最终会表现为软硬件接口的不同。如果软件来做，那么软件在更新页表<br>项上的access/dirty bit时，需要flush掉对应的TLB，软硬件接口定义上也要明确指出这个<br>问题。</p>
 <p>页表的操作主体有：通过store/load修改和读取；通过MMU硬件隐式的访问和修改。store/load<br>会和cache系统交互，把页表保存到cache或内存上，所以MMU对页表的隐式操作也会和cache<br>系统交互。</p>
 
     </div>
@@ -304,7 +310,10 @@
     <a href="/%E8%B6%85%E6%A0%87%E9%87%8F%E5%A4%84%E7%90%86%E5%99%A8%E5%88%86%E6%94%AF%E9%A2%84%E6%B5%8B%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="prev" title="超标量处理器分支预测基本逻辑">
       <i class="fa fa-chevron-left"></i> 超标量处理器分支预测基本逻辑
     </a></div>
-      <div class="post-nav-item"></div>
+      <div class="post-nav-item">
+    <a href="/glibc%E5%8D%8F%E7%A8%8B%E7%9A%84%E4%BD%BF%E7%94%A8%E6%96%B9%E6%B3%95/" rel="next" title="glibc协程的使用方法">
+      glibc协程的使用方法 <i class="fa fa-chevron-right"></i>
+    </a></div>
     </div>
       </footer>
     
@@ -386,7 +395,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">230</span>
+          <span class="site-state-item-count">231</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -397,7 +406,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">89</span>
+        <span class="site-state-item-count">90</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
