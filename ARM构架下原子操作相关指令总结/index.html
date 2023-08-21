@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文总结ARM架构下和原子操作相关的一些指令，后续相关内容都总结到这里。 涉及到代码分析时，使用的内核版本是v6.5-rc3。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ARM构架下原子操作相关指令总结">
+<meta property="og:url" content="http://wangzhou.github.io/ARM%E6%9E%84%E6%9E%B6%E4%B8%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文总结ARM架构下和原子操作相关的一些指令，后续相关内容都总结到这里。 涉及到代码分析时，使用的内核版本是v6.5-rc3。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-08-21T10:45:44.000Z">
+<meta property="article:modified_time" content="2023-08-21T10:49:14.416Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="ARM64">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/ARM%E6%9E%84%E6%9E%B6%E4%B8%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%80%BB%E7%BB%93/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ARM构架下原子操作相关指令总结 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">89</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">234</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/ARM%E6%9E%84%E6%9E%B6%E4%B8%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%80%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ARM构架下原子操作相关指令总结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-08-21 18:45:44 / 修改时间：18:49:14" itemprop="dateCreated datePublished" datetime="2023-08-21T18:45:44+08:00">2023-08-21</time>
+            </span>
+
+          
+            <div class="post-description">本文总结ARM架构下和原子操作相关的一些指令，后续相关内容都总结到这里。 涉及到代码分析时，使用的内核版本是v6.5-rc3。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="LDXR-STXR"><a href="#LDXR-STXR" class="headerlink" title="LDXR/STXR"></a>LDXR/STXR</h2><p>ARM提供load-reserved/store-conditional的方式实现原子操作，其中相关的一组指令有：<br>LDXR/STXR/LDXRB/STXRB/LDXRH/STXRH/LDXP/STXP，这些指令基本功能一样，只是操作的地址<br>位宽不一样，XR是寄存器位宽，XRB是8bit，XRH是16bit，XP是两个寄存器位宽。load-acquire/<br>store-release这种barrier属性也可以加到这个指令上，其中前者加入A，后者加入L，比如<br>LDXR/STXR加了load-acquire/store-release属性的指令是LDAXR/STLXR。</p>
+<p>ARM里叫这种指令是load-exclusive/store-exclusive的指令，其实和RISCV上的<br>load-reserved/store-conditional指令是基本一样的逻辑，学术界最开始提出这种指令时，<br>用的也是LR/SC(load-reserved/store-conditional)这样的叫法。</p>
+<p>ARM的这组指令的用法和RISCV的LR/SC指令的逻辑是一样的，基本逻辑我们可以大概参考RISCV<br>LR/SC的逻辑，<a href="https://wangzhou.github.io/riscv%E5%8E%9F%E5%AD%90%E6%8C%87%E4%BB%A4%E5%88%86%E6%9E%90/">这里</a>是一个RISCV LR/SC的细节分析。</p>
+<p>ARM上使用LDXR/STXR的例子可以查看内核的这个位置：linux/arch/arm64/include/asm/atomic_ll_sc.h<br>和其它体系结构类似，ARM上的各种原子操作都可以用这两个指令实现，其中就包括了普通<br>的原子运算和CAS(compare and swap)的原子操作。</p>
+<p>ARM上LDXR和WFE结合还有一个巧妙的用法，LDXR会设置一个exclusive的标记，当有其它store<br>操作把这个标记去掉时，ARM规定系统会触发event register的set操作，这个操作是解开WFE<br>的其中一个信号。这样，一个core反复读一个地址直到读到特定值的条件读操作可以使用<br>LDXR+WFE的方式实现，内核里的核心实现代码如下，我们把注释直接写在下面的代码里。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line">/* linux/arch/arm64/include/asm/cmpxchg.h */</span><br><span class="line">#define __CMPWAIT_CASE(w, sfx, sz)					\</span><br><span class="line">static inline void __cmpwait_case_##sz(volatile void *ptr,		\</span><br><span class="line">				       unsigned long val)		\</span><br><span class="line">&#123;									\</span><br><span class="line">	unsigned long tmp;						\</span><br><span class="line">									\</span><br><span class="line">	asm volatile(							\</span><br><span class="line"></span><br><span class="line">	/* sevl和紧接着的wfe去掉之前可能已经set的event register */</span><br><span class="line"></span><br><span class="line">	&quot;	sevl\n&quot;							\</span><br><span class="line">	&quot;	wfe\n&quot;							\</span><br><span class="line"></span><br><span class="line">	/* 读检测地址上的数据，并把exclusive标记配置上 */</span><br><span class="line"></span><br><span class="line">	&quot;	ldxr&quot; #sfx &quot;\t%&quot; #w &quot;[tmp], %[v]\n&quot;			\</span><br><span class="line"></span><br><span class="line">	/* 检测下读到的值，如果是等待的值，就跳出循环 */</span><br><span class="line"></span><br><span class="line">	&quot;	eor	%&quot; #w &quot;[tmp], %&quot; #w &quot;[tmp], %&quot; #w &quot;[val]\n&quot;	\</span><br><span class="line">	&quot;	cbnz	%&quot; #w &quot;[tmp], 1f\n&quot;				\</span><br><span class="line"></span><br><span class="line">	/*</span><br><span class="line">	 * 否则睡眠等待, 当其它core写被检测的地址时，会触发这个地址的global monitor</span><br><span class="line">	 * 被清理，从何触发WFE wakeup event唤醒WFE。注意，这里并不需要stxr之类的</span><br><span class="line">	 * 条件写指令，只要普通store指令就可以触发global monitor被清理。</span><br><span class="line">	 */</span><br><span class="line"></span><br><span class="line">	&quot;	wfe\n&quot;							\</span><br><span class="line">	&quot;1:&quot;								\</span><br><span class="line">	: [tmp] &quot;=&amp;r&quot; (tmp), [v] &quot;+Q&quot; (*(u##sz *)ptr)			\</span><br><span class="line">	: [val] &quot;r&quot; (val));						\</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在循环中反复调用如上的检测逻辑即可以完成条件读的功能，条件读在qspinlock的实现里<br>有大量的使用。</p>
+<h2 id="LSE-Large-System-Extensions-中的原子指令"><a href="#LSE-Large-System-Extensions-中的原子指令" class="headerlink" title="LSE(Large System Extensions)中的原子指令"></a>LSE(Large System Extensions)中的原子指令</h2><p>ARMv8.1的LSE里新增加了单指令的原子操作，大概分为：1. 对内存里的值做原子运算的指令；<br>2. 把一个值和内存里的值做交换的指令；3. CAS原子指令。</p>
+<p>第一类指令数量庞大，命名逻辑是LD/ST + 运算种类，LD前缀表示有返回值，返回值是内存<br>里的旧值，ST表示没有返回值。比如LDADD x1, x2, [x3]表示，把x2和x3地址上值相加的和<br>写入x3地址，x3地址上的旧值写入x1，STADD x1, [x3]只有原子加这个操作，没有返回旧值。</p>
+<p>第二类指令有: SWP/SWPB/SWPH，把输入寄存器里的值写入内存，并把内存上的旧值写到输出<br>寄存器。</p>
+<p>第三类指令有：CAS/CASB/CASH/CASP，这些就是经典的CAS原子指令，比如CAS Xs, Xt, [Xn]<br>的功能是比较Xs和Xn内存上的值，如果相等就把Xt的值写入到Xn内存上。需要注意的是如上<br>的CASP指令，其中的P是pair的意思，虽然这个指令的寄存器还是Xs/Xt/Xn，但是它语意上<br>扩展到了128bit，逻辑是比较Xs Xs+1和Xn为基地值的128bit的值，如果相等就把Xs Xs+1的<br>值写入Xn为基地址的128bit内存上。这里用64bit寄存器举例介绍了，32bit寄存器的CASP指令<br>是一样的逻辑。</p>
+<p>Linux内核里ARM上LSE实现的原子操作的代码在这里: linux/arch/arm64/include/asm/atomic_lse.h<br>可以看出基本上就是对相应LSE原子指令的封装。</p>
+<h2 id="Single-copy-64B-load-store"><a href="#Single-copy-64B-load-store" class="headerlink" title="Single copy 64B load/store"></a>Single copy 64B load/store</h2><p>ARMv8.7引入的这组指令支持原子的对MMIO读写64Byte数据，相关的指令有：LD64B/ST64B/<br>ST64BV/ST64BV0，这些指令只能操作Non-cacheable或者device的地址空间，带V后缀的表示<br>有返回值，带0的表示可以工作在EL0。举一个例子看下具体使用的逻辑，比如ST64B Xt [Xn]<br>表示把Xt-X(t+7)这八个64bit寄存器里的值写入Xn为基地值的64Byte地址空间。</p>
+<p>这组指令主要用来原子给设备的MMIO空间发请求，地址用来唯一的标识设备，64Byte的数据<br>是请求参数。因为地址是设备的MMIO空间，所以这个指令的功能其实是设备自定义的，广义<br>上看，设备的side effect都是这个指令的功能。</p>
+<h2 id="WFI-WFE-SEV-SEVL"><a href="#WFI-WFE-SEV-SEVL" class="headerlink" title="WFI/WFE/SEV/SEVL"></a>WFI/WFE/SEV/SEVL</h2><p>如上提到了WFE指令，这里把相关的指令都展开看下。 ARM里一开始只有WFI，顾名思义WFI<br>会使core进入低功耗模式，直到core上有中断，才唤醒core继续运行。</p>
+<p>WFE(wait for event)是睡眠core等待event发生，这里的event的定义就有很多了，WFE里还<br>定义了一个event register的概念，这个是一个虚拟register，只能由特定的指令或硬件行为<br>set。spec里规定set event register的行为有：SEV/SEVL指令，前者set全部PE，后者set<br>当前PE；异常返回；清理PE的global monitor; Generic Timer event stream。event register<br>只能由WFE指令清理掉。</p>
+<p>event register如果没有set，WFE正常进入低功耗状态，event register如果已经被set，<br>WFE指令并不能触发core进入低功耗，而且event register会被清理掉。可以看到LDXR/STXR<br>这一节提到使用sevl + wfe清理掉之前可能set的event register，这里不管之前event register<br>有没有set，这样操作总能把event register清理掉。</p>
+<p>唤醒WFE的evnet有: SEV指令; 当前core收到并可以处理中断；asynchronous external request<br>debug event; timer event stream; global monitor被清理掉。其中最后一种event就是我们<br>上面在LDXR/STXR一节中提到的情况。</p>
+<p>如上，SEV(send Event)和SEVL(send Event Local)，都可以set event register，只不过<br>作用core的范围不一样。SEV还可以一把唤醒所有core上WFE，如果一个core已经WFE了，语意<br>上就不可能再执行SEVL唤醒，所以可以看到spec里也没有相关的定义。</p>
+<h2 id="PRFM"><a href="#PRFM" class="headerlink" title="PRFM"></a>PRFM</h2><p>CASP指令的示例代码里提到了PRFM，这里把预取相关的指令都展开看下。PRFM完成对地址上<br>数据的预取，具体硬件可以把它实现成提前加载数据到cache，这个指令可以带不同的参数。</p>
+<h2 id="customized-instruction"><a href="#customized-instruction" class="headerlink" title="customized instruction"></a>customized instruction</h2><p>ARM支持其它厂商可以自定义指令，相关的预留指令空间的定义可以查看ARM用户手册的这个<br>位置：Reserved encoding space for IMPLEMENTATION DEFINED instructions</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/ARM64/" rel="tag"><i class="fa fa-tag"></i> ARM64</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E8%BD%AC%E8%BD%BD-%E9%A6%99%E5%B1%B1%E5%BC%80%E6%BA%90%E9%AB%98%E6%80%A7%E8%83%BDRISC-V%E5%A4%84%E7%90%86%E5%99%A8%E8%AE%BE%E8%AE%A1%E4%B8%8E%E5%AE%9E%E7%8E%B0/" rel="prev" title="转载-香山开源高性能RISC-V处理器设计与实现">
+      <i class="fa fa-chevron-left"></i> 转载-香山开源高性能RISC-V处理器设计与实现
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#LDXR-STXR"><span class="nav-number">1.</span> <span class="nav-text">LDXR&#x2F;STXR</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#LSE-Large-System-Extensions-%E4%B8%AD%E7%9A%84%E5%8E%9F%E5%AD%90%E6%8C%87%E4%BB%A4"><span class="nav-number">2.</span> <span class="nav-text">LSE(Large System Extensions)中的原子指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Single-copy-64B-load-store"><span class="nav-number">3.</span> <span class="nav-text">Single copy 64B load&#x2F;store</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#WFI-WFE-SEV-SEVL"><span class="nav-number">4.</span> <span class="nav-text">WFI&#x2F;WFE&#x2F;SEV&#x2F;SEVL</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PRFM"><span class="nav-number">5.</span> <span class="nav-text">PRFM</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#customized-instruction"><span class="nav-number">6.</span> <span class="nav-text">customized instruction</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">234</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">89</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
