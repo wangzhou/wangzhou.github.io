@@ -128,12 +128,12 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">89</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">88</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">235</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">236</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -196,6 +196,72 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu-tcg%E4%B8%ADriscv-page-table-walk%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/qemu-tcg%E4%B8%ADriscv-page-table-walk%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">qemu tcg中riscv page table walk分析</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-02-24 22:15:32 / 修改时间：22:18:41" itemprop="dateCreated datePublished" datetime="2023-02-24T22:15:32+08:00">2023-02-24</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>本文分析riscv上page table walk的逻辑，这部分逻辑一般是硬件完成了，我们这里 分析qemu tcg对page table walk的模拟实现，从模拟中我们也可以看到其中的基本逻辑， 本文会分析整个page table walk的细节，并且分析整个两级地址翻译的流程，只有这样 才能彻底看清整个地址翻译流程。分析基于的qemu版本是v7.1.50。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/qemu-tcg%E4%B8%ADriscv-page-table-walk%E5%88%86%E6%9E%90/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -775,10 +841,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2022-12-27 17:46:19 / 修改时间：18:53:22" itemprop="dateCreated datePublished" datetime="2022-12-27T17:46:19+08:00">2022-12-27</time>
+              <time title="创建时间：2022-12-27 17:46:19" itemprop="dateCreated datePublished" datetime="2022-12-27T17:46:19+08:00">2022-12-27</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-08-25 22:52:20" itemprop="dateModified" datetime="2023-08-25T22:52:20+08:00">2023-08-25</time>
+              </span>
 
           
 
@@ -795,72 +867,6 @@
           <!--noindex-->
             <div class="post-button">
               <a class="btn" href="/riscv-qemu-virt%E5%B9%B3%E5%8F%B0CPU%E6%8B%93%E6%89%91%E5%88%86%E6%9E%90/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/CPU%E6%A0%B8%E4%B8%AD%E6%96%AD%E8%AE%BE%E8%AE%A1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/CPU%E6%A0%B8%E4%B8%AD%E6%96%AD%E8%AE%BE%E8%AE%A1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" class="post-title-link" itemprop="url">CPU核中断设计基本逻辑</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2022-12-27 17:45:24 / 修改时间：18:14:00" itemprop="dateCreated datePublished" datetime="2022-12-27T17:45:24+08:00">2022-12-27</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>本文梳理CPU核在中断上的高层逻辑，分析围绕软硬件接口，而不关注硬件内部的实现 逻辑。本文是高层逻辑上的分析，不会涉及具体体系架构上的中断设计，如果有必要， 我们用riscv作为具体体系构架分析具体内容。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/CPU%E6%A0%B8%E4%B8%AD%E6%96%AD%E8%AE%BE%E8%AE%A1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
                 阅读全文 &raquo;
               </a>
             </div>
@@ -951,7 +957,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">235</span>
+          <span class="site-state-item-count">236</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -962,7 +968,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">89</span>
+        <span class="site-state-item-count">88</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
