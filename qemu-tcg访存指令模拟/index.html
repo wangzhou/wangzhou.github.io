@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文分析qemu tcg里关于load&#x2F;store的流程，以riscv平台为分析对象。qemu的版本是5.1.50。 CPU访存主要有使用load&#x2F;store的显示访存也有隐式访存，比如CPU取指令就属于一种 隐式访存，qemu对CPU取指令的模拟逻辑可以参考: htts:&#x2F;&#x2F;wangzhou.github.io&#x2F;qemu-tcg取指令逻辑分析&#x2F;">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2022-07-25T07:45:10.000Z">
-<meta property="article:modified_time" content="2023-04-14T06:22:32.056Z">
+<meta property="article:modified_time" content="2023-09-12T07:23:56.532Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="QEMU">
 <meta property="article:tag" content="内存管理">
@@ -234,7 +234,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-04-14 14:22:32" itemprop="dateModified" datetime="2023-04-14T14:22:32+08:00">2023-04-14</time>
+                <time title="修改时间：2023-09-12 15:23:56" itemprop="dateModified" datetime="2023-09-12T15:23:56+08:00">2023-09-12</time>
               </span>
 
           
@@ -263,6 +263,8 @@
 <h2 id="riscv-page-walk分析"><a href="#riscv-page-walk分析" class="headerlink" title="riscv page walk分析"></a>riscv page walk分析</h2><p> qemu riscv page walk基本逻辑可以参考<a href="https://wangzhou.github.io/qemu-tcg%E4%B8%ADriscv-page-table-walk%E5%88%86%E6%9E%90/">这里</a>。</p>
 <h2 id="load-store-host地址"><a href="#load-store-host地址" class="headerlink" title="load/store host地址"></a>load/store host地址</h2><p> 我们分析riscv上的ld_i64的实现，它对应的中间码是INDEX_op_ld_i64。可以看见qemu后端<br> 会直接把中间码翻译成host load/store指令，当中间码里的offset参数和host load/store<br> 指令里的offset立即数的位宽不匹配的时候，qemu后端会做必要的调整。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">/* tcg/riscv/tcg-target.c.inc */</span><br><span class="line">tcg_out_ldst</span><br><span class="line">  /*</span><br><span class="line">   * 根据load/store的基地址寄存器的分配情况决定host load/store offset立即数位宽</span><br><span class="line">   * 不够的时候该怎么办: 基地址寄存器分配了0寄存器时要加入auipc计算地址，基地址</span><br><span class="line">   * 寄存器可用时，只要重新调整下基地址寄存器里的数值就好。</span><br><span class="line">   */</span><br><span class="line">  [...]</span><br><span class="line">  /* 直接生成host load/store指令 */</span><br><span class="line">  tcg_out_opc_store()/tcg_out_opc_imm()</span><br></pre></td></tr></table></figure>
+
+<p>注意在qemu代码(v8.0.0)的docs/devel/loads-stores.rst有qemu内部各种内存访问API的说明。</p>
 
     </div>
 
