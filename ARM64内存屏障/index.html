@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文试图梳理aarch64构架下的内存屏障的逻辑，细节的东西还要去看ARMv8的手册。其实， 《ARM Cortex-A Series Programmer’s Guide for ARMv8-A》这本书的第13章，memory order已经对内存屏障的内容做了比较入门的讲解。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-07-05T14:27:54.000Z">
-<meta property="article:modified_time" content="2022-07-24T15:20:53.802Z">
+<meta property="article:modified_time" content="2023-09-18T10:42:38.284Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="ARM64">
@@ -137,7 +137,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">239</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">240</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -235,7 +235,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+                <time title="修改时间：2023-09-18 18:42:38" itemprop="dateModified" datetime="2023-09-18T18:42:38+08:00">2023-09-18</time>
               </span>
 
           
@@ -250,52 +250,22 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p> 要理解内存屏障，要知道memory的一些特性，这里的memory不是只指内存。而是从CPU角度<br> 看到的存储空间。如果CPU对一系列的指令执行是严格串行的，我们是不用外加上面内存<br> 屏障的。比如：</p>
-<pre><code> str x1 [x2]   // A
-str x2 [x3]   // B
-</code></pre>
-<p> A指令完全执行完，B指令才执行。这样根本不需要内存屏障指令的介入。</p>
-<p> 但是现在处理器和内存系统之间的速度差距已经非常大，如果要上面的A执行完成才执行B<br> cpu要消耗大量的时间干等在那里。为了缓解CPU和内存系统间的速度差距，同时也为了不断<br> 提升CPU的效率，现代CPU存在很多指令执行上的技术，导致的结果是指令执行的结果和之前<br> 的逻辑已经不一样了。</p>
-<p> CPU上存在着多种指令执行的技术，其中导致需要加上内存屏障执行的是CPU上的指令乱序<br> 执行。</p>
-<p> 为了解释清楚CPU执行乱序执行需要引入两个基本的概念，一个是内存类型(memory type),<br> 另外一个是master/slave.</p>
-<p> 内存类型定义的CPU和内存相互作用时的一些性质，内存类型只有normal和device两种,<br> normal基本上可以对应DDR，device基本上可以对应设备的MMIO. normal的内存可以配置成<br> cacheable和non-cacheable, 其中cacheable的内存属性又可以进一步配置shareability的属性。<br> device的内存的属性使用GRE表述，G是gather，R是re-order, E是write early aknowledge,<br> 每种属性可以是nX(e.g. nG), 就是不支持的意思。关于normal和device下面的诸多属性,<br> 可以查阅本文开始时提到的ARM编程手册13章中的内容。</p>
-<p> master和slave是芯片里面的概念，master是一个动作的发起者，slave是一个动作的接收<br> 者。一般的一个芯片里，master有各个core，以及外设的DMA控制器。slave有内存和MMIO.</p>
-<p> 基于以上的概念，我们看内存屏障为啥有存在的意义。master(CPU, 不确定DMA是不是这样)<br> 对normal内存的操作，存在很多提升效率的处理(多发射，乱序执行，执行预取…).<br> 我们回到乱序执行上来。ARMv8的CPU对指令乱序执行的几条规则是这样的:</p>
-<ol>
-<li><p>在单一的core上，指令完成的顺序是串行的。注意，master收到slave的(有时不一定是<br>slave, 比如，device内存的E属性)完成信息为一个执行完成。</p>
-</li>
-<li><p>在单一的core上下发的指令，slave上完成的顺序是无法保证串行的。</p>
-</li>
-<li><p>多个master上看到的操作是不保序的。</p>
-</li>
-</ol>
-<p> 这样就会导致:</p>
-<p> 在一个core上:</p>
-<pre><code> 等待A条件出现
- A条件出现后执行B动作
-</code></pre>
-<p>  如果B动作先被执行，则可能出错。所以要在之间加上内存屏障：</p>
-<pre><code> 等待A条件出现
- 内存屏障
- A条件出现后执行B动作
-</code></pre>
-<p>  在多个core上:</p>
-<pre><code> core 1           core 2
-
- DMA              check flag
- set flag         get date from DMA range
-  
-</code></pre>
-<p>  core1的逻辑是先用DMA搬数据，搬完数据后设立一个标记位。core2不断的在检测标记<br>  位，当检测到标记位的时候，core2就可以使用DMA搬好的数据了。</p>
-<p>  但是，core1的DMA和set flag两个操作可能是乱序执行的，可能在core2看来flags已经<br>  置位了，但是其实DMA的数据还没有搬完, 这时，如果core2去使用数据，就有可能出错。<br>  正确的做法是在DMA和set flag执行加上内存屏障，确保DMA完成了，再去set flag.<br>  注意，这里其实就是上面的第三点。另外，这里和cache一致性没有关系, 如果，我们<br>  单独看dma，或者单独看flag，两者各自都是硬件保证cache一致性的。</p>
-<p>  具体来说ARMv8上的内存屏障执行有ISB，DMB，DSB。ISB和指令相关，后面两个和内存<br>  访问相关。具体的区别可以查文章开头提到的书。</p>
-<p>  具体驱动代码, 可以参考下arm64下几组read/write的实现，代码在arch/arm64/include/asm/io.h.<br>  可以看到同一个write函数有一下三种类型:</p>
-<pre><code>__raw_writeb
-writeb_relaxed(v,c)
-writeb(v,c)    
-</code></pre>
-<p>  第一个是str指令的封装，第二个用于I/O内存也是str的封装，第三个可以用于normal的<br>  内存读写，其实是真是write之前加了一个DSB的内存屏障指令。</p>
-<p>  未完待续…</p>
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>理解内存屏障需要从理解内存序出发，所谓内存屏障只是用内存屏障指令强制约束内存序而已。<br>对于现在弱内存序处理器而言，CPU上指令执行的顺序已经和程序员想象的顺序不一样，CPU<br>手册上会定义各种指令间执行顺序的具体行为，这些定义一般会约束指令之间不能乱序的行为，<br>除此之外指令之间都是可以乱序的。</p>
+<p>CPU手册上还会定义一些内存屏障指令，这些指令强制约束了特定指令之间的执行顺序，这些<br>内存屏障指令是CPU基本内存序的补充。</p>
+<p>一个关于内存屏障最经典的例子如下，在多个core上:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">core 1           core 2</span><br><span class="line"></span><br><span class="line">store data       check flag</span><br><span class="line">set flag         get stored date</span><br></pre></td></tr></table></figure>
+<p>core1的逻辑是先准备数据，数据准备完后设立一个标记位。core2不断的在检测标记位，当<br>检测到标记位的时候，core2就可以使用准备好的数据了。</p>
+<p>但是，core1的store date和set flag两个操作可能是乱序执行的，可能在core2看来flags<br>已经置位了，但是其实core1的数据还没有准备好, 这时，如果core2去使用数据，就有可能<br>出错。正确的做法是在store data和set flag执行加上内存屏障，确保store data在set flag<br>之前完成。注意，这里和cache一致性没有关系, 如果，我们单独看data或者单独看flag，<br>两者各自都是硬件保证cache一致性的。</p>
+<h2 id="ARM64基本内存序定义"><a href="#ARM64基本内存序定义" class="headerlink" title="ARM64基本内存序定义"></a>ARM64基本内存序定义</h2><p>简介里提到的”ARM Cortex-A Series Programmer’s Guide for ARMv8-A”并没有详细介绍CPU<br>的内存序。ARM构架手册的B2.3详细定义了ARM64的内存模型。</p>
+<p>todo: 详细展开</p>
+<h2 id="ARM64内存屏障指令"><a href="#ARM64内存屏障指令" class="headerlink" title="ARM64内存屏障指令"></a>ARM64内存屏障指令</h2><p>这几天又重新看了下宋老师写的关于ARM barrier的<span class="exturl" data-url="aHR0cHM6Ly93d3cuZWV0LWNoaW5hLmNvbS9tcC9hMTU5MDA2Lmh0bWw=">文章<i class="fa fa-external-link-alt"></i></span>，这里把其中的关键信息抽取下。<br>关于barrier我们要明确的是在加barrier的场景中：1. 我们要隔离什么样的操作；2. 我们<br>隔离操作期望的可见范围是什么；3. 对于需要隔离的访存操作可以进一步区分类型或方向。</p>
+<p>我们先具体看下DMB/DSB/ISB这三个barrier指令。DMB隔离的是访存的指令，它只对访存指令<br>的前后关系有约束，DSB在DMB的基础上可以约束其它指令的前后关系，ISB是最强的barrier<br>指令，它不单可以保证前后指令的顺序，而且会清空流水线。</p>
+<p>这些指令可以带参数表示不同的作用域以及作用对象。ISH/OSH/SY表示的是inner shareble，<br>outer shareble以及全系统作用域，LD/ST表示只对barrier指令之前的load或者store指令<br>起作用。</p>
+<p>画一个图说明下所谓的作用域是怎么回事：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">+-----------------------------------------------------+ system</span><br><span class="line">| +-------------------------------------------+ outer |</span><br><span class="line">| | +---------------------------------+ inner |       |</span><br><span class="line">| | | +-----+   +-----+       +-----+ |       |       |</span><br><span class="line">| | | | CPU |   | CPU |  ...  | CPU | |       |       |</span><br><span class="line">| | | +--+--+   +--+--+       +--+--+ |       |       |</span><br><span class="line">| | |    |         |             |    |       |       |</span><br><span class="line">| | +----+---------+-------------+----+       |       |</span><br><span class="line">| |      |         |             |            |       |</span><br><span class="line">| | -----+------+--+-------------+-+-----     |       |</span><br><span class="line">| |             |   system bus     |          |       |</span><br><span class="line">| |             |      +-----------+----------+       |</span><br><span class="line">| |      +----+-+-+-+  |           |                  |</span><br><span class="line">| |      |    |DMA| |  |        +--+-+                |</span><br><span class="line">| |      |    +---+ |  |        | M3 |                |</span><br><span class="line">| |      | device   |  |        +----+                |</span><br><span class="line">| |      +----------+  |                              |</span><br><span class="line">| +--------------------+                              |</span><br><span class="line">+-----------------------------------------------------+</span><br></pre></td></tr></table></figure>
+<p>如上所示，各个CPU在一个inner域里，DMA和CPU在一个outer域里，对于系统里的其它计算<br>单元(比如这里的M3)，它和系统的其它部件在最大的system域里。</p>
+<p>现在还没有想通的是DMA的情况，比如，先准备数据，然后写一个MMIO的doorbell发起DMA，<br>要保证准备好数据，然后触发DMA，只要保证准备数据和doorbell写之间的顺序就可以了，<br>也就是要保证store DDR和store MMIO之间的顺序，那么这个时候只要加DMB ISHST就可以了吧？</p>
+<p>还有一个问题，怎么理解CPU改SMMU页表和SMMU page walk隐式页表访问的序? 因为一般的，<br>我们是这样理解保序的，一个MASTER发出两个操作，另一个CPU看到是保存的，这里CPU和<br>SMMU是两个MASTER，无法理解这里。</p>
 
     </div>
 
@@ -404,6 +374,7 @@ writeb(v,c)
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ARM64%E5%9F%BA%E6%9C%AC%E5%86%85%E5%AD%98%E5%BA%8F%E5%AE%9A%E4%B9%89"><span class="nav-number">2.</span> <span class="nav-text">ARM64基本内存序定义</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ARM64%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C%E6%8C%87%E4%BB%A4"><span class="nav-number">3.</span> <span class="nav-text">ARM64内存屏障指令</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
@@ -419,7 +390,7 @@ writeb(v,c)
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">239</span>
+          <span class="site-state-item-count">240</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

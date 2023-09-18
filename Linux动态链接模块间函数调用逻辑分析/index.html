@@ -23,21 +23,20 @@
     var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
-  <meta name="description" content="This doc is a quirk note about the process of DPDK compile in ARMv8 machine.">
+  <meta name="description" content="文本整理Linux动态链接时模块间函数调用的逻辑，分析基于RISCV构架。">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Compile DPDK in ARMv8 machine">
-<meta property="og:url" content="http://wangzhou.github.io/Compile-DPDK-in-ARMv8-machine/index.html">
+<meta property="og:title" content="Linux动态链接模块间函数调用逻辑分析">
+<meta property="og:url" content="http://wangzhou.github.io/Linux%E5%8A%A8%E6%80%81%E9%93%BE%E6%8E%A5%E6%A8%A1%E5%9D%97%E9%97%B4%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/index.html">
 <meta property="og:site_name" content="Sherlock&#39;s blog">
-<meta property="og:description" content="This doc is a quirk note about the process of DPDK compile in ARMv8 machine.">
+<meta property="og:description" content="文本整理Linux动态链接时模块间函数调用的逻辑，分析基于RISCV构架。">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2021-06-28T16:00:15.000Z">
-<meta property="article:modified_time" content="2023-08-21T10:48:34.631Z">
+<meta property="article:published_time" content="2023-09-18T10:39:24.000Z">
+<meta property="article:modified_time" content="2023-09-18T10:40:35.243Z">
 <meta property="article:author" content="Sherlock Wang">
-<meta property="article:tag" content="ARM64">
-<meta property="article:tag" content="DPDK">
+<meta property="article:tag" content="编译链接">
 <meta name="twitter:card" content="summary">
 
-<link rel="canonical" href="http://wangzhou.github.io/Compile-DPDK-in-ARMv8-machine/">
+<link rel="canonical" href="http://wangzhou.github.io/Linux%E5%8A%A8%E6%80%81%E9%93%BE%E6%8E%A5%E6%A8%A1%E5%9D%97%E9%97%B4%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
 
 
 <script id="page-configurations">
@@ -50,7 +49,7 @@
   };
 </script>
 
-  <title>Compile DPDK in ARMv8 machine | Sherlock's blog</title>
+  <title>Linux动态链接模块间函数调用逻辑分析 | Sherlock's blog</title>
   
 
 
@@ -204,7 +203,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Compile-DPDK-in-ARMv8-machine/">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%8A%A8%E6%80%81%E9%93%BE%E6%8E%A5%E6%A8%A1%E5%9D%97%E9%97%B4%E5%87%BD%E6%95%B0%E8%B0%83%E7%94%A8%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/yase.svg">
@@ -217,7 +216,7 @@
     </span>
       <header class="post-header">
         <h1 class="post-title" itemprop="name headline">
-          Compile DPDK in ARMv8 machine
+          Linux动态链接模块间函数调用逻辑分析
         </h1>
 
         <div class="post-meta">
@@ -226,19 +225,13 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
+              
 
-              <time title="创建时间：2021-06-29 00:00:15" itemprop="dateCreated datePublished" datetime="2021-06-29T00:00:15+08:00">2021-06-29</time>
+              <time title="创建时间：2023-09-18 18:39:24 / 修改时间：18:40:35" itemprop="dateCreated datePublished" datetime="2023-09-18T18:39:24+08:00">2023-09-18</time>
             </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-08-21 18:48:34" itemprop="dateModified" datetime="2023-08-21T18:48:34+08:00">2023-08-21</time>
-              </span>
 
           
-            <div class="post-description">This doc is a quirk note about the process of DPDK compile in ARMv8 machine. </div>
+            <div class="post-description">文本整理Linux动态链接时模块间函数调用的逻辑，分析基于RISCV构架。</div>
 
         </div>
       </header>
@@ -249,29 +242,20 @@
     <div class="post-body" itemprop="articleBody">
 
       
-        <p>Hardware: D05 board.<br>System: Linux 157 4.11.0-45.el7.aarch64 aarch64 GNU/Linux<br>        CentOS Linux release 7.4.1708 (AltArch) </p>
-<ol start="0">
-<li><p>download dpdk codes<br> git clone git://dpdk.org/dpdk</p>
-</li>
-<li><p>install kernel header files<br> yum install kernel-headers.aarch64</p>
-</li>
-<li><p>install libpcap<br> yum install libpcap-devel.aarch64</p>
-</li>
-<li><p>install numa header files<br> yum install numactl-devel.aarch64</p>
-</li>
-<li><p>config and make<br> make config T=arm64-armv8a-linuxapp-gcc<br> make</p>
-<p> Note: above will put compiled files to dpdk/build</p>
-<p> “make install T=arm64-armv8a-linuxapp-gcc” will create a directory<br> named as arm64-armv8a-linuxapp-gcc under dpdk and put compiled files<br> in it.</p>
-</li>
-<li><p>build the dpdk helloworld example:</p>
-<p> export RTE_SDK=~/repos/dpdk<br> export RTE_TARGET=arm64-armv8a-linuxapp-gcc<br> cd examples/helloworld/<br> make</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">note: should use &quot;make install T=arm64-armv8a-linuxapp-gcc&quot; in step4</span><br><span class="line">      above to avoid compile error in step5.</span><br></pre></td></tr></table></figure></li>
-<li><p>test helloworld in above build:</p>
-<p> (1) enable hugepage</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">echo 2 &gt; /sys/kernel/mm/hugepages/hugepages-524288kB/nr_hugepages</span><br><span class="line">grep -i huge /proc/meminfo</span><br><span class="line">AnonHugePages:         0 kB</span><br><span class="line">ShmemHugePages:        0 kB</span><br><span class="line">HugePages_Total:       2</span><br><span class="line">HugePages_Free:        1</span><br><span class="line">HugePages_Rsvd:        0</span><br><span class="line">HugePages_Surp:        0</span><br><span class="line">Hugepagesize:     524288 kB</span><br></pre></td></tr></table></figure>
-<p> (2) run ./helloworld -c 3 -n 2 in examples/helloworld</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">EAL: Detected 64 lcore(s)</span><br><span class="line">EAL: Detected 4 NUMA nodes</span><br><span class="line">EAL: Multi-process socket /var/run/dpdk/rte/mp_socket</span><br><span class="line">EAL: No free hugepages reported in hugepages-524288kB</span><br><span class="line">EAL: No free hugepages reported in hugepages-524288kB</span><br><span class="line">EAL: 10 hugepages of size 2097152 reserved, but no mounted hugetlbfs found for that size</span><br><span class="line">EAL: Probing VFIO support...</span><br><span class="line">EAL: PCI device 0002:e9:00.0 on NUMA socket -1</span><br><span class="line">EAL:   Invalid NUMA socket, default to 0</span><br><span class="line">EAL:   probe driver: 8086:10fb net_ixgbe</span><br><span class="line">EAL: PCI device 0002:e9:00.1 on NUMA socket -1</span><br><span class="line">EAL:   Invalid NUMA socket, default to 0</span><br><span class="line">EAL:   probe driver: 8086:10fb net_ixgbe</span><br><span class="line">hello from core 1</span><br><span class="line">hello from core 0</span><br></pre></td></tr></table></figure></li>
-</ol>
+        <p>本文使用如下的测试程序，观察动态链接时printf相关的链接逻辑实现。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">static int aaa = 0x123456; </span><br><span class="line"></span><br><span class="line">int main()</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;hello: %d\n&quot;, aaa);</span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>riscv64-linux-gnu-gcc test.c编译后，riscv64-linux-gnu-objdump -D ./a.out &gt; test.s做反汇编。<br>test.s里关键的内容如下。main函数里对printf的调用是:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">646:	f0bff0ef          	jal	ra,550 &lt;printf@plt&gt;</span><br></pre></td></tr></table></figure>
+<p>printf@plt是.plt段的一段，整个.plt如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">0000000000000520 &lt;.plt&gt;:</span><br><span class="line"> 520:	00002397          	auipc	t2,0x2</span><br><span class="line"> 524:	41c30333          	sub	t1,t1,t3</span><br><span class="line"> 528:	af03be03          	ld	t3,-1296(t2) # 2010 &lt;__TMC_END__&gt;</span><br><span class="line"> 52c:	fd430313          	addi	t1,t1,-44 # ffffffffffff9fd4 &lt;__global_pointer$+0xffffffffffff77d4&gt;</span><br><span class="line"> 530:	af038293          	addi	t0,t2,-1296</span><br><span class="line"> 534:	00135313          	srli	t1,t1,0x1</span><br><span class="line"> 538:	0082b283          	ld	t0,8(t0) # ffffffffffffd008 &lt;__global_pointer$+0xffffffffffffa808&gt;</span><br><span class="line"> 53c:	000e0067          	jr	t3 # 1a000 &lt;__global_pointer$+0x17800&gt;</span><br><span class="line"></span><br><span class="line">0000000000000540 &lt;__libc_start_main@plt&gt;:</span><br><span class="line"> 540:	00002e17          	auipc	t3,0x2</span><br><span class="line"> 544:	ae0e3e03          	ld	t3,-1312(t3) # 2020 &lt;__libc_start_main@GLIBC_2.27&gt;</span><br><span class="line"> 548:	000e0367          	jalr	t1,t3</span><br><span class="line"> 54c:	00000013          	nop</span><br><span class="line"></span><br><span class="line">0000000000000550 &lt;printf@plt&gt;:</span><br><span class="line"> 550:	00002e17          	auipc	t3,0x2</span><br><span class="line"> 554:	ad8e3e03          	ld	t3,-1320(t3) # 2028 &lt;printf@GLIBC_2.27&gt;</span><br><span class="line"> 558:	000e0367          	jalr	t1,t3</span><br><span class="line"> 55c:	00000013          	nop</span><br></pre></td></tr></table></figure>
+<p>我们依次看下printf@plt里的指令，auipc和ld计算地址后把0x2028的数据load到t3，这里0x2028<br>是.got里printf函数的地址，这个位置存放动态链接完成后，printf的地址，但是第一次运行<br>到这里，可以看到0x2028上的内容是0x520，这个地址正好是.plt的基地址，所以printf@plt<br>中的jalr跳转到.plt开始处。.plt开始处准备t0-t3的数据，并跳到t3地址上执行，依次看下<br>t0-t3上保存的数据，0x530处的指令得到t0为.got表的基地址，所以0x538得到.got + 8处的<br>数据，linkmap的地址？0x524处t1 = t1 - t3, 得到0x55c - 0x520的差值，0x52c处把这个<br>差值再减去44(0x2c)得到0x10，这个值是什么？t2的值是0x2520，_dl_runtime_resolve没有<br>用到，t3是.got基地址上的数据，ld在装载时会用_dl_runtime_resolve的地址覆盖.got的<br>这个位置，所以0x53c就是直接跳到_dl_runtime_resolve函数执行。</p>
+<p>如下是反汇编.got的内容:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">Disassembly of section .got:</span><br><span class="line"></span><br><span class="line">0000000000002010 &lt;__TMC_END__&gt;:</span><br><span class="line">    2010:	ffff                	0xffff</span><br><span class="line">    2012:	ffff                	0xffff</span><br><span class="line">    2014:	ffff                	0xffff</span><br><span class="line">    2016:	ffff                	0xffff</span><br><span class="line">	...</span><br><span class="line">    2020:	0520                	addi	s0,sp,648</span><br><span class="line">    2022:	0000                	unimp</span><br><span class="line">    2024:	0000                	unimp</span><br><span class="line">    2026:	0000                	unimp</span><br><span class="line">    2028:	0520                	addi	s0,sp,648</span><br><span class="line">    202a:	0000                	unimp</span><br><span class="line">    202c:	0000                	unimp</span><br><span class="line">    202e:	0000                	unimp</span><br><span class="line">    2030:	1e10                	addi	a2,sp,816</span><br><span class="line">	...</span><br></pre></td></tr></table></figure>
+
+<p>_dl_runtime_resolve在glibc里定义，具体位置在glibc/sysdeps/riscv/dl-trampoline.S，<br>这个函数是体系架构相关的，这里是riscv定义的地方。这个函数计算需要动态链接的函数<br>的地址，更新.got里对应的地址，然后把控制返回到.plt的对应域段，比如这里的printf@plt<br>域段，可见这里再次load到t3的值就是printf实际地址了。</p>
+<p>需要注意的是，printf的入参被保存到a0-a7这样的参数寄存器上，而且没有保存恢复的动作，<br>所以这里.plt里两次过程调用都没有使用a0-a7寄存器，而是使用t0-t3这样的临时寄存器，<br>临时寄存器是caller save寄存器，只要过程调用后不再使用，caller就可以不必保存和恢复。</p>
+<p>这里.plt里无法使用正常的使用a0-a7的过程调用，因为这里不是一个返回调用点后续指令的<br>调用行为。这里的调用从printf@plt进入，在0x558发生一圈调用后，又跳回到printf@plt<br>重复执行，而正常的调用应该返回到0x55c。</p>
 
     </div>
 
@@ -297,8 +281,7 @@
       <footer class="post-footer">
           
           <div class="post-tags">
-              <a href="/tags/ARM64/" rel="tag"><i class="fa fa-tag"></i> ARM64</a>
-              <a href="/tags/DPDK/" rel="tag"><i class="fa fa-tag"></i> DPDK</a>
+              <a href="/tags/%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5/" rel="tag"><i class="fa fa-tag"></i> 编译链接</a>
           </div>
 
         
@@ -307,13 +290,10 @@
         
     <div class="post-nav">
       <div class="post-nav-item">
-    <a href="/cache%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5/" rel="prev" title="cache基础概念">
-      <i class="fa fa-chevron-left"></i> cache基础概念
+    <a href="/Inkscape%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/" rel="prev" title="Inkscape基本概念">
+      <i class="fa fa-chevron-left"></i> Inkscape基本概念
     </a></div>
-      <div class="post-nav-item">
-    <a href="/PCI-FLR-analysis/" rel="next" title="PCI FLR analysis">
-      PCI FLR analysis <i class="fa fa-chevron-right"></i>
-    </a></div>
+      <div class="post-nav-item"></div>
     </div>
       </footer>
     

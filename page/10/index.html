@@ -133,7 +133,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">239</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">240</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -196,6 +196,78 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu-qom%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/qemu-qom%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">qemu qom分析</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-07-26 14:12:03" itemprop="dateCreated datePublished" datetime="2021-07-26T14:12:03+08:00">2021-07-26</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-12-26 17:50:41" itemprop="dateModified" datetime="2022-12-26T17:50:41+08:00">2022-12-26</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>qemu里使用面向对象的模型来模拟相关的元素，可以想象这样的模拟是很合理的，比如， 用device描述一个设备的基类，pci_device可以继承device，然后vfio的pci设备又可以 继承pci_device，同时一个用纯用软件模拟的pci网络设备也可以继承pci_device。 本文描述这个基于面向对象的思路构建起来的qemux模型。分析基于qemu 5.2.92版本。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/qemu-qom%E5%88%86%E6%9E%90/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -844,78 +916,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/" class="post-title-link" itemprop="url">qemu虚拟机通过tun/tap上网</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-07-17 11:17:00" itemprop="dateCreated datePublished" datetime="2021-07-17T11:17:00+08:00">2021-07-17</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
-              </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>在学习perf的时候，需要使的qemu虚拟机可以上网，下面是上网的设置过程</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%80%9A%E8%BF%87tun-tap%E4%B8%8A%E7%BD%91/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -987,7 +987,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">239</span>
+          <span class="site-state-item-count">240</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
