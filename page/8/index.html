@@ -133,7 +133,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">240</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">241</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -196,6 +196,78 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/" class="post-title-link" itemprop="url">qemu调试方法</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-03-28 19:52:15" itemprop="dateCreated datePublished" datetime="2022-03-28T19:52:15+08:00">2022-03-28</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>qemu自己提供了debug接口，可以观察到机器自身的状态，比如，可以查看程序运行 时CPU各个寄存器的变化。本文分析相关的使用方法和qemu代码逻辑。本文以一个简单的例子说明使用方式，以riscv平台为基础。以qemu user mode为例 说明，system mode是一样的。分析中使用的qemu的版本是5.1.50</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -862,91 +934,10 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/%E8%B6%85%E6%A0%87%E9%87%8F%E5%A4%84%E7%90%86%E5%99%A8%E8%AE%BE%E8%AE%A1%E7%AC%94%E8%AE%B0/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/%E8%B6%85%E6%A0%87%E9%87%8F%E5%A4%84%E7%90%86%E5%99%A8%E8%AE%BE%E8%AE%A1%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">超标量处理器设计笔记</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-11-03 23:58:00" itemprop="dateCreated datePublished" datetime="2021-11-03T23:58:00+08:00">2021-11-03</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
-              </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/read/" itemprop="url" rel="index"><span itemprop="name">read</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>本文是《超标量处理器设计》这本书的读书笔记。总的来看这本书的难度在 《计算机组成与设计-硬件软件接口》和《计算机体系结构量化研究方法》之间。 这本书主要讲的是超标量处理器各个部件的设计原理。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/%E8%B6%85%E6%A0%87%E9%87%8F%E5%A4%84%E7%90%86%E5%99%A8%E8%AE%BE%E8%AE%A1%E7%AC%94%E8%AE%B0/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
-    <a class="extend prev" rel="prev" href="/page/7/"><i class="fa fa-angle-left" aria-label="上一页"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/7/">7</a><span class="page-number current">8</span><a class="page-number" href="/page/9/">9</a><span class="space">&hellip;</span><a class="page-number" href="/page/24/">24</a><a class="extend next" rel="next" href="/page/9/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
+    <a class="extend prev" rel="prev" href="/page/7/"><i class="fa fa-angle-left" aria-label="上一页"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/7/">7</a><span class="page-number current">8</span><a class="page-number" href="/page/9/">9</a><span class="space">&hellip;</span><a class="page-number" href="/page/25/">25</a><a class="extend next" rel="next" href="/page/9/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
   </nav>
 
 
@@ -1014,7 +1005,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">240</span>
+          <span class="site-state-item-count">241</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

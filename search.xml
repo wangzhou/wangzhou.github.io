@@ -6662,7 +6662,7 @@ shadow: files ldap
 <h2 id="guest内核"><a href="#guest内核" class="headerlink" title="guest内核"></a>guest内核</h2><p> guest内核可以和上面的host内核用同一个。</p>
 <h2 id="运行脚本"><a href="#运行脚本" class="headerlink" title="运行脚本"></a>运行脚本</h2><p>启动第一层qemu:</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">#!/bin/sh</span><br><span class="line"></span><br><span class="line">qemu-system-riscv64 \</span><br><span class="line">	-smp 1 -m 1024m \</span><br><span class="line">	-nographic \</span><br><span class="line">	-machine virt -cpu &#x27;rv64,h=true&#x27; \</span><br><span class="line">	-kernel ~/repos/linux/arch/riscv/boot/Image \</span><br><span class="line">	-append &quot;console=ttyS0 root=/dev/ram rdinit=/init&quot; \</span><br><span class="line">	-initrd ~/repos/buildroot/output/images/rootfs.cpio.gz \</span><br><span class="line"> 	-device virtio-9p-pci,fsdev=p9fs,mount_tag=p9,bus=pcie.0 \</span><br><span class="line">	-fsdev local,id=p9fs,path=/home/sherlock/p9root,security_model=mapped</span><br></pre></td></tr></table></figure>
-<p>注意，qemu之前的中间版本可能使用-cpu rv64,x-h=true使能H扩展，在qemu v7,0.0以及之后<br>的版本都用-cpu rv64,h=true使能H扩展。</p>
+<p>注意，qemu之前的中间版本可能使用-cpu rv64,x-h=true使能H扩展，在qemu v7.0.0以及之后<br>的版本都用-cpu rv64,h=true使能H扩展。</p>
 <p>启动第二层qemu:</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">#!/bin/sh</span><br><span class="line"></span><br><span class="line">qemu-system-riscv64 \</span><br><span class="line">	-smp 1 -m 256m \</span><br><span class="line">	-nographic \</span><br><span class="line">	-machine virt --enable-kvm \</span><br><span class="line">	-kernel ./Image \</span><br><span class="line">	-append &quot;console=ttyS0 root=/dev/ram rdinit=/init&quot; \</span><br><span class="line">	-initrd ./rootfs.cpio.gz</span><br></pre></td></tr></table></figure>
 ]]></content>
@@ -8136,6 +8136,29 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
 ]]></content>
       <tags>
         <tag>编译链接</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>glib事件处理框架分析</title>
+    <url>/glib%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86%E6%A1%86%E6%9E%B6%E5%88%86%E6%9E%90/</url>
+    <content><![CDATA[<h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>glib库提供了一个事件处理框架，用户可以向这个框架上注册需要处理的事件，事件处理框架<br>可以不断检测是否有注册事件发生，如果有事件发生就去调用注册的处理函数处理。</p>
+<p>glib库中和事件处理框架相关的概念有：上下文(GMainContext)，处理事件的循环(GMainLoop)，<br>事件源(GSource)，事件源对应的处理函数(GSourceFuncs)，dispatch后的处理函数(GSourceFunc)，<br>IO的封装(GIOChannel)，poll fd的封装(GPollFD)。</p>
+<p>基本的使用逻辑是，GMainContext是一个基础的上下文配置，各种GSource可以添加到一个<br>GMainContext中，每个GSource都可以配置自己的GSourceFuncs处理函数，这几个处理函数<br>主要关注事件处理的基本流程，就是事件处理的四个基本阶段：prepare/check/dispatch/finalize，<br>用户还可以注册dispatch后的主业务处理函数，就是上面的GSourceFunc。</p>
+<p>用户可以把GPollFD封装的poll fd和GSource绑定起来，这样事件处理框架就可以主动的去<br>poll对应的fd。以fd做入参创建的GIOChannel后，用户还可以调用glib提供的GIOChannel API<br>进行各种IO操作。</p>
+<p>如上配置好一个GMainContext相关的事件处理模型后，用户可以创建一个GMainLoop，把这个<br>loop和GMainContext绑定后，就可以调用g_main_loop_run叫这个loop运行起来。这个loop<br>运行的基本逻辑就是不断的监控GMainContext里的所有source，对于准备好的source，依次<br>调用prepare/check/dispatch/finalize以及主业务处理函数，这个调用过程是一个批量处理<br>的过程，就是对于一次循环里准备好的所有source调用prepare等函数。</p>
+<p>glib里额外增加了超时事件(timeout)和idle事件的接口，这两个事件源的底层也是依赖上述<br>基本部件实现的。</p>
+<h2 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h2><p>我们看大概看下glib里的相关代码逻辑。glib启动事件循环的核心函数是g_main_loop_run，<br>在其它API做配置后，调用该函数就可以启动事件循环。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* glib/glib/gmain.c */</span><br><span class="line">g_main_loop_run (GMainLoop *loop)</span><br><span class="line">  +-&gt; while (g_atomic_int_get (&amp;loop-&gt;is_running))</span><br><span class="line">        g_main_context_iterate (loop-&gt;context, TRUE, TRUE, self);</span><br><span class="line">          +-&gt; g_main_context_prepare (context, &amp;max_priority); </span><br><span class="line">          +-&gt; g_main_context_poll (context, timeout, max_priority, fds, nfds);</span><br><span class="line">          +-&gt; g_main_context_check (context, max_priority, fds, nfds);</span><br><span class="line">          +-&gt; g_main_context_dispatch (context);</span><br></pre></td></tr></table></figure>
+<p>事件循环的主体逻辑比较直白，就是反复的监控注册的事件，当监控的事件发生时就调用相关<br>的处理函数处理。在Linux系统上就是使用poll监控事件fd的集合。</p>
+<p>在所有事件中超时事件和idle事件的实现比较特殊一点，我们下面单独介绍。</p>
+<h2 id="timeout的实现"><a href="#timeout的实现" class="headerlink" title="timeout的实现"></a>timeout的实现</h2><p>glib中定时器的使用比较简单，直接用g_timeout_add就可以注册一个timeout事件，但是glib<br>里注册的timeout时间不是精确的时间，这个在timeout的具体实现里也可以看出来。</p>
+<p>glib的timeout事件并没有用通用的定时器去实现，而是直接用poll自带的timeout参数实现的。<br>在g_main_context_prepare里，glib会计算出所有监控soure的最小的超时时间，这其中就<br>包括了timeout的超时时间，glib把这个最小的超时时间作为这一轮context poll的timeout。</p>
+<h2 id="idle的实现"><a href="#idle的实现" class="headerlink" title="idle的实现"></a>idle的实现</h2><p>idle的实现比较直白，g_idle_add直接加一个事件源进来，当系统里没有更高优先级的事件<br>在执行时，就调用idle相关的回调函数。</p>
+<h2 id="使用demon"><a href="#使用demon" class="headerlink" title="使用demon"></a>使用demon</h2><p>知乎上已经有一个很好的<span class="exturl" data-url="aHR0cHM6Ly96aHVhbmxhbi56aGlodS5jb20vcC81MTI5Mzk2MjA=">demon<i class="fa fa-external-link-alt"></i></span>。glib库源码的tests目录里也有使用示例。</p>
+<h2 id="glib库调试"><a href="#glib库调试" class="headerlink" title="glib库调试"></a>glib库调试</h2><p>glib库的编译可以参考<a href="https://wangzhou.github.io/%E5%A6%82%E4%BD%95%E4%BD%BF%E7%94%A8meson%E6%9E%84%E5%BB%BA%E7%A8%8B%E5%BA%8F/">这里</a>，把如上demon代码中的测试程序链接自己编译的glib库，需要<br>把其中的Makefile加上LDFLAGS = -Wl,-rpath=your_glib_path。如上编译出的demon程序，<br>使用gdb无法跟踪到glib库的内部，重新配置下meson，打开glib的debug选项：<br>meson configure -Dglib_debug=enabled，重新编译下glib就可以用gdb调试glib了。注意，<br>如上的配置命令需要在glib的构建目录下运行。</p>
+]]></content>
+      <tags>
+        <tag>glib</tag>
       </tags>
   </entry>
 </search>
