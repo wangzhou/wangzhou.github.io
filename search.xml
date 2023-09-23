@@ -8161,4 +8161,824 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
         <tag>glib</tag>
       </tags>
   </entry>
+  <entry>
+    <title>Linux内核memory barrier文档学习</title>
+    <url>/Linux%E5%86%85%E6%A0%B8memory-barrier%E6%96%87%E6%A1%A3%E5%AD%A6%E4%B9%A0/</url>
+    <content><![CDATA[<h1 id="抽象内存访问模型"><a href="#抽象内存访问模型" class="headerlink" title="抽象内存访问模型"></a>抽象内存访问模型</h1><p>考虑以下抽象模型：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">            :                :</span><br><span class="line">            :                :</span><br><span class="line">            :                :</span><br><span class="line">+-------+   :   +--------+   :   +-------+</span><br><span class="line">|       |   :   |        |   :   |       |</span><br><span class="line">|       |   :   |        |   :   |       |</span><br><span class="line">| CPU 1 |&lt;-----&gt;| Memory |&lt;-----&gt;| CPU 2 |</span><br><span class="line">|       |   :   |        |   :   |       |</span><br><span class="line">|       |   :   |        |   :   |       |</span><br><span class="line">+-------+   :   +--------+   :   +-------+</span><br><span class="line">    ^       :       ^        :       ^</span><br><span class="line">    |       :       |        :       |</span><br><span class="line">    |       :       |        :       |</span><br><span class="line">    |       :       v        :       |</span><br><span class="line">    |       :   +--------+   :       |</span><br><span class="line">    |       :   |        |   :       |</span><br><span class="line">    |       :   |        |   :       |</span><br><span class="line">    +----------&gt;| device |&lt;----------+</span><br><span class="line">            :   |        |   :</span><br><span class="line">            :   |        |   :</span><br><span class="line">            :   +--------+   :</span><br><span class="line">            :                :</span><br></pre></td></tr></table></figure>
+<p>每个CPU执行一个访存程序。在本文的抽象CPU中，访问指令的顺序非常松散，每个CPU可以<br>按照任意顺序执行访存指令，每个CPU都保证在本核心看来，最终执行结果与不乱序的情况相同。<br>同样，编译器也可以按照任意顺序排列指令，只要不影响程序的运行结果。</p>
+<p>CPU可以通过一些本地缓存来提高指令运行效率，内存操作会被缓存在当前CPU上，每个CPU<br>都能按顺序看到自己的内存操作。但每个缓存项写入到主存的顺序未知，在上图中，即每条<br>指令的结果穿过虚线的顺序未知。<br><font color="##FF0000"><br>comment: 不同地址的load/store乱序在弱内存序上一般是一个基本约定。<br></font></p>
+<p>例如，考虑以下内存操作序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1		CPU 2</span><br><span class="line">===============	===============</span><br><span class="line">&#123; A == 1; B == 2 &#125;</span><br><span class="line">A = 3;		x = B;</span><br><span class="line">B = 4;		y = A;</span><br></pre></td></tr></table></figure>
+<p>CPU外部可能看到如下任意顺序：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">STORE A=3,	STORE B=4,	y=LOAD A-&gt;3,	x=LOAD B-&gt;4</span><br><span class="line">STORE A=3,	STORE B=4,	x=LOAD B-&gt;4,	y=LOAD A-&gt;3</span><br><span class="line">STORE A=3,	y=LOAD A-&gt;3,	STORE B=4,	x=LOAD B-&gt;4</span><br><span class="line">STORE A=3,	y=LOAD A-&gt;3,	x=LOAD B-&gt;2,	STORE B=4</span><br><span class="line">STORE A=3,	x=LOAD B-&gt;2,	STORE B=4,	y=LOAD A-&gt;3</span><br><span class="line">STORE A=3,	x=LOAD B-&gt;2,	y=LOAD A-&gt;3,	STORE B=4</span><br><span class="line">STORE B=4,	STORE A=3,	y=LOAD A-&gt;3,	x=LOAD B-&gt;4</span><br><span class="line">STORE B=4, ...</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+<p>可以得到四种不同的结果组合：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">x == 2, y == 1</span><br><span class="line">x == 2, y == 3</span><br><span class="line">x == 4, y == 1</span><br><span class="line">x == 4, y == 3</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 不用看细节，就是各种乱序情况都可能出现。
+</font>
+
+<p>此外，一个CPU核心向主存提交的写可能不会被另一个CPU核心按顺序读。</p>
+<p>再举一个例子，考虑这个序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1		CPU 2</span><br><span class="line">===============	===============</span><br><span class="line">&#123; A == 1, B == 2, C == 3, P == &amp;A, Q == &amp;C &#125;</span><br><span class="line">B = 4;		Q = P;</span><br><span class="line">P = &amp;B;		D = *Q;</span><br></pre></td></tr></table></figure>
+<p>这里有一个明显的地址依赖，D的值取决于CPU 2从P读到的地址。在序列结束时，可能出现以下任何结果：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">(Q == &amp;A) 和 (D == 1)</span><br><span class="line">(Q == &amp;B) 和 (D == 2)</span><br><span class="line">(Q == &amp;B) 和 (D == 4)</span><br></pre></td></tr></table></figure>
+<p>请注意，CPU 2永远不会将C的值写入D，因为CPU会在读*Q前将P赋值给Q。</p>
+<font color="##FF0000">
+comment: 这个规则是有点反直观认知的，一个核上的循序只保证指令在一个核上的执行循序。
+</font>
+
+<h2 id="设备操作"><a href="#设备操作" class="headerlink" title="设备操作"></a>设备操作</h2><p>有些设备是通过将自己的寄存器映射到内存来控制的，访问控制寄存器的顺序非常重要。假设<br>一个网卡有一组通过地址端口寄存器(A)和数据端口寄存器(D)访问的内部寄存器。要读取5号<br>内部寄存器，可以使用以下代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*A = 5;</span><br><span class="line">x = *D;</span><br></pre></td></tr></table></figure>
+<p>可能有两种执行顺序：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">STORE *A = 5, x = LOAD *D</span><br><span class="line">x = LOAD *D, STORE *A = 5</span><br></pre></td></tr></table></figure>
+<p>其中第二个序列几乎肯定会导致故障，因为先读后写。</p>
+<font color="##FF0000">
+comment: 还是一个样的规则，同一个核上，不同地址的访存指令是不保序的。这里会有这样
+的疑问，一个核自己看到自己的指令一定是保序的，这里的单核乱序是站在这个核之外去观察
+的，如果本核去看，这两条指令的结果还是保序。在ARM上，设备的MMIO一般都被映射为device
+memory属性，而且是nR(no reorder)，这个时候针对这样属性的地址，访存指令是不能乱序的。
+</font>
+
+<h2 id="CPU的保证"><a href="#CPU的保证" class="headerlink" title="CPU的保证"></a>CPU的保证</h2><p>如果我们使用了编译器屏障READ_ONCE和WRITE_ONCE，那就可以避免编译器对代码进行优化，<br>此时生成的汇编指令跟代码是一样的，CPU应当对这些汇编指令提供一些最基本的保证：</p>
+<ul>
+<li>在任何给定的CPU上，相互依赖的内存访问应当按顺序进行，这意味着对于：<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">Q = READ_ONCE(P); D = READ_ONCE(*Q);</span><br></pre></td></tr></table></figure>
+CPU将发出以下内存操作:<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">Q = LOAD P, D = LOAD *Q</span><br></pre></td></tr></table></figure>
+并始终按照该顺序。然而，在DEC Alpha上，READ_ONCE()还发出一个内存屏障指令，<br>以便DEC Alpha CPU将发出以下内存操作：<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">Q = LOAD P, MEMORY_BARRIER, D = LOAD *Q, MEMORY_BARRIER</span><br></pre></td></tr></table></figure>
+无论是在DEC Alpha还是其他平台，READ_ONCE()还可以防止编译器优化。</li>
+</ul>
+<font color="##FF0000">
+comment: 如上的场景在ARM64上是一个典型的地址依赖，不需要加barrier。
+</font>
+
+<ul>
+<li>对同一地址或重叠地址的读写操作应当是有序的：<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a = READ_ONCE(*X); WRITE_ONCE(*X, b);</span><br></pre></td></tr></table></figure>
+CPU应当进行以下顺序的内存操作：<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a = LOAD *X, STORE *X = b</span><br></pre></td></tr></table></figure>
+而对于：<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">WRITE_ONCE(*X, c); d = READ_ONCE(*X);</span><br></pre></td></tr></table></figure>
+CPU应当执行：<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">STORE *X = c, d = LOAD *X</span><br></pre></td></tr></table></figure>
+(CPU应当按照代码执行，不能自行优化)。</li>
+</ul>
+<font color="##FF0000">
+comment: 读写重叠地址，都要自然的保序，不然天下大乱了。
+</font>
+
+<p>如果不使用编译器屏障，编译器可能进行如下优化：</p>
+<font color="##FF0000">
+comment: 这里的上下文逻辑不是很连贯，上面是说CPU硬件的自然保序的行为，这里是说
+编译器的优化行为。
+</font>
+
+<ul>
+<li><p>没有READ_ONCE()和WRITE_ONCE()这两个编译器屏障，编译器可以在确保单线程安全的<br> 情况下进行各种优化，这些优化在COMPILER BARRIER部分有介绍。</p>
+</li>
+<li><p>编译器会使读写乱序：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">X = *A; Y = *B; *D = Z;</span><br></pre></td></tr></table></figure>
+<p> 我们可能会得到以下任意序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">X = LOAD *A,  Y = LOAD *B,  STORE *D = Z</span><br><span class="line">X = LOAD *A,  STORE *D = Z, Y = LOAD *B</span><br><span class="line">Y = LOAD *B,  X = LOAD *A,  STORE *D = Z</span><br><span class="line">Y = LOAD *B,  STORE *D = Z, X = LOAD *A</span><br><span class="line">STORE *D = Z, X = LOAD *A,  Y = LOAD *B</span><br><span class="line">STORE *D = Z, Y = LOAD *B,  X = LOAD *A</span><br></pre></td></tr></table></figure></li>
+<li><p>对相同地址的访问可能会合并或丢弃。这意味着对于：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">X = *A; Y = *(A + 4);</span><br></pre></td></tr></table></figure>
+<p> 我们可能会得到以下任意序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">X = LOAD *A; Y = LOAD *(A + 4);</span><br><span class="line">Y = LOAD *(A + 4); X = LOAD *A;</span><br><span class="line">&#123;X, Y&#125; = LOAD &#123;*A, *(A + 4) &#125;;</span><br></pre></td></tr></table></figure>
+<p> 对于：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*A = X; *(A + 4) = Y;</span><br></pre></td></tr></table></figure>
+<p> 我们可能会得到以下任意序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">STORE *A = X; STORE *(A + 4) = Y;</span><br><span class="line">STORE *(A + 4) = Y; STORE *A = X;</span><br><span class="line">STORE &#123;*A, *(A + 4) &#125; = &#123;X, Y&#125;;</span><br></pre></td></tr></table></figure>
+<p>上述内容不适用于如下情况：</p>
+</li>
+<li><p>不适用于位域，因为编译器通常会生成使用非原子性的读-修改-写序列修改这些位域<br> 的代码。不要尝试使用位域来同步并行算法。</p>
+</li>
+<li><p>给定位域中的所有字段必须由一个锁保护。如果给定位域中的两个字段受不同锁保护，<br> 编译器的非原子性读-修改-写序列可能会导致更新一个字段时破坏相邻字段的值。</p>
+</li>
+</ul>
+<font color="##FF0000">
+comment: 最好举一个例子，这样写表述的并不清晰。
+</font>
+
+<ul>
+<li><p>这些保证仅适用于正确对齐且大小正确的标量变量。”正确大小”目前意味着变量的大小与<br> “char”、”short”、”int” 和 “long”相同。”正确对齐”指的是自然对齐，因此对于”char”<br> 没有约束，”short”需要两字节对齐，”int”需要四字节对齐，对于32位和64位系统上的<br> “long”分别需要四字节或八字节对齐。请注意，这些保证已引入C11标准，因此在使用<br> 较旧的编译器(例如 gcc 4.6)时要小心。包含此保证的标准部分是第3.14节，它将<br> “memory location” 定义如下：</p>
+<p> 内存位置是标量类型的对象，或者是所有宽度非零的相邻位域的最大序列。</p>
+<p> 注意1：两个执行线程可以更新和访问单独的内存位置，而不会相互干扰。<br> 注意2：位域和相邻的非位域成员位于单独的内存位置。对于两个相邻位域，如果其中<br> 一个位域在嵌套结构中，而另一个没有，或者两个位域之间隔着一个零长度的位域，<br> 或者他们被一个非位域成员分隔，那这两个位域也位于单独的内存位置。如果在两个<br> 位域之间所有的成员也都是位域，那么无论两个位域间插入多少位域，都认为是一个<br> 内存地址，同时更新这两个位域是不安全的。</p>
+</li>
+</ul>
+<font color="##FF0000">
+comment: 理解下这段表述，编译器的各种优化可能改变指令的行为，使用READ_ONCE/WRITE_ONCE
+可以禁止编译器优化，但是如果地址不是自然对齐，即使使用READ_ONCE/WRITE_ONCE也可能
+和我们的预想不一样，因为对于不对齐的访问，编译器可能产生不同的指令序列。这里的memory
+location和位于相关的描述没有搞明白？从高层语言的角度定义和理解这里比较模糊，从软硬件
+接口的角度(再下一层)去理解可能会比较清楚，比如ARM64手册的B2.2/2.3里就对原子行为和
+location做了精确定义。
+</font>
+
+<h1 id="什么是内存屏障？"><a href="#什么是内存屏障？" class="headerlink" title="什么是内存屏障？"></a>什么是内存屏障？</h1><p>如上所述，独立的内存操作在CPU外看起来是随机执行的，这对CPU之间的交互和I/O可能会<br>造成问题。我们需要一种方法来限制编译器和CPU的乱序。</p>
+<p>内存屏障就是这样的干预手段。它们使得屏障两侧的内存操作不能跨越屏障。</p>
+<p>这种强制排序很重要，因为系统中的CPU和其他设备可以使用各种技巧来提高性能，包括重排序、<br>延迟执行、组合内存操作、预读、分支预测以及各种类型的缓存。内存屏障用于覆盖或抑制<br>这些技巧，使代码能够合理地控制多个CPU和(或)设备之间的交互。</p>
+<h2 id="内存屏障的种类"><a href="#内存屏障的种类" class="headerlink" title="内存屏障的种类"></a>内存屏障的种类</h2><p>内存屏障主要有四种基本类型：</p>
+<ol>
+<li><p>写(store或write)屏障。</p>
+<p>写内存屏障保证，在系统的其他组件看来，所有屏障前的写操作都在该屏障后的写操作<br>执行前完成。</p>
+<p>写屏障仅对写进行排序；不要求对读(LOAD)排序。</p>
+<p>写屏障前的写操作不会被乱序到写屏障之后，写屏障之后的写操作不会被乱序到写屏障前。</p>
+<p>[!] 请注意，写屏障通常应与读屏障或地址依赖屏障配对；请参阅”SMP 屏障配对”子节。</p>
+</li>
+<li><p>地址依赖屏障(旧)。</p>
+<p>地址依赖屏障是一种较弱的读屏障。在执行两个读操作的情况下，第一个读为第二个<br>读提供地址。需要地址依赖屏障来确保第二个操作读到的是第一个操作读到的地址处的<br>最新值。</p>
+<font color="##FF0000">
+comment: 这个奇葩的屏障看起来完全是在填DEC Alpha引入的坑。
+</font>
+
+<p>地址依赖屏障仅对相互依赖的读进行排序；不对写、单个读或重叠读排序。</p>
+<p>如果第一次读的地址与其他CPU的写地址重叠，那么其他CPU上写地址之前的写操作，<br>在地址依赖屏障之后都对当前CPU可见。当然前提是其他CPU上都是用了写屏障。</p>
+<p>请参阅 “内存屏障序列示例” 一节以查看示意图。</p>
+<p>[!] 请注意，第一个读操作确实需要有一个 <em>地址</em> 依赖，而不是控制依赖。如果第二个<br>读操作的地址依赖于第一个读操作，但依赖性是通过条件而不是实际读地址本身，那么<br>它是一个 <em>控制</em> 依赖，需要完整的读屏障或更严格的屏障。有关更多信息，请参阅<br>“控制依赖”一节。</p>
+<p>[!] 请注意，地址依赖屏障通常应与写屏障配对；请参阅”SMP 屏障配对”子节。</p>
+<p>[!] 内核版本v5.9删除了显式地址依赖屏障的内核API。如今，READ_ONCE()和rcu_dereference()<br>已经包含了地址依赖屏障，无需显式调用。</p>
+</li>
+<li><p>读(load或read)屏障。</p>
+<p>在系统其他组件看来，所有在屏障之前的LOAD操作将在所有屏障之后的LOAD操作之前发生。</p>
+<p>读屏障仅对读进行部分排序；不要求对写产生任何影响。</p>
+<p>读屏障包含地址依赖屏障。</p>
+<p>[!] 请注意，读屏障通常应与写屏障配对；请参阅”SMP 屏障配对”子节。</p>
+</li>
+<li><p>通用内存屏障。</p>
+<p>在系统的其他组件看来，通用屏障前的所有内存操作都在屏障前发生，屏障后的所有<br>内存操作都在屏障后发生。</p>
+<p>通用内存屏障对读和写都进行排序。</p>
+<p>通用内存屏障包含了读和写内存屏障，因此可以替代它们。</p>
+</li>
+</ol>
+<p>还有几种隐式屏障：</p>
+<ol start="5">
+<li><p>ACQUIRE 操作。</p>
+<p>这是单向屏障。它保证对系统的其他组件来说，在ACQUIRE操作之后的所有内存操作都在<br>ACQUIRE操作之后发生。ACQUIRE操作包括LOCK操作以及smp_load_acquire()<br>和smp_cond_load_acquire()。</p>
+<p>在ACQUIRE操作之前发生的内存操作可以被排到ACQUIRE后面执行。</p>
+<p>ACQUIRE操作几乎总是应该与RELEASE操作配对。</p>
+</li>
+<li><p>RELEASE 操作。</p>
+<p>这也是一个单向屏障。它保证了在RELEASE操作之前的所有内存操作相对于系统的其他<br>组件来说，看起来是在RELEASE操作之前发生。RELEASE操作包括UNLOCK操作和smp_store_release()操作。</p>
+<p>在RELEASE操作之后发生的内存操作可能看起来是在RELEASE之前发生的。</p>
+<p>使用ACQUIRE和RELEASE操作通常排除了对其他类型内存屏障的需求。此外，RELEASE+ACQUIRE<br>-不- 保证充当完整的内存屏障。然而，在对给定变量执行ACQUIRE操作之后，在该变量<br>上先前的任何RELEASE操作之前的所有内存访问都保证是可见的。换句话说，在给定变量<br>的临界区内，对该变量的所有先前临界区的所有访问都保证已经完成。</p>
+<p>这意味着ACQUIRE充当最小的”acquire”操作，而RELEASE充当最小的”release”操作。</p>
+</li>
+</ol>
+<p>在atomic_t.txt中描述的原子操作具有ACQUIRE和RELEASE变体，此外还有完全有序和松散<br>(无屏障)定义。对于执行读和写的复合原子操作，ACQUIRE语义仅适用于读，RELEASE语义仅<br>适用于写。</p>
+<p>只有在CPU核心之间或CPU和设备之间可能存在交互的情况下，才需要内存屏障。如果代码没有<br>多核访问，那么就不需要内存屏障。</p>
+<p>请注意，这些是 <em>最低</em> 保证。不同的架构可能会提供更严格的保证，但在特定于架构的代码<br>之外，它们可能 <em>不</em> 被依赖。</p>
+<font color="##FF0000">
+comment: 本节描述的是Linux内核里封装的barrier的语意。
+</font>
+
+<h2 id="内存屏障做不到什么？"><a href="#内存屏障做不到什么？" class="headerlink" title="内存屏障做不到什么？"></a>内存屏障做不到什么？</h2><p>Linux内核内存屏障不能保证以下几点：</p>
+<ul>
+<li><p>读写内存屏障不能控制所有访存指令，它们只能控制特定类型的指令。比如读屏障只能<br> 控制读指令，写屏障只能控制写指令。</p>
+</li>
+<li><p>一个CPU上发出内存屏障不会对系统中的另一个CPU或任何其他硬件产生直接影响。<br> 内存屏障只能间接地影响其他CPU看到该CPU的访存顺序，但：</p>
+</li>
+<li><p>即使其他CPU正确使用了内存屏障，也不能保证一个CPU会正确地看到其他CPU的访存顺序，<br> 除非第一个CPU_也_使用了匹配的内存屏障(请参阅”SMP屏障配对”的子节)。</p>
+</li>
+</ul>
+<font color="##FF0000">
+comment: 最典型的例子就是读barrier的添加。
+</font>
+
+<ul>
+<li><p>CPU外的硬件[*]也可能乱序。CPU缓存一致性机制应在CPU之间传播内存屏障的效果，<br> 但可能不是按顺序进行的。</p>
+<p> [*] 关于总线主控DMA和一致性的信息，请阅读：</p>
+<p> Documentation/driver-api/pci/pci.rst<br> Documentation/core-api/dma-api-howto.rst<br> Documentation/core-api/dma-api.rst</p>
+</li>
+</ul>
+<h2 id="地址依赖屏障-旧"><a href="#地址依赖屏障-旧" class="headerlink" title="地址依赖屏障 (旧)"></a>地址依赖屏障 (旧)</h2><p>从Linux内核v4.15开始，DEC Alpha的READ_ONCE()包含了地址依赖屏障，这意味着只有那些<br>在DEC Alpha架构和在READ_ONCE()本身上工作的人需要关注这部分。对于需要它以及对历史<br>感兴趣的人，下面是关于地址依赖屏障的故事。</p>
+<p>[删掉了地址依赖屏障的相关内容]</p>
+<font color="##FF0000">
+comment: 直接把地址依赖屏障的相关内容删掉了，我们也无需关注这部分。
+</font>
+
+<h2 id="控制依赖"><a href="#控制依赖" class="headerlink" title="控制依赖"></a>控制依赖</h2><p>控制依赖可能有点棘手，因为当前的编译器并不能理解它们。本节的目的是帮您防止编译器<br>破坏您的代码。</p>
+<p>读-读控制依赖需要一个完整的读内存屏障，而不仅仅是一个隐式的地址依赖屏障来使其正常工作。<br>考虑以下代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">&lt;隐式地址依赖屏障&gt;</span><br><span class="line">if (q) &#123;</span><br><span class="line">	/* BUG: 没有地址依赖!!! */</span><br><span class="line">	p = READ_ONCE(b);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>这将无法产生预期的效果，因为没有实际的地址依赖，而是一个控制依赖，CPU可能通过预读拿到<br>了变量的旧值。应该这么做：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">if (q) &#123;</span><br><span class="line">	&lt;读屏障&gt;</span><br><span class="line">	p = READ_ONCE(b);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然而，写操作不会被预先执行。这意味着读-写控制依赖是有效的，如下例所示：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">if (q) &#123;</span><br><span class="line">	WRITE_ONCE(b, 1);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<font color="##FF0000">
+comment: 非常有意思的一个点，这里是从高层语言层面描述控制依赖，实际上ARM64和RISCV
+的弱内存序定义里都有明确定义控制依赖的行为，也都是读-写之间存在控制依赖，而读-读
+之间是没有控制依赖的，需要显示的加读barrier进行控制。
+</font>
+
+<p>控制依赖可以与其他类型的屏障正常配对。尽管如此，请注意READ_ONCE()和WRITE_ONCE()<br>都是必须的! 在没有READ_ONCE()的情况下，编译器可能将’a’的读与其他’a’的读合并。没有<br>WRITE_ONCE()，编译器可能将’b’的写与其他’b’的写合并。任何一种情况都可能对排序产生影响。</p>
+<font color="##FF0000">
+comment: 编译器的优化行为会导致指令重排，从而有可能破坏存在的控制依赖。程序员写
+代码太不容易了。
+</font>
+
+<p>更糟糕的是，如果编译器能够证明(比如)变量’a’的值始终不为零，那么它完全有权利通过<br>消除”if”语句来优化原始示例，如下所示：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = a;</span><br><span class="line">b = 1;  /* BUG: 编译器和 CPU 都可以重排序!!! */</span><br></pre></td></tr></table></figure>
+<p>所以不要省略READ_ONCE()。</p>
+<p>人们可能会尝试在”if”语句的两个分支上执行相同的写，如下所示：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">if (q) &#123;</span><br><span class="line">	barrier();</span><br><span class="line">	WRITE_ONCE(b, 1);</span><br><span class="line">	do_something();</span><br><span class="line">&#125; else &#123;</span><br><span class="line">	barrier();</span><br><span class="line">	WRITE_ONCE(b, 1);</span><br><span class="line">	do_something_else();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>不幸的是，当前的编译器会在高优化级别下将其转换为以下形式，编译器优化掉了CPU所需<br>的条件依赖！</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">barrier();</span><br><span class="line">WRITE_ONCE(b, 1);  /* BUG: 与读a乱序!!! */</span><br><span class="line">if (q) &#123;</span><br><span class="line">	/* WRITE_ONCE(b, 1); -- 向上移动，BUG!!! */</span><br><span class="line">	do_something();</span><br><span class="line">&#125; else &#123;</span><br><span class="line">	/* WRITE_ONCE(b, 1); -- 向上移动，BUG!!! */</span><br><span class="line">	do_something_else();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 这里也太坑了。程序员的想法是，read-write有控制依赖，不会乱序，而编译器
+不知道这个，编译器看见两个分支中有相同的代码就提取公共代码了，提取公共代码之后的
+指令序列，read-write之间只有一个编译器barrier，实际上CPU执行的时候是乱序的。所以，
+就要像下面的那样，显示的加一个barrier(这里是用了release语意)，保证store之前的访存
+行为是都完成了的。
+</font>
+
+<p>现在，从’a’读和写到’b’之间没有条件，这意味着CPU完全有权利对它们进行重新排序：条件绝<br>对是必需的，即使在应用了所有编译器优化之后，在汇编代码中也必须存在。因此，如果您需要在此<br>示例中进行排序，您需要显式编译器屏障，例如smp_store_release()：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">if (q) &#123;</span><br><span class="line">	smp_store_release(&amp;b, 1);</span><br><span class="line">	do_something();</span><br><span class="line">&#125; else &#123;</span><br><span class="line">	smp_store_release(&amp;b, 1);</span><br><span class="line">	do_something_else();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在没有显式编译器屏障的情况下，两个分支只写不同的值才不会被提取公共子表达式，例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">if (q) &#123;</span><br><span class="line">	WRITE_ONCE(b, 1);</span><br><span class="line">	do_something();</span><br><span class="line">&#125; else &#123;</span><br><span class="line">	WRITE_ONCE(b, 2);</span><br><span class="line">	do_something_else();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>仍然需要初始的READ_ONCE()，以防止编译器推测’a’的值。</p>
+<p>此外，你需要小心地处理局部变量’q’，否则编译器可能会猜测其值并再次删除所需的条件。例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">if (q % MAX) &#123;</span><br><span class="line">	WRITE_ONCE(b, 1);</span><br><span class="line">	do_something();</span><br><span class="line">&#125; else &#123;</span><br><span class="line">	WRITE_ONCE(b, 2);</span><br><span class="line">	do_something_else();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果 MAX 定义为 1，那么编译器知道 (q % MAX)等于零，在这种情况下，编译器有权将上述代<br>码转换为以下代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">WRITE_ONCE(b, 2);</span><br><span class="line">do_something_else();</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 又是一个不小心把隐式控制依赖去掉的例子，失去了控制依赖的约束，不同地址
+之间的访存乱序了。
+</font>
+
+<p>考虑到这种转换，CPU不需要尊重从变量’a’读到变量’b’的写之间的顺序。人们可能会想到<br>添加一个 barrier()，但这并没有帮助。条件已经消失，barrier也无法恢复它。因此，如果<br>你依赖于此排序，你应该确保MAX大于1，例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">BUILD_BUG_ON(MAX &lt;= 1); /* 将a的读顺序与b的写顺序关联。*/</span><br><span class="line">if (q % MAX) &#123;</span><br><span class="line">	WRITE_ONCE(b, 1);</span><br><span class="line">	do_something();</span><br><span class="line">&#125; else &#123;</span><br><span class="line">	WRITE_ONCE(b, 2);</span><br><span class="line">	do_something_else();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>请再次注意，两个分支的写’b’应当是不同的。如果它们是相同的，如前面所述，编译器可能会<br>将此公共表达式移出’if’语句。</p>
+<p>你还必须小心不要过分依赖布尔短路。考虑以下示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">if (q || 1 &gt; 0)</span><br><span class="line">	WRITE_ONCE(b, 1);</span><br></pre></td></tr></table></figure>
+<p>因为第二个条件总是为真，所以编译器可以将此示例转换为以下内容，从而丢弃控制依赖：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">WRITE_ONCE(b, 1);</span><br></pre></td></tr></table></figure>
+<p>这个例子强调了确保编译器无法猜测你的代码的重要性。更一般地说，尽管READ_ONCE()确实强制<br>编译器一定要生成读指令，但它并不强制编译器使用结果。</p>
+<p>此外，控制依赖仅适用于if语句的then子句和else子句。不适用于if语句之后的代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">q = READ_ONCE(a);</span><br><span class="line">if (q) &#123;</span><br><span class="line">	WRITE_ONCE(b, 1);</span><br><span class="line">&#125; else &#123;</span><br><span class="line">	WRITE_ONCE(b, 2);</span><br><span class="line">&#125;</span><br><span class="line">WRITE_ONCE(c, 1);  /* BUG: 不受控制依赖的约束。*/</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 从指令之间的控制依赖定义的行为更容易理解这里的一起，因为指令之间控制依赖
+的定义就是针对条件指令前后的一条访存指令的。
+</font>
+
+<p>人们可能会认为，因为编译器无法重新排序volatile 访问，并且还无法将’b’的写入与条件<br>重新排序，所以实际上确实存在顺序。不幸的是，编译器可能将两个写入’b’编译为条件移动<br>指令，如汇编语言：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">ld r1,a</span><br><span class="line">cmp r1,$0</span><br><span class="line">cmov,ne r4,$1</span><br><span class="line">cmov,eq r4,$2</span><br><span class="line">st r4,b</span><br><span class="line">st $1,c</span><br></pre></td></tr></table></figure>
+<p>读’a’读和写’c’间没有任何依赖关系，可能会被CPU乱序。控制依赖仅扩展到一对cmov指令和<br>写’b’。简而言之，控制依赖仅适用于有关if语句的then子句和else子句中的写(包括由这两个<br>子句调用的函数) ，而不适用于该if语句之后的代码。</p>
+<p>请注意，控制依赖提供的排序仅限于包含它的CPU。有关更多信息，请参阅 “多拷贝原子性”一节。</p>
+<p>总结：</p>
+<ul>
+<li><p>控制依赖可以对读-写进行排序。然而，它们<em>不</em>保证读-读和写-*排序。如果你需要这<br> 些其他形式的排序，使用smp_rmb()，smp_wmb()或smp_mb()。</p>
+</li>
+<li><p>如果”if”语句的两个分支都以相同变量的相同写开始，请使用smp_mb()或smp_store_release()。<br> 请注意，在”if”语句的每个分支开始使用barrier()是<em>不</em>充分的，因为如上面的例子<br> 所示，编译器可以在遵守barrier()规则的前提下破坏控制依赖。</p>
+</li>
+<li><p>控制依赖需要在读和写之间至少有一个条件，而且这个条件必须涉及到先前的读。<br> 如果编译器能够优化掉这个条件，那么它也会优化掉排序。仔细使用READ_ONCE()<br> 和WRITE_ONCE()可以帮助保留所需的条件。</p>
+</li>
+<li><p>控制依赖要求编译器避免将依赖关系重排序为不存在。仔细使用 READ_ONCE()或<br> atomic{,64}_read()可以帮助保留你的控制依赖。有关更多信息，请参阅COMPILER BARRIER<br> (编译器屏障) 部分。</p>
+</li>
+<li><p>控制依赖仅适用于包含控制依赖的if语句的 then子句和else子句，包括这两个子句<br> 调用的任何函数。控制依赖<em>不</em>适用于包含控制依赖的if语句之后的代码。</p>
+</li>
+<li><p> 控制依赖与其他类型的屏障正常配对。</p>
+</li>
+<li><p> 控制依赖<em>不</em>提供多拷贝原子性。如果你需要所有CPU同时看到给定的写，请使用smp_mb()。</p>
+</li>
+</ul>
+<font color="##FF0000">
+comment: 没有理解多拷贝原子性？
+</font>
+
+<ul>
+<li> 编译器不理解控制依赖。因此，你的任务是确保它们不破坏你的代码。</li>
+</ul>
+<h2 id="SMP内存屏障配对"><a href="#SMP内存屏障配对" class="headerlink" title="SMP内存屏障配对"></a>SMP内存屏障配对</h2><p>处理CPU核间同步时，某些内存屏障必须配对使用。不配对肯定会出错。</p>
+<p>通用屏障与彼此成对，它们也与大多数其他类型的屏障配对，它们没有多拷贝原子性。<br>acquire屏障与release屏障配对，但两者也可以与其他屏障配对，当然也包括通用屏障。<br>写屏障与地址依赖屏障、控制依赖屏障、acquire 屏障、release 屏障、读屏障或通用屏障配对。<br>类似地，读屏障、控制依赖或地址依赖屏障与写屏障、获取屏障、释放屏障或通用屏障配对：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1		      CPU 2</span><br><span class="line">===============	      ===============</span><br><span class="line">WRITE_ONCE(a, 1);</span><br><span class="line">&lt;写屏障&gt;</span><br><span class="line">WRITE_ONCE(b, 2);     x = READ_ONCE(b);</span><br><span class="line">		      &lt;读屏障&gt;</span><br><span class="line">		      y = READ_ONCE(a);</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 最经典的加barrier的场景。
+</font>
+
+<p>或:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1		      CPU 2</span><br><span class="line">===============	      ===============================</span><br><span class="line">a = 1;</span><br><span class="line">&lt;写屏障&gt;</span><br><span class="line">WRITE_ONCE(b, &amp;a);    x = READ_ONCE(b);</span><br><span class="line">		      &lt;隐式地址依赖屏障&gt;</span><br><span class="line">		      y = *x;</span><br></pre></td></tr></table></figure>
+<p>甚至是:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1		      CPU 2</span><br><span class="line">===============	      ===============================</span><br><span class="line">r1 = READ_ONCE(y);</span><br><span class="line">&lt;通用屏障&gt;</span><br><span class="line">WRITE_ONCE(x, 1);     if (r2 = READ_ONCE(x)) &#123;</span><br><span class="line">		         &lt;隐式控制依赖&gt;</span><br><span class="line">		         WRITE_ONCE(y, 1);</span><br><span class="line">		      &#125;</span><br><span class="line"></span><br><span class="line">assert(r1 == 0 || r2 == 0);</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 如上分析，这里有控制依赖，不用显式加barrier。
+</font>
+
+<p>基本上，读屏障必须始终存在，即使它可能是”较弱”类型。</p>
+<p>[!] 请注意，写屏障之前的写操作通常应与读屏障或地址依赖屏障之后的操作匹配，反之亦然：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1                               CPU 2</span><br><span class="line">===================                 ===================</span><br><span class="line">WRITE_ONCE(a, 1);    &#125;----   ---&gt;&#123;  v = READ_ONCE(c);</span><br><span class="line">WRITE_ONCE(b, 2);    &#125;    \ /    &#123;  w = READ_ONCE(d);</span><br><span class="line">&lt;写屏障&gt;                    \        &lt;读屏障&gt;</span><br><span class="line">WRITE_ONCE(c, 3);    &#125;    / \    &#123;  x = READ_ONCE(a);</span><br><span class="line">WRITE_ONCE(d, 4);    &#125;----   ---&gt;&#123;  y = READ_ONCE(b);</span><br></pre></td></tr></table></figure>
+
+<h2 id="内存屏障序列示例"><a href="#内存屏障序列示例" class="headerlink" title="内存屏障序列示例"></a>内存屏障序列示例</h2><p>首先，写屏障对写操作起到排序作用。考虑以下事件序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1</span><br><span class="line">=======================</span><br><span class="line">STORE A = 1</span><br><span class="line">STORE B = 2</span><br><span class="line">STORE C = 3</span><br><span class="line">&lt;写屏障&gt;</span><br><span class="line">STORE D = 4</span><br><span class="line">STORE E = 5</span><br></pre></td></tr></table></figure>
+<p>这个事件序列以一个顺序提交给内存一致性系统，系统中的其他部分可能会将其视为<br>{ STORE A, STORE B, STORE C } 的无序集合，所有这些操作都发生在{ STORE D, STORE E }<br>这个无序集合之前：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-------+       :      :</span><br><span class="line">|       |       +------+</span><br><span class="line">|       |------&gt;| C=3  |     &#125;     /\</span><br><span class="line">|       |  :    +------+     &#125;-----  \  -----&gt; 对系统其他部分可感知的事件</span><br><span class="line">|       |  :    | A=1  |     &#125;        \/</span><br><span class="line">|       |  :    +------+     &#125;</span><br><span class="line">| CPU 1 |  :    | B=2  |     &#125;</span><br><span class="line">|       |       +------+     &#125;</span><br><span class="line">|       |   wwwwwwwwwwwwwwww &#125;   &lt;--- 写屏障要求在屏障之前的所有写操作</span><br><span class="line">|       |       +------+     &#125;        对系统其他部分可见后，再进行进一步</span><br><span class="line">|       |  :    | E=5  |     &#125;        的写操作</span><br><span class="line">|       |  :    +------+     &#125;</span><br><span class="line">|       |------&gt;| D=4  |     &#125;</span><br><span class="line">|       |       +------+</span><br><span class="line">+-------+       :      :</span><br><span class="line">                   |</span><br><span class="line">                   | CPU 1 向内存提交写的顺序</span><br><span class="line">                   |</span><br><span class="line">                   V</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 注意如果不看后面只看到这里就很容易认为其它核上看到一样的顺序。后面会讲到
+其它核上要加读barrier才能保证其它核上看到和这里一样的顺序。
+</font>
+
+<p>其次，地址依赖屏障对地址依赖读起到排序作用。考虑以下事件序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1			CPU 2</span><br><span class="line">=======================	=======================</span><br><span class="line">	&#123; B = 7; X = 9; Y = 8; C = &amp;Y &#125;</span><br><span class="line">STORE A = 1</span><br><span class="line">STORE B = 2</span><br><span class="line">&lt;写屏障&gt;</span><br><span class="line">STORE C = &amp;B		LOAD X</span><br><span class="line">STORE D = 4		LOAD C (得到 &amp;B)</span><br><span class="line">			LOAD *C (读取 B)</span><br></pre></td></tr></table></figure>
+<p>如果没有干预，尽管CPU 1发出了写屏障，CPU 2仍可能以随机顺序感知CPU 1上的事件：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-------+       :      :                :       :</span><br><span class="line">|       |       +------+                +-------+  | Sequence of update</span><br><span class="line">|       |------&gt;| B=2  |-----       ---&gt;| Y-&gt;8  |  | of perception on</span><br><span class="line">|       |  :    +------+     \          +-------+  | CPU 2</span><br><span class="line">| CPU 1 |  :    | A=1  |      \     ---&gt;| C-&gt;&amp;Y |  V</span><br><span class="line">|       |       +------+       |        +-------+</span><br><span class="line">|       |   wwwwwwwwwwwwwwww   |        :       :</span><br><span class="line">|       |       +------+       |        :       :</span><br><span class="line">|       |  :    | C=&amp;B |---    |        :       :       +-------+</span><br><span class="line">|       |  :    +------+   \   |        +-------+       |       |</span><br><span class="line">|       |------&gt;| D=4  |    -----------&gt;| C-&gt;&amp;B |------&gt;|       |</span><br><span class="line">|       |       +------+       |        +-------+       |       |</span><br><span class="line">+-------+       :      :       |        :       :       |       |</span><br><span class="line">                               |        :       :       |       |</span><br><span class="line">                               |        :       :       | CPU 2 |</span><br><span class="line">                               |        +-------+       |       |</span><br><span class="line">    Apparently incorrect ---&gt;  |        | B-&gt;7  |------&gt;|       |</span><br><span class="line">    perception of B (!)        |        +-------+       |       |</span><br><span class="line">                               |        :       :       |       |</span><br><span class="line">                               |        +-------+       |       |</span><br><span class="line">    The load of X holds ---&gt;    \       | X-&gt;9  |------&gt;|       |</span><br><span class="line">    up the maintenance           \      +-------+       |       |</span><br><span class="line">    of coherence of B             -----&gt;| B-&gt;2  |       +-------+</span><br><span class="line">                                        +-------+</span><br><span class="line">                                        :       :</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 不知道为啥中文的ASCII图会乱码，这里直接copy了原文中英文的ASCII图，下同。
+</font>
+
+<p>在上面的例子中，尽管*C的读(即B)在C的读之后，CPU 2仍然认为B是7。</p>
+<p>然而，如果在CPU 2上的C读和*C (即B)读之间放置一个地址依赖屏障：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1			CPU 2</span><br><span class="line">=======================	=======================</span><br><span class="line">	&#123; B = 7; X = 9; Y = 8; C = &amp;Y &#125;</span><br><span class="line">STORE A = 1</span><br><span class="line">STORE B = 2</span><br><span class="line">&lt;写屏障&gt;</span><br><span class="line">STORE C = &amp;B		LOAD X</span><br><span class="line">STORE D = 4		LOAD C (得到 &amp;B)</span><br><span class="line">			&lt;地址依赖屏障&gt;</span><br><span class="line">			LOAD *C (读取 B)</span><br></pre></td></tr></table></figure>
+<p>那么以下情况将会发生：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-------+       :      :                :       :</span><br><span class="line">|       |       +------+                +-------+</span><br><span class="line">|       |------&gt;| B=2  |-----       ---&gt;| Y-&gt;8  |</span><br><span class="line">|       |  :    +------+     \          +-------+</span><br><span class="line">| CPU 1 |  :    | A=1  |      \     ---&gt;| C-&gt;&amp;Y |</span><br><span class="line">|       |       +------+       |        +-------+</span><br><span class="line">|       |   wwwwwwwwwwwwwwww   |        :       :</span><br><span class="line">|       |       +------+       |        :       :</span><br><span class="line">|       |  :    | C=&amp;B |---    |        :       :       +-------+</span><br><span class="line">|       |  :    +------+   \   |        +-------+       |       |</span><br><span class="line">|       |------&gt;| D=4  |    -----------&gt;| C-&gt;&amp;B |------&gt;|       |</span><br><span class="line">|       |       +------+       |        +-------+       |       |</span><br><span class="line">+-------+       :      :       |        :       :       |       |</span><br><span class="line">                               |        :       :       |       |</span><br><span class="line">                               |        :       :       | CPU 2 |</span><br><span class="line">                               |        +-------+       |       |</span><br><span class="line">                               |        | X-&gt;9  |------&gt;|       |</span><br><span class="line">                               |        +-------+       |       |</span><br><span class="line">  Makes sure all effects ---&gt;   \   aaaaaaaaaaaaaaaaa   |       |</span><br><span class="line">  prior to the store of C        \      +-------+       |       |</span><br><span class="line">  are perceptible to              -----&gt;| B-&gt;2  |------&gt;|       |</span><br><span class="line">  subsequent loads                      +-------+       |       |</span><br><span class="line">                                        :       :       +-------+</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 上面已经提到过，这里完全不用看这种情况，ARM64/RISCV上地址依赖自然存在的。
+</font>
+
+<p>第三，读屏障可以约束读的顺序。考虑以下事件序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1			CPU 2</span><br><span class="line">=======================	=======================</span><br><span class="line">	&#123; A = 0, B = 9 &#125;</span><br><span class="line">STORE A=1</span><br><span class="line">&lt;写屏障&gt;</span><br><span class="line">STORE B=2</span><br><span class="line">			LOAD B</span><br><span class="line">			LOAD A</span><br></pre></td></tr></table></figure>
+<p>在没有屏障的情况下，尽管CPU 1发出了写屏障，CPU 2可能会随机感知CPU 1上的事件：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-------+       :      :                :       :</span><br><span class="line">|       |       +------+                +-------+</span><br><span class="line">|       |------&gt;| A=1  |------      ---&gt;| A-&gt;0  |</span><br><span class="line">|       |       +------+      \         +-------+</span><br><span class="line">| CPU 1 |   wwwwwwwwwwwwwwww   \    ---&gt;| B-&gt;9  |</span><br><span class="line">|       |       +------+        |       +-------+</span><br><span class="line">|       |------&gt;| B=2  |---     |       :       :</span><br><span class="line">|       |       +------+   \    |       :       :       +-------+</span><br><span class="line">+-------+       :      :    \   |       +-------+       |       |</span><br><span class="line">                             ----------&gt;| B-&gt;2  |------&gt;|       |</span><br><span class="line">                                |       +-------+       | CPU 2 |</span><br><span class="line">                                |       | A-&gt;0  |------&gt;|       |</span><br><span class="line">                                |       +-------+       |       |</span><br><span class="line">                                |       :       :       +-------+</span><br><span class="line">                                 \      :       :</span><br><span class="line">                                  \     +-------+</span><br><span class="line">                                   ----&gt;| A-&gt;1  |</span><br><span class="line">                                        +-------+</span><br><span class="line">                                        :       :</span><br></pre></td></tr></table></figure>
+<p>然而，如果在CPU 2上的B读和A读之间放置一个读屏障：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1			CPU 2</span><br><span class="line">=======================	=======================</span><br><span class="line">	&#123; A = 0, B = 9 &#125;</span><br><span class="line">STORE A=1</span><br><span class="line">&lt;写屏障&gt;</span><br><span class="line">STORE B=2</span><br><span class="line">			LOAD B</span><br><span class="line">			&lt;读屏障&gt;</span><br><span class="line">			LOAD A</span><br></pre></td></tr></table></figure>
+<p>那么，由CPU 1施加的部分排序将被CPU2正确感知：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-------+       :      :                :       :</span><br><span class="line">|       |       +------+                +-------+</span><br><span class="line">|       |------&gt;| A=1  |------      ---&gt;| A-&gt;0  |</span><br><span class="line">|       |       +------+      \         +-------+</span><br><span class="line">| CPU 1 |   wwwwwwwwwwwwwwww   \    ---&gt;| B-&gt;9  |</span><br><span class="line">|       |       +------+        |       +-------+</span><br><span class="line">|       |------&gt;| B=2  |---     |       :       :</span><br><span class="line">|       |       +------+   \    |       :       :       +-------+</span><br><span class="line">+-------+       :      :    \   |       +-------+       |       |</span><br><span class="line">                             ----------&gt;| B-&gt;2  |------&gt;|       |</span><br><span class="line">                                |       +-------+       | CPU 2 |</span><br><span class="line">                                |       :       :       |       |</span><br><span class="line">                                |       :       :       |       |</span><br><span class="line">  At this point the read ----&gt;   \  rrrrrrrrrrrrrrrrr   |       |</span><br><span class="line">  barrier causes all effects      \     +-------+       |       |</span><br><span class="line">  prior to the storage of B        ----&gt;| A-&gt;1  |------&gt;|       |</span><br><span class="line">  to be perceptible to CPU 2            +-------+       |       |</span><br><span class="line">                                        :       :       +-------+</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 这里就是加读屏障的经典场景。
+</font>
+
+<p>为了更完整地说明这个问题，考虑一下如果代码在读屏障的两侧都包含了读A，可能会发生什么：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1			CPU 2</span><br><span class="line">=======================	=======================</span><br><span class="line">	&#123; A = 0, B = 9 &#125;</span><br><span class="line">STORE A=1</span><br><span class="line">&lt;写屏障&gt;</span><br><span class="line">STORE B=2</span><br><span class="line">			LOAD B</span><br><span class="line">			LOAD A [第一次加载 A]</span><br><span class="line">			&lt;读屏障&gt;</span><br><span class="line">			LOAD A [第二次加载 A]</span><br></pre></td></tr></table></figure>
+<p>尽管两次加载A都在加载B之后进行，但它们可能会得到不同的值：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-------+       :      :                :       :</span><br><span class="line">|       |       +------+                +-------+</span><br><span class="line">|       |------&gt;| A=1  |------      ---&gt;| A-&gt;0  |</span><br><span class="line">|       |       +------+      \         +-------+</span><br><span class="line">| CPU 1 |   wwwwwwwwwwwwwwww   \    ---&gt;| B-&gt;9  |</span><br><span class="line">|       |       +------+        |       +-------+</span><br><span class="line">|       |------&gt;| B=2  |---     |       :       :</span><br><span class="line">|       |       +------+   \    |       :       :       +-------+</span><br><span class="line">+-------+       :      :    \   |       +-------+       |       |</span><br><span class="line">                             ----------&gt;| B-&gt;2  |------&gt;|       |</span><br><span class="line">                                |       +-------+       | CPU 2 |</span><br><span class="line">                                |       :       :       |       |</span><br><span class="line">                                |       :       :       |       |</span><br><span class="line">                                |       +-------+       |       |</span><br><span class="line">                                |       | A-&gt;0  |------&gt;| 1st   |</span><br><span class="line">                                |       +-------+       |       |</span><br><span class="line">  At this point the read ----&gt;   \  rrrrrrrrrrrrrrrrr   |       |</span><br><span class="line">  barrier causes all effects      \     +-------+       |       |</span><br><span class="line">  prior to the storage of B        ----&gt;| A-&gt;1  |------&gt;| 2nd   |</span><br><span class="line">  to be perceptible to CPU 2            +-------+       |       |</span><br><span class="line">                                        :       :       +-------+</span><br></pre></td></tr></table></figure>
+<p>但在读屏障完成之前，CPU 1对A的更新可能已经对CPU 2变得可察觉了：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-------+       :      :                :       :</span><br><span class="line">|       |       +------+                +-------+</span><br><span class="line">|       |------&gt;| A=1  |------      ---&gt;| A-&gt;0  |</span><br><span class="line">|       |       +------+      \         +-------+</span><br><span class="line">| CPU 1 |   wwwwwwwwwwwwwwww   \    ---&gt;| B-&gt;9  |</span><br><span class="line">|       |       +------+        |       +-------+</span><br><span class="line">|       |------&gt;| B=2  |---     |       :       :</span><br><span class="line">|       |       +------+   \    |       :       :       +-------+</span><br><span class="line">+-------+       :      :    \   |       +-------+       |       |</span><br><span class="line">                             ----------&gt;| B-&gt;2  |------&gt;|       |</span><br><span class="line">                                |       +-------+       | CPU 2 |</span><br><span class="line">                                |       :       :       |       |</span><br><span class="line">                                 \      :       :       |       |</span><br><span class="line">                                  \     +-------+       |       |</span><br><span class="line">                                   ----&gt;| A-&gt;1  |------&gt;| 1st   |</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">                                    rrrrrrrrrrrrrrrrr   |       |</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">                                        | A-&gt;1  |------&gt;| 2nd   |</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">                                        :       :       +-------+</span><br></pre></td></tr></table></figure>
+<p>可以确定的是如果读B的值为2(B == 2) ，那么第二次读A的值一定为1(A == 1)。对于第一次<br>读A的值没有这样的保证；它可能是A == 0或者A == 1。<br><font color="##FF0000"><br>comment: 第一个LOAD A和LOAD B可能乱序。第二个LOAD A和LOAD B之间有读barrier，所以<br>它们之间不会乱序。<br></font></p>
+<h2 id="读屏障与预读"><a href="#读屏障与预读" class="headerlink" title="读屏障与预读"></a>读屏障与预读</h2><p>许多CPU会对读进行预测：当它们检测到它们需要从内存中读某变量，同时没有其他读操作在<br>使用总线时，即使指令流还没有执行到那个读，CPU也会提前做读操作。这样当真正执行到读<br>操作时，指令可以立即完成而无需等待内存相应。</p>
+<p>如果预测失败，这条指令实际没有执行，那CPU就会丢弃或将预读到的数据缓存备用。</p>
+<font color="##FF0000">
+comment: 这里翻译的很不好，原文说的其实是load指令的投机执行，这里翻译成预读其实
+很容易和load的预取行为混淆。其实，原文的标题就是LOAD SPECULATION。
+</font>
+
+<p>考虑以下情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1			CPU 2</span><br><span class="line">=======================	=======================</span><br><span class="line">			LOAD B</span><br><span class="line">			DIVIDE		&#125; 除法指令通常</span><br><span class="line">			DIVIDE		&#125; 需要很长时间才能执行完</span><br><span class="line">			LOAD A</span><br></pre></td></tr></table></figure>
+<p>如下所示：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">                                        :       :       +-------+</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">                                    ---&gt;| B-&gt;2  |------&gt;|       |</span><br><span class="line">                                        +-------+       | CPU 2 |</span><br><span class="line">                                        :       :DIVIDE |       |</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">The CPU being busy doing a ---&gt;     ---&gt;| A-&gt;0  |~~~~   |       |</span><br><span class="line">division speculates on the              +-------+   ~   |       |</span><br><span class="line">LOAD of A                               :       :   ~   |       |</span><br><span class="line">                                        :       :DIVIDE |       |</span><br><span class="line">                                        :       :   ~   |       |</span><br><span class="line">Once the divisions are complete --&gt;     :       :   ~--&gt;|       |</span><br><span class="line">the CPU can then perform the            :       :       |       |</span><br><span class="line">LOAD with immediate effect              :       :       +-------+</span><br></pre></td></tr></table></figure>
+<p>在第二次读之前放置一个读屏障或地址依赖屏障：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1			CPU 2</span><br><span class="line">=======================	=======================</span><br><span class="line">			LOAD B</span><br><span class="line">			DIVIDE</span><br><span class="line">			DIVIDE</span><br><span class="line">			&lt;读屏障&gt;</span><br><span class="line">			LOAD A</span><br></pre></td></tr></table></figure>
+<p>这将强制刷新读缓存，也就是取消所有预测，取消程度取决于所使用的屏障类型。如果没有<br>对推测的内存位置进行更改，那么将直接使用推测出的值：<br><font color="##FF0000"><br>comment: 这里翻译的也不好。第二句原文的意思是，如果没有读barrier，LOAD A本来可以<br>根据投机load的值作为执行执行的结果。这里想说的意思是，读barrier会刷掉投机load的<br>值，一定程度降低程序的性能。<br></font></p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">                                        :       :       +-------+</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">                                    ---&gt;| B-&gt;2  |------&gt;|       |</span><br><span class="line">                                        +-------+       | CPU 2 |</span><br><span class="line">                                        :       :DIVIDE |       |</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">The CPU being busy doing a ---&gt;     ---&gt;| A-&gt;0  |~~~~   |       |</span><br><span class="line">division speculates on the              +-------+   ~   |       |</span><br><span class="line">LOAD of A                               :       :   ~   |       |</span><br><span class="line">                                        :       :DIVIDE |       |</span><br><span class="line">                                        :       :   ~   |       |</span><br><span class="line">                                        :       :   ~   |       |</span><br><span class="line">                                    rrrrrrrrrrrrrrrr~   |       |</span><br><span class="line">                                        :       :   ~   |       |</span><br><span class="line">                                        :       :   ~--&gt;|       |</span><br><span class="line">                                        :       :       |       |</span><br><span class="line">                                        :       :       +-------+</span><br></pre></td></tr></table></figure>
+<p>但如果有来自其他CPU的更新或使无效操作，那么预测就会取消并重新读取。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">                                        :       :       +-------+</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">                                    ---&gt;| B-&gt;2  |------&gt;|       |</span><br><span class="line">                                        +-------+       | CPU 2 |</span><br><span class="line">                                        :       :DIVIDE |       |</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">The CPU being busy doing a ---&gt;     ---&gt;| A-&gt;0  |~~~~   |       |</span><br><span class="line">division speculates on the              +-------+   ~   |       |</span><br><span class="line">LOAD of A                               :       :   ~   |       |</span><br><span class="line">                                        :       :DIVIDE |       |</span><br><span class="line">                                        :       :   ~   |       |</span><br><span class="line">                                        :       :   ~   |       |</span><br><span class="line">                                    rrrrrrrrrrrrrrrrr   |       |</span><br><span class="line">                                        +-------+       |       |</span><br><span class="line">The speculation is discarded ---&gt;   ---&gt;| A-&gt;1  |------&gt;|       |</span><br><span class="line">and an updated value is                 +-------+       |       |</span><br><span class="line">retrieved                               :       :       +-------+</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 这里可以看出读barrier实际干了些什么，就是把核内投机load的值扔掉，重新
+从存储系统(cache或内存)里load值进来。
+</font>
+
+<h2 id="多拷贝原子性"><a href="#多拷贝原子性" class="headerlink" title="多拷贝原子性"></a>多拷贝原子性</h2><p>多拷贝原子性是关于排序的一种深刻直观概念，但现实计算机系统并不总是提供这种概念，<br>即一个给定的写操作对所有CPU同时可见，或者说，所有CPU都同意所有写操作变得可见的顺序。<br>然而，支持完全的多拷贝原子性将忽略一些有价值的硬件优化，因此，一种较弱的形式”其他<br>多拷贝原子性”仅保证一个给定的写操作对所有 -其他- CPU同时可见。本文档剩余部分讨论<br>这种较弱的形式，但为简洁起见，仍然简称为”多拷贝原子性”。</p>
+<font color="##FF0000">
+comment: 没有看懂多拷贝原子性这一节。
+</font>
+
+<p>以下示例演示了多拷贝原子性：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1			CPU 2			CPU 3</span><br><span class="line">=======================	=======================	=======================</span><br><span class="line">	&#123; X = 0, Y = 0 &#125;</span><br><span class="line">STORE X=1		r1=LOAD X (读取 1)	LOAD Y (读取 1)</span><br><span class="line">			&lt;通用屏障&gt;		 &lt;读屏障&gt;</span><br><span class="line">			STORE Y=r1		LOAD X</span><br></pre></td></tr></table></figure>
+<p>假设CPU 2读X得1，然后将其写到Y，CPU 3读Y得1。这表明CPU 1写X、CPU2读X写Y、CPU3读Y<br>是依次发生的。那么问题是，CPU 3读X能否得到0？</p>
+<p>因为CPU 3读X在CPU 2读X之后，自然期望CPU 3能读到1。这种期望源于多拷贝原子性：一个<br>CPU对内存的改动，要么同时对其他组件可见，要么同时对其他组件不可见，不能对某些组件<br>可见对某些组件又不可见。然而，Linux内核并不要求系统具有多拷贝原子性。</p>
+<p>在上面的例子中使用通用内存屏障可以弥补多拷贝原子性的缺失。在这个例子中，如果CPU 2<br>读X得1，CPU 3读Y得1，那么CPU 3读X也必须返回1。</p>
+<p>然而，依赖关系、读屏障和写屏障并不总是能够弥补非多拷贝原子性。例如，假设从上面的<br>例子中移除CPU 2的通用屏障，只留下以下数据依赖关系：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1			CPU 2			CPU 3</span><br><span class="line">=======================	=======================	=======================</span><br><span class="line">	&#123; X = 0, Y = 0 &#125;</span><br><span class="line">STORE X=1		r1=LOAD X (读取 1)	LOAD Y (读取 1)</span><br><span class="line">			&lt;数据依赖&gt;		 &lt;读屏障&gt;</span><br><span class="line">			STORE Y=r1		LOAD X (读取 0)</span><br></pre></td></tr></table></figure>
+<p>不用显式屏障就不保证多拷贝原子性：在这个例子中，CPU 2从X读返回1，CPU 3从Y读返回1，<br>以及从X读返回0都是完全合法的。</p>
+<p>关键在于，尽管CPU 2的数据依赖关系对其读和写操作进行了排序，但它并不能确保对CPU 1的<br>写操作进行排序。因此，如果这个程序运行在一个非多拷贝原子系统上，其中CPU 1和2共享一个<br>写缓冲区或一个缓存级别，CPU 2可能会提前访问CPU 1的写操作。因此，需要通用屏障来确保<br>所有CPU在多次访问的组合顺序上达成一致。</p>
+<p>通用屏障不仅可以实现多拷贝原子性，还可以生成额外的排序，以确保所有CPU都能以相同<br>顺序感知到所有操作。相比之下，一系列发布-获取不能提供这种额外的排序，只有链条上的<br>那些CPU保证在访问的组合顺序上达成一致。例如：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">int u, v, x, y, z;</span><br><span class="line"></span><br><span class="line">void cpu0(void)</span><br><span class="line">&#123;</span><br><span class="line">	r0 = smp_load_acquire(&amp;x);</span><br><span class="line">	WRITE_ONCE(u, 1);</span><br><span class="line">	smp_store_release(&amp;y, 1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void cpu1(void)</span><br><span class="line">&#123;</span><br><span class="line">	r1 = smp_load_acquire(&amp;y);</span><br><span class="line">	r4 = READ_ONCE(v);</span><br><span class="line">	r5 = READ_ONCE(u);</span><br><span class="line">	smp_store_release(&amp;z, 1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void cpu2(void)</span><br><span class="line">&#123;</span><br><span class="line">	r2 = smp_load_acquire(&amp;z);</span><br><span class="line">	smp_store_release(&amp;x, 1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void cpu3(void)</span><br><span class="line">&#123;</span><br><span class="line">	WRITE_ONCE(v, 1);</span><br><span class="line">	smp_mb();</span><br><span class="line">	r3 = READ_ONCE(u);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>因为cpu0()、cpu1() 和 cpu2()构成了smp_store_release()/smp_load_acquire()的链条，<br>以下结果不应出现：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">r0 == 1 &amp;&amp; r1 == 1 &amp;&amp; r2 == 1</span><br></pre></td></tr></table></figure>
+<p>此外，由于cpu0()和cpu1()之间的发布-获取关系，cpu1()必须看到cpu0() 的写操作，因此<br>以下结果不应出现：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">r1 == 1 &amp;&amp; r5 == 0</span><br></pre></td></tr></table></figure>
+<p>然而，发布-获取链提供的排序仅局限于参与该链的CPU，并且不适用于cpu3()，至少在写方面<br>是如此。因此，以下结果可能出现：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">r0 == 0 &amp;&amp; r1 == 1 &amp;&amp; r2 == 1 &amp;&amp; r3 == 0 &amp;&amp; r4 == 0</span><br></pre></td></tr></table></figure>
+<p>以下结果也可能出现：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">r0 == 0 &amp;&amp; r1 == 1 &amp;&amp; r2 == 1 &amp;&amp; r3 == 0 &amp;&amp; r4 == 0 &amp;&amp; r5 == 1</span><br></pre></td></tr></table></figure>
+<p>尽管cpu0()、cpu1() 和 cpu2()会按顺序看到各自的读取和写入操作，但是未参与发布-获取链<br>的CPU并不保证能看到这个顺序。这种分歧源于实现smp_load_acquire()和smp_store_release()<br>的弱内存屏障指令，并不要求在所有情况下对先前的写和后续的读进行排序。这意味着cpu3()<br>可以将cpu0()对u的写视为发生在cpu1()读v之后，尽管cpu0()和cpu1()都认为这两个操作以<br>预期的顺序发生。</p>
+<p>然而，请记住smp_load_acquire()并非魔法。它只是有序地读内存。它并不确保会读取任何<br>特定的值。因此，以下结果是可能的：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">r0 == 0 &amp;&amp; r1 == 0 &amp;&amp; r2 == 0 &amp;&amp; r5 == 0</span><br></pre></td></tr></table></figure>
+<p>请注意，即使在永远不会发生重排序的强一致性系统中也可能发生。</p>
+<p>重申一下，如果您的代码需要对所有操作进行完全排序，请始终使用通用屏障。</p>
+<h1 id="显式内核屏障"><a href="#显式内核屏障" class="headerlink" title="显式内核屏障"></a>显式内核屏障</h1><p>Linux内核具有多种不同层次的屏障：</p>
+<ul>
+<li><p> 编译器屏障。</p>
+</li>
+<li><p> CPU内存屏障。</p>
+</li>
+</ul>
+<h2 id="编译器屏障"><a href="#编译器屏障" class="headerlink" title="编译器屏障"></a>编译器屏障</h2><p>Linux内核具有显式的编译器屏障函数，阻止编译器将其两侧的内存访问移动到另一侧：</p>
+<pre><code>barrier();
+</code></pre>
+<p>这是一个通用屏障 —— barrier()没有专门的读-读或写-写变体。然而，READ_ONCE()和<br>WRITE_ONCE()可以被认为是弱形式的barrier()。</p>
+<p>barrier()函数具有以下效果：</p>
+<ul>
+<li><p>阻止编译器将barrier()前后的指令排序到另一侧。这个属性的一个示例用途是简化<br> 中断处理器代码与被中断代码之间的通信。</p>
+</li>
+<li><p> 在循环内，强制编译器在每次通过该循环时读该循环条件中使用的变量。</p>
+</li>
+</ul>
+<p>READ_ONCE()和WRITE_ONCE()函数可以防止许多优化，这些优化尽管在单线程代码中完全安全，<br>但在并发代码中可能是致命的。以下是这些类型优化的一些例子：</p>
+<ul>
+<li><p>编译器有权重新排序对同一变量的读和写，在某些情况下，CPU也有权重新排序对同一变量<br> 的读。这意味着以下代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a[0] = x;</span><br><span class="line">a[1] = x;</span><br></pre></td></tr></table></figure>
+<p> 可能导致a[1]中的x值比a[0]更旧。如下可以阻止编译器和CPU这样做：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a[0] = READ_ONCE(x);</span><br><span class="line">a[1] = READ_ONCE(x);</span><br></pre></td></tr></table></figure>
+<p> 简而言之，READ_ONCE()和WRITE_ONCE()为多个CPU访问单个变量提供了缓存一致性。</p>
+<font color="##FF0000">
+comment: 没有理解这里？
+</font></li>
+<li><p>编译器可能合并来自同一变量的连续读。这样的合并可能导致编译器将以下代码”优化”：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">while (tmp = a)</span><br><span class="line">	do_something_with(tmp);</span><br></pre></td></tr></table></figure>
+<p> 成为以下代码，尽管在某种意义上对于单线程代码是合理的，但几乎肯定不是开发者所期望的：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">if (tmp = a)</span><br><span class="line">	for (;;)</span><br><span class="line">		do_something_with(tmp);</span><br></pre></td></tr></table></figure>
+<p> 使用 READ_ONCE() 阻止编译器这样做：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">while (tmp = READ_ONCE(a))</span><br><span class="line">	do_something_with(tmp);</span><br></pre></td></tr></table></figure></li>
+<li><p>编译器有权重新读变量，例如，编译器可能会优化掉我们之前示例中的变量’tmp’：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">while (tmp = a)</span><br><span class="line">	do_something_with(tmp);</span><br></pre></td></tr></table></figure>
+<p> 这可能导致以下代码，在单线程代码中完全安全，但在并发代码中可能是致命的：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">while (a)</span><br><span class="line">	do_something_with(a);</span><br></pre></td></tr></table></figure>
+<p> 例如，这种优化版本的代码可能导致在变量a在 “while” 语句和调用do_something_with()<br> 之间被其他CPU修改的情况下，将零传递给do_something_with()。</p>
+<p> 同样，使用 READ_ONCE()阻止编译器这样做：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">while (tmp = READ_ONCE(a))</span><br><span class="line">	do_something_with(tmp);</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 所以，这里关键想说的是，a可能是一个多核可见的变量，tmp这里只是一个函数
+内部的临时变量？
+</font>
+
+<p> 请注意，如果编译器寄存器不足，它可能会将tmp保存到栈上。这种保存和后续恢复的<br> 开销就是编译器重新读变量的原因。对于单线程代码来说，这样做是完全安全的，所以<br> 您需要告诉编译器在哪些情况下这是不安全的。</p>
+</li>
+<li><p>如果编译器知道值将是什么，它可以完全省略读。例如，如果编译器可以证明变量’a’<br> 的值总是为零，它可以将此代码优化为：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">while (tmp = a)</span><br><span class="line">	do_something_with(tmp);</span><br></pre></td></tr></table></figure>
+<p> 变为：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">do &#123; &#125; while (0);</span><br></pre></td></tr></table></figure>
+<p> 这种转换对于单线程代码来说是有益的，因为它减少了读和分支。问题是编译器在证明中假<br> 设当前CPU是唯一更新变量’a’的CPU。如果变量’a’是共享的，那么编译器的优化就是<br> 错误的。可以用READ_ONCE()规避优化。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">while (tmp = READ_ONCE(a))</span><br><span class="line">	do_something_with(tmp);</span><br></pre></td></tr></table></figure>
+<p> 但请注意，编译器也关注您在READ_ONCE()之后对值的操作。例如，假设您执行以下操作，<br> 并且MAX是一个宏，其值为1：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">while ((tmp = READ_ONCE(a)) % MAX)</span><br><span class="line">	do_something_with(tmp);</span><br></pre></td></tr></table></figure>
+<p> 那么编译器就知道”%”操作符应用于MAX的结果总是为零，这样编译器又可以将代码<br> 优化到几乎不存在。(它仍然会读变量’a’)</p>
+</li>
+<li><p>同样，如果编译器知道变量已经具有正在写的值，它可以省略写操作。同样，编译器<br> 假设当前CPU是唯一一个写到变量的CPU，这可能导致编译器在共享变量上出错。例如，<br> 假设你有以下内容：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a = 0;</span><br><span class="line">... 不写a 的代码 ...</span><br><span class="line">a = 0;</span><br></pre></td></tr></table></figure>
+<p> 编译器看到变量’a’的值已经是零，所以它可能会省略第二次写。如果其他CPU在此期间<br> 已经写’a’，那不执行第二条写就是错误的。</p>
+<p> 使用WRITE_ONCE()防止编译器做这种错误的猜测：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">WRITE_ONCE(a, 0);</span><br><span class="line">... 不写a 的代码 ...</span><br><span class="line">WRITE_ONCE(a, 0);</span><br></pre></td></tr></table></figure></li>
+<li><p>编译器可以重新排序内存访问指令。例如，考虑以下进程级代码和中断处理函数之间的交互：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">void process_level(void)</span><br><span class="line">&#123;</span><br><span class="line">	msg = get_message();</span><br><span class="line">	flag = true;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void interrupt_handler(void)</span><br><span class="line">&#123;</span><br><span class="line">	if (flag)</span><br><span class="line">		process_message(msg);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> 没有什么能阻止编译器将process_level()转换为以下内容，实际上，这对单线程代码可能是有益的：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">void process_level(void)</span><br><span class="line">&#123;</span><br><span class="line">	flag = true;</span><br><span class="line">	msg = get_message();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> 如果中断发生在这两个语句之间，那么interrupt_handler()可能会收到一个混乱的msg。<br> 使用WRITE_ONCE()防止这种情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">void process_level(void)</span><br><span class="line">&#123;</span><br><span class="line">	WRITE_ONCE(msg, get_message());</span><br><span class="line">	WRITE_ONCE(flag, true);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void interrupt_handler(void)</span><br><span class="line">&#123;</span><br><span class="line">	if (READ_ONCE(flag))</span><br><span class="line">		process_message(READ_ONCE(msg));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 这里用WRITE_ONCE就可以保证两个不同地址的写操作在实际运行时不乱序？
+</font>
+
+<p> 请注意，如果此中断处理程序本身可以被中断，并且被其他也访问’flag’和’msg’的<br> 事物所中断，例如嵌套中断或NMI，则需要中断处理程序中也使用READ_ONCE()和<br> WRITE_ONCE()。(请注意，现代Linux内核通常不会发生嵌套中断，事实上，如果中断<br> 处理程序返回时启用了中断，您将收到WARN_ONCE()。)</p>
+<p> 编译器可以将READ_ONCE()和WRITE_ONCE()与不包含屏障的代码进行乱序。</p>
+<p> 这种效果也可以使用barrier()实现，但READ_ONCE()和WRITE_ONCE()更具选择性：<br> 对于READ_ONCE()和WRITE_ONCE()，只控制它自己，而对于barrier()，编译器必须丢弃<br> 所有当前缓存在任何寄存器中的值。当然，编译器还必须尊重READ_ONCE()和WRITE_ONCE()<br> 发生的顺序。</p>
+</li>
+<li><p>编译器可以生成写操作，如下示例：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">if (a)</span><br><span class="line">	b = a;</span><br><span class="line">else</span><br><span class="line">	b = 42;</span><br></pre></td></tr></table></figure>
+<p> 编译器可以通过如下优化来节省一个分支：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">b = 42;</span><br><span class="line">if (a)</span><br><span class="line">	b = a;</span><br></pre></td></tr></table></figure>
+<p> 在单线程代码中，这不仅安全，而且还节省了一个分支。不幸的是，在并发代码中，<br> 这种优化可能导致其他 CPU从’b’中读到错误的值42使用WRITE_ONCE()防止这种情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">if (a)</span><br><span class="line">	WRITE_ONCE(b, a);</span><br><span class="line">else</span><br><span class="line">	WRITE_ONCE(b, 42);</span><br></pre></td></tr></table></figure>
+<p> 编译器还可以生成读操作。这些通常影响较小，但它们可能导致缓存行弹跳，从而降低<br> 性能和扩展性。使用READ_ONCE()来防止编译器生成这样的读操作。</p>
+</li>
+<li><p>防止”读撕裂”和”写撕裂”。单个大型访问被替换为多个较小的访问。例如，假设一架构<br> 有16位写指令和7位立即数的指令，编译器可能会尝试使用两个16位写立即指令来实现<br> 以下32位写：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">p = 0x00010002;</span><br></pre></td></tr></table></figure>
+<p> 请注意，GCC确实使用这种优化，这并不奇怪，因为构建常量然后写它可能需要超过<br> 两个指令。因此，这种优化在单线程代码中可能是有益的。最近的一个错误(已修复)<br> 导致GCC在volatile中错误地使用这种优化。在没有这种错误的情况下，使用WRITE_ONCE()<br> 可以防止写撕裂：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">WRITE_ONCE(p, 0x00010002);</span><br></pre></td></tr></table></figure>
+<p> 使用__packed__结构体也可能导致撕裂，如下例所示：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">struct __attribute__((__packed__)) foo &#123;</span><br><span class="line">	short a;</span><br><span class="line">	int b;</span><br><span class="line">	short c;</span><br><span class="line">&#125;;</span><br><span class="line">struct foo foo1, foo2;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">foo2.a = foo1.a;</span><br><span class="line">foo2.b = foo1.b;</span><br><span class="line">foo2.c = foo1.c;</span><br></pre></td></tr></table></figure>
+<p> 因为没有READ_ONCE()或WRITE_ONCE()以及没有volatile标志，编译器完全有权将这三<br> 个赋值语句实现为一对32位读，然后是一对32位写。这将导致’foo1.b’上的读撕裂和<br> ‘foo2.b’上的写撕裂。READ_ONCE()和WRITE_ONCE()再次防止了这个例子中的撕裂：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">foo2.a = foo1.a;</span><br><span class="line">WRITE_ONCE(foo2.b, READ_ONCE(foo1.b));</span><br><span class="line">foo2.c = foo1.c;</span><br></pre></td></tr></table></figure>
+<p>撇开这些，对于已经标记为volatile的变量，永远不需要使用READ_ONCE()和WRITE_ONCE()。<br>例如，因为’jiffies’被标记为volatile，所以永远不需要说READ_ONCE(jiffies)。原因是<br>READ_ONCE()和WRITE_ONCE()是实现为volatile强制转换，当其参数已经被标记为volatile<br>时没有效果。</p>
+</li>
+</ul>
+<p>请注意，这些编译器屏障对CPU没有直接影响，CPU可以根据需要对其进行重新排序。如果要<br>对CPU施加屏障，还需要为代码添加CPU屏障。</p>
+<h2 id="CPU-内存屏障"><a href="#CPU-内存屏障" class="headerlink" title="CPU 内存屏障"></a>CPU 内存屏障</h2><p>Linux内核有七个基本的CPU内存屏障：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">类型			 强制屏障	  SMP屏障</span><br><span class="line">=======================	===============	===============</span><br><span class="line">通用			mb()		smp_mb()</span><br><span class="line">写入			wmb()		smp_wmb()</span><br><span class="line">读取			rmb()		smp_rmb()</span><br><span class="line">地址依赖				READ_ONCE()</span><br></pre></td></tr></table></figure>
+<p>除地址依赖屏障外，所有内存屏障都隐含编译器屏障。地址依赖不会对编译器排序施加任何额外的限制。</p>
+<p>另外：在地址依赖的情况下，编译器会预期以正确的顺序发出读指令(例如，<code>a[b]</code>需要在读<br>a[b]之前读b的值) ，然而C语言规范并没有保证编译器不会推测b的值(例如，等于1)并在b<br>之前读a[b](例如，tmp = a[1]; if (b != 1) tmp = a[b]; )。此外，编译器在读a[b]之后<br>重新读b，这样b比a[b]更新，也是有问题的。这些问题尚未达成共识，但READ_ONCE()宏是<br>一个很好的起点。</p>
+<p>在单处理器的系统上，SMP内存屏障会降级为编译器屏障，因为假设CPU对自身看起来是自洽的，<br>并且会正确排序自身的重叠访问。然而，请参阅下面关于”虚拟机客户机”的小节。</p>
+<p>[!] 请注意，SMP屏障仅用于控制对SMP系统上共享内存的访存顺序，尽管使用锁定也是足够的。</p>
+<p>强制屏障可以控制IO设备视角下的整个CPU的内存顺序。而SMP屏障仅控制CPU内多个核心之间<br>的内存顺序。不应该用强制屏障控制仅在CPU范围内所需的顺序，这会带来不必要的开销。</p>
+<p>还有一些更高级的屏障函数：</p>
+<ul>
+<li><p>smp_store_mb(var, value)</p>
+<p> 这将为变量赋值，然后在其后插入一个完整的内存屏障。在UP编译中，不保证插入比<br> 编译器更严格的屏障。</p>
+<font color="##FF0000">
+comment: 什么是UP编译？
+</font></li>
+<li><p> smp_mb__before_atomic();</p>
+</li>
+<li><p>smp_mb__after_atomic();</p>
+<p> 这些是用于原子RMW函数的，这些函数不隐含内存屏障，但代码需要内存屏障。例如，<br> 不隐含内存屏障的原子RMW函数包括加法、减法、(失败的)条件操作、_relaxed函数，<br> 但不包括atomic_read或atomic_set。当原子操作用于引用计数时，可能需要内存屏障。</p>
+<p> 这些还用于不隐含内存屏障的原子RMW位操作函数(如set_bit和clear_bit)。</p>
+<p> 例如，考虑一段代码，它将一个对象标记为死亡，然后减少该对象的引用计数：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">obj-&gt;dead = 1;</span><br><span class="line">smp_mb__before_atomic();</span><br><span class="line">atomic_dec(&amp;obj-&gt;ref_count);</span><br></pre></td></tr></table></figure>
+<p> 这确保了在引用计数器递减之前，对象上的死亡标记一定被设置。</p>
+<p> 有关更多信息，请参阅 Documentation/atomic_{t,bitops}.txt。</p>
+</li>
+<li><p> dma_wmb();</p>
+</li>
+<li><p> dma_rmb();</p>
+</li>
+<li><p>dma_mb();</p>
+<p> 确保CPU和DMA设备间的共享内存的读写顺序。更多信息请参阅Documentation/core-api/dma-api.rst文件。</p>
+<p> 例如，一个设备驱动程序与设备共享内存，并使用描述符状态值来指示描述符属于<br> 设备还是CPU，以及一个门铃来通知它何时有新的描述符可用：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">if (desc-&gt;status != DEVICE_OWN) &#123;</span><br><span class="line">	/* 在拥有描述符之前不读取数据 */</span><br><span class="line">	dma_rmb();</span><br><span class="line"></span><br><span class="line">	/* 读取/修改数据 */</span><br><span class="line">	read_data = desc-&gt;data;</span><br><span class="line">	desc-&gt;data = write_data;</span><br><span class="line"></span><br><span class="line">	/* 在状态更新之前刷新修改 */</span><br><span class="line">	dma_wmb();</span><br><span class="line"></span><br><span class="line">	/* 分配所有权 */</span><br><span class="line">	desc-&gt;status = DEVICE_OWN;</span><br><span class="line"></span><br><span class="line">	/* 使描述符状态对设备可见，然后通知设备有新的描述符 */</span><br><span class="line">	writel(DESC_NOTIFY, doorbell);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p> dma_rmb()确保在从描述符中读取数据之前，设备已经释放了所有权，而<br> dma_wmb()确保在设备看到自己被赋予所有权之前，CPU已经将数据写入描述符。<br> dma_mb()隐含了dma_rmb()和dma_wmb()。</p>
+<font color="##FF0000">
+comment: 这里似乎是说，设备会更新desc->status这个状态位，所以dma_rmb可以刷掉可能
+投机读取的desc->data，重新读desc->data的内容。但是，dma_wmb这里的作用就比较模糊了，
+显然dma_wmb这里想要保序的是两个CPU的写地址操作，使用smp_wmb似乎也可以满足要求。
+</font>
+
+<p> 请注意，dma_*()屏障不为MMIO区域的访问提供任何排序保证。有关I/O访问器和MMIO<br> 排序的更多信息，请参阅后面的”内核I/O屏障效果”小节。</p>
+</li>
+<li><p>pmem_wmb();</p>
+<p>  该函数用于持久性内存，以确保已将修改写入持久性写的写操作已到达平台耐久性领域。</p>
+<p>  例如，在对pmem区域进行非临时性写操作后，我们使用pmem_wmb()确保写操作完成。<br>  这可以让持久存储在后续读执之前就更新。这是在wmb()不保证的。</p>
+<p>  对于从持久性内存读，现有的读内存屏障足以确保读取顺序。</p>
+</li>
+<li><p>io_stop_wc();</p>
+<p> 对于具有写入组合属性的内存访问(例如，由ioremap_wc()返回的那些)，CPU可能会等<br> 待先前的访问与后续的访问合并。当此类等待对性能有影响时，可以使用io_stop_wc()<br> 防止在此宏之前的写入组合内存访问与之后的访问合并。</p>
+</li>
+</ul>
+<h1 id="隐式内核内存屏障"><a href="#隐式内核内存屏障" class="headerlink" title="隐式内核内存屏障"></a>隐式内核内存屏障</h1><p>Linux内核中的其他一些函数隐含了内存屏障，其中包括锁和调度函数。</p>
+<p>此规范是一个 <em>最低</em> 保证；任何特定架构可能提供更实质性的保证，但在通用代码中应当按照最<br>坏情况来考虑。</p>
+<h2 id="取锁函数"><a href="#取锁函数" class="headerlink" title="取锁函数"></a>取锁函数</h2><p>Linux内核有多种锁：</p>
+<ul>
+<li> 自旋锁</li>
+<li> 读/写自旋锁</li>
+<li> 互斥锁</li>
+<li> 信号量</li>
+<li> 读/写信号量</li>
+</ul>
+<p>在所有情况下，都有针对每种操作的”ACQUIRE”(获取)操作和”RELEASE”(释放)操作的变体。<br>这些操作都暗示着特定屏障：</p>
+<ol>
+<li><p>ACQUIRE操作的含义：</p>
+<p>在ACQUIRE之后的指令都会排在ACQUIRE之后。</p>
+<p>在ACQUIRE之前的指令不受限制。</p>
+<font color="##FF0000">
+comment: 注意这里说的是所有指令，特定指令集上acquire/release定义一般针对的是访存指令。
+</font></li>
+<li><p>RELEASE操作的含义：</p>
+<p>在RELEASE之前的操作都排在RELEASE 之前。</p>
+<p>在RELEASE之后的指令不受限制。</p>
+</li>
+<li><p>ACQUIRE与ACQUIRE：</p>
+<p>在另一个ACQUIRE操作之前发出的所有ACQUIRE操作将在该ACQUIRE操作之前完成。</p>
+<font color="##FF0000">
+comment: 这里的“该ACQUIRE”是指“另一个ACQUIRE”，就是说ACQUIRE A .. ACQUIRE B，
+ACQUIRE A在ACQUIRE B之前完成。
+</font></li>
+<li><p>ACQUIRE与RELEASE：</p>
+<p>在RELEASE操作之前发出的所有ACQUIRE操作将在RELEASE操作之前完成。</p>
+</li>
+<li><p>可失败ACQUIRE：</p>
+<p>ACQUIRE操作的某些锁定变体可能会失败，原因可能是无法立即获取锁，或者在等待<br>锁可用时收到唤醒信号。失败的锁不包含任何类型的屏障。</p>
+</li>
+</ol>
+<p>[!] 注意：锁的ACQUIRE和RELEASE只是单向屏障的一个后果是，临界区外的指令可能会渗入临界区内部。</p>
+<p>不能假定ACQUIRE后跟RELEASE是完全内存屏障，因为在ACQUIRE之前发生的访问可能在ACQUIRE<br>之后发生，而在RELEASE之后发生的访问可能在RELEASE之前发生，这两者之间可以相互交叉：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*A = a;</span><br><span class="line">ACQUIRE M</span><br><span class="line">RELEASE M</span><br><span class="line">*B = b;</span><br></pre></td></tr></table></figure>
+<p>可能会发生以下情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">ACQUIRE M, STORE *B, STORE *A, RELEASE M</span><br></pre></td></tr></table></figure>
+<p>当ACQUIRE和RELEASE分别是锁获取和释放时，如果锁的ACQUIRE和RELEASE都针对同一个锁变量，<br>则只能从未持有该锁的另一个CPU的角度来看，可以发生这种重新排序。简而言之，ACQUIRE<br>后跟一个RELEASE不等于通用屏障。<br><font color="##FF0000"><br>comment: 简单说ACQUIRE/RELEASE毕竟在两个指令上，前后指令还是有可能乱序到它们之间。<br></font></p>
+<p>同样，RELEASE后跟ACQUIRE也不是通用内存屏障。RELEASE和ACQUIRE可以交叉：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*A = a;</span><br><span class="line">RELEASE M</span><br><span class="line">ACQUIRE N</span><br><span class="line">*B = b;</span><br></pre></td></tr></table></figure>
+<p>可能会发生以下情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">ACQUIRE N, STORE *B, STORE *A, RELEASE M</span><br></pre></td></tr></table></figure>
+<p>这种重新排序可能导致死锁。然而，这是不可能发生的，因为如果存在这种死锁威胁，RELEASE<br>将简单地完成，从而避免死锁。</p>
+<p>  为什么会这样？</p>
+<p>  我们只讨论CPU进行重新排序，而不是编译器。如果编译器(或者开发者)<br>  交换了操作，死锁确实可能发生。</p>
+<p>  假设CPU对操作进行了重新排序。在这种情况下，在汇编代码中解锁操作在锁定<br>  操作之前。CPU只是选择先尝试执行后面的锁操作。如果存在死锁，这个锁操作将<br>  简单地旋转(或尝试睡眠，但稍后会有更多解释) 。最终，CPU将执行解锁操作<br>  (在汇编代码中位于锁操作之前) ，从而解开潜在的死锁，使锁操作成功。</p>
+<p>  但如果锁是一个sleeplock怎么办？在这种情况下，代码将尝试进入调度程序，<br>  最终遇到内存屏障，强制早期的解锁操作完成，再次解开死锁。可能存在睡眠-解锁<br>  竞争，但无论如何，锁定原语都需要正确解决这种竞争。</p>
+<p>在UP编译的系统上，锁和信号量可能无法提供任何排序保证，因此在这种情况下不能依赖<br>它们来实际实现任何事情 - 特别是关于I/O访问 - 除非与中断禁用操作结合使用。<br><font color="##FF0000"><br>comment: ACQUIRE/RELEASE中关于可能死锁的分析这段没有看懂？<br></font></p>
+<p>参见”跨 CPU ACQUIRE 屏障”一节。</p>
+<p>以以下例子为例：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*A = a;</span><br><span class="line">*B = b;</span><br><span class="line">ACQUIRE</span><br><span class="line">*C = c;</span><br><span class="line">*D = d;</span><br><span class="line">RELEASE</span><br><span class="line">*E = e;</span><br><span class="line">*F = f;</span><br></pre></td></tr></table></figure>
+<p>以下事件序列是可以接受的：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">ACQUIRE, &#123;*F,*A&#125;, *E, &#123;*C,*D&#125;, *B, RELEASE</span><br></pre></td></tr></table></figure>
+<pre><code>[+] 注意 &#123;*F,*A&#125; 表示一个组合访问。
+</code></pre>
+<p>但以下都不是：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">&#123;*F,*A&#125;, *B,	ACQUIRE, *C, *D,	RELEASE, *E</span><br><span class="line">*A, *B, *C,	ACQUIRE, *D,		RELEASE, *E, *F</span><br><span class="line">*A, *B,		ACQUIRE, *C,		RELEASE, *D, *E, *F</span><br><span class="line">*B,		ACQUIRE, *C, *D,	RELEASE, &#123;*F,*A&#125;, *E</span><br></pre></td></tr></table></figure>
+
+<h2 id="关中断函数"><a href="#关中断函数" class="headerlink" title="关中断函数"></a>关中断函数</h2><p>禁用中断(相当于ACQUIRE)和启用中断(相当于RELEASE)的函数将仅充当编译器屏障。因此，<br>如果在这种情况下需要内存或I/O屏障，需要额外添加。</p>
+<h2 id="睡眠和唤醒函数"><a href="#睡眠和唤醒函数" class="headerlink" title="睡眠和唤醒函数"></a>睡眠和唤醒函数</h2><p>等待事件完成的睡眠，可以看作是进程状态和事件状态间的交互。为了他们按正确的顺序更改，<br>睡眠和唤醒函数都包含了某些屏障。</p>
+<p>首先，睡眠者通常遵循类似于以下的事件序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">for (;;) &#123;</span><br><span class="line">	set_current_state(TASK_UNINTERRUPTIBLE);</span><br><span class="line">	if (event_indicated)</span><br><span class="line">		break;</span><br><span class="line">	schedule();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>通用内存屏障会自动在set_current_state()修改任务状态后插入：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1</span><br><span class="line">===============================</span><br><span class="line">set_current_state();</span><br><span class="line">  smp_store_mb();</span><br><span class="line">    STORE current-&gt;state</span><br><span class="line">    &lt;通用屏障&gt;</span><br><span class="line">LOAD event_indicated</span><br></pre></td></tr></table></figure>
+<p>set_current_state()可能被以下函数调用：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">prepare_to_wait();</span><br><span class="line">prepare_to_wait_exclusive();</span><br></pre></td></tr></table></figure>
+<p>因此，设置状态也包含了通用内存屏障。上面的整个序列以各种形式提供，所有这些形式都在<br>正确的位置插入内存屏障：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">wait_event();</span><br><span class="line">wait_event_interruptible();</span><br><span class="line">wait_event_interruptible_exclusive();</span><br><span class="line">wait_event_interruptible_timeout();</span><br><span class="line">wait_event_killable();</span><br><span class="line">wait_event_timeout();</span><br><span class="line">wait_on_bit();</span><br><span class="line">wait_on_bit_lock();</span><br></pre></td></tr></table></figure>
+<p>其次，执行唤醒操作的代码通常遵循类似于以下的内容：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">event_indicated = 1;</span><br><span class="line">wake_up(&amp;event_wait_queue);</span><br></pre></td></tr></table></figure>
+<p>或：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">event_indicated = 1;</span><br><span class="line">wake_up_process(event_daemon);</span><br></pre></td></tr></table></figure>
+<p>如果唤醒了某个事物，wake_up()会执行通用内存屏障。如果没有唤醒任何事物，内存屏障可能<br>会或可能不会执行；你不能依赖它。屏障发生在访问任务状态之前，特别地，它位于表示事件<br>的写和设置TASK_RUNNING的写之间：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1 (Sleeper)			CPU 2 (Waker)</span><br><span class="line">===============================	===============================</span><br><span class="line">set_current_state();		STORE event_indicated</span><br><span class="line">  smp_store_mb();		wake_up();</span><br><span class="line">    STORE current-&gt;state	  ...</span><br><span class="line">    &lt;通用屏障&gt;		          &lt;通用屏障&gt;</span><br><span class="line">LOAD event_indicated		  if ((LOAD task-&gt;state) &amp; TASK_NORMAL)</span><br><span class="line">				    STORE task-&gt;state</span><br></pre></td></tr></table></figure>
+<p>其中”task”是被唤醒的线程，它等于CPU 1的”current”。</p>
+<p>重复一遍，如果实际唤醒了目标任务，wake_up()保证执行通用内存屏障，如果不需要唤醒<br>目标任务则没有屏障。请考虑以下事件序列，其中X和Y最初都是零：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1				CPU 2</span><br><span class="line">===============================	===============================</span><br><span class="line">X = 1;				Y = 1;</span><br><span class="line">smp_mb();			wake_up();</span><br><span class="line">LOAD Y				LOAD X</span><br></pre></td></tr></table></figure>
+<p>如果唤醒确实发生，两个读中的至少一个必须看到1。另一方面，如果唤醒没有发生，两个加<br>载都可能看到0。</p>
+<p>wake_up_process()总是执行通用内存屏障。屏障发生在访问任务状态之前。也就是说，如<br>果在前面的片段中将wake_up()替换为对wake_up_process()的调用，那么两个读中的一个将<br>保证看到1。</p>
+<p>可用的唤醒函数包括：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">complete();</span><br><span class="line">wake_up();</span><br><span class="line">wake_up_all();</span><br><span class="line">wake_up_bit();</span><br><span class="line">wake_up_interruptible();</span><br><span class="line">wake_up_interruptible_all();</span><br><span class="line">wake_up_interruptible_nr();</span><br><span class="line">wake_up_interruptible_poll();</span><br><span class="line">wake_up_interruptible_sync();</span><br><span class="line">wake_up_interruptible_sync_poll();</span><br><span class="line">wake_up_locked();</span><br><span class="line">wake_up_locked_poll();</span><br><span class="line">wake_up_nr();</span><br><span class="line">wake_up_poll();</span><br><span class="line">wake_up_process();</span><br></pre></td></tr></table></figure>
+<p>在内存排序方面，这些函数都提供了wake_up()(或更强)的相同保证。</p>
+<p>[!] 请注意，睡眠和唤醒函数的内存屏障 <em>不会</em> 在唤醒之前按顺序对多个写进行排序，也<br>不会在睡眠者调用set_current_state()之后对读进行排序。例如，如果睡眠者执行以下操作：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">set_current_state(TASK_INTERRUPTIBLE);</span><br><span class="line">if (event_indicated)</span><br><span class="line">	break;</span><br><span class="line">__set_current_state(TASK_RUNNING);</span><br><span class="line">do_something(my_data);</span><br></pre></td></tr></table></figure>
+<p>如果唤醒者执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">my_data = value;</span><br><span class="line">event_indicated = 1;</span><br><span class="line">wake_up(&amp;event_wait_queue);</span><br></pre></td></tr></table></figure>
+<p>不能保证睡眠者会将event_indicated的更改视为在my_data的更改之后发生。在这种情<br>况下，双方的代码都必须在单独的数据访问之间插入自己的内存屏障。因此，上面的睡眠者应该执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">set_current_state(TASK_INTERRUPTIBLE);</span><br><span class="line">if (event_indicated) &#123;</span><br><span class="line">	smp_rmb();</span><br><span class="line">	do_something(my_data);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>唤醒者应该执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">my_data = value;</span><br><span class="line">smp_wmb();</span><br><span class="line">event_indicated = 1;</span><br><span class="line">wake_up(&amp;event_wait_queue);</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 没有理解本节的内容，需要结合具体代码理解。
+</font>
+
+<h2 id="杂项函数"><a href="#杂项函数" class="headerlink" title="杂项函数"></a>杂项函数</h2><p>其他具有障碍意义的函数：</p>
+<ul>
+<li> schedule()和类似的函数包含通用内存屏障。</li>
+</ul>
+<h1 id="跨CPU-ACQUIRING-屏障的影响"><a href="#跨CPU-ACQUIRING-屏障的影响" class="headerlink" title="跨CPU ACQUIRING 屏障的影响"></a>跨CPU ACQUIRING 屏障的影响</h1><p>在SMP系统中，lock功能可以通过争抢锁来切实影响其他CPU上的内存访问顺序。</p>
+<h2 id="ACQUIRES与内存访问"><a href="#ACQUIRES与内存访问" class="headerlink" title="ACQUIRES与内存访问"></a>ACQUIRES与内存访问</h2><p>考虑以下情况：系统具有一对自旋锁(M)和(Q) ，以及三个CPU。然后，如果发生以下事件序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1				CPU 2</span><br><span class="line">===============================	===============================</span><br><span class="line">WRITE_ONCE(*A, a);		WRITE_ONCE(*E, e);</span><br><span class="line">ACQUIRE M			ACQUIRE Q</span><br><span class="line">WRITE_ONCE(*B, b);		WRITE_ONCE(*F, f);</span><br><span class="line">WRITE_ONCE(*C, c);		WRITE_ONCE(*G, g);</span><br><span class="line">RELEASE M			RELEASE Q</span><br><span class="line">WRITE_ONCE(*D, d);		WRITE_ONCE(*H, h);</span><br></pre></td></tr></table></figure>
+<p>那么除了单独的CPU上单独的锁对CPU 3施加的约束之外，没有保证CPU 3将看到<em>A至</em>H的访问<br>顺序。例如，它可能看到：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*E, ACQUIRE M, ACQUIRE Q, *G, *C, *F, *A, *B, RELEASE Q, *D, *H, RELEASE M</span><br></pre></td></tr></table></figure>
+<p>但它不会看到：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*B, *C 或 *D 在 ACQUIRE M 之前</span><br><span class="line">*A, *B 或 *C 在 RELEASE M 之后</span><br><span class="line">*F, *G 或 *H 在 ACQUIRE Q 之前</span><br><span class="line">*E, *F 或 *G 在 RELEASE Q 之后</span><br></pre></td></tr></table></figure>
+<font color="##FF0000">
+comment: 没有理解本节的内容。
+</font>
+
+<h1 id="哪里需要内存屏障？"><a href="#哪里需要内存屏障？" class="headerlink" title="哪里需要内存屏障？"></a>哪里需要内存屏障？</h1><p>在正常操作下，内存操作重排序通常不会成为问题，因为即使是在SMP内核中，单线程线性代码仍<br>然会正常工作。在以下四种情况下，需要考虑使用内存屏障：</p>
+<ul>
+<li><p> 处理器间交互。</p>
+</li>
+<li><p> 原子操作。</p>
+</li>
+<li><p> 访问设备。</p>
+</li>
+<li><p> 中断。</p>
+</li>
+</ul>
+<h2 id="处理器间交互"><a href="#处理器间交互" class="headerlink" title="处理器间交互"></a>处理器间交互</h2><p>当一个系统有多个处理器时，系统中的多个CPU可能会同时处理同一组数据。这可能导致同步问题，<br>通常处理这些问题的方法是使用锁。然而，锁代价相当高昂，因此如果可能的话，最好在不使用<br>锁的情况下进行操作。这就需要用屏障对两个CPU上的代码进行排序。</p>
+<p>以R/W信号量的慢速路径为例。在这里，一个等待的进程被排队在信号量上，它的堆栈上有<br>一部分与信号量的等待进程列表相连接：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">struct rw_semaphore &#123;</span><br><span class="line">	...</span><br><span class="line">	spinlock_t lock;</span><br><span class="line">	struct list_head waiters;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line">struct rwsem_waiter &#123;</span><br><span class="line">	struct list_head list;</span><br><span class="line">	struct task_struct *task;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>要唤醒特定的等待者，up_read()或up_write() 函数必须：</p>
+<ol>
+<li><p>从该等待者的记录中读取下一个指针，以了解下一个等待者记录在哪里；</p>
+</li>
+<li><p>读取指向等待者任务结构的指针；</p>
+</li>
+<li><p>清除任务指针，告诉等待者它已经获取了信号量；</p>
+</li>
+<li><p>在任务上调用wake_up_process()；并且</p>
+</li>
+<li><p>释放对等待者任务结构的引用。</p>
+</li>
+</ol>
+<p>换句话说，它必须执行以下事件序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">LOAD waiter-&gt;list.next;</span><br><span class="line">LOAD waiter-&gt;task;</span><br><span class="line">STORE waiter-&gt;task;</span><br><span class="line">CALL wakeup</span><br><span class="line">RELEASE task</span><br></pre></td></tr></table></figure>
+<p>如果这些步骤按照错误的顺序发生，那么整个事情可能会出错。</p>
+<p>一旦将自己排队并释放信号量，等待者不再获取锁；相反，它只是等待任务指针被清除后再继续。<br>由于记录在等待者的堆栈上，这意味着如果在读取列表中的下一个指针之前清除了任务指针，另<br>一个CPU可能会开始处理等待者，可能会在up*()函数有机会读取下一个指针之前损坏等待者的堆栈。</p>
+<p>那么，考虑一下上述事件序列可能发生的情况：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">CPU 1				CPU 2</span><br><span class="line">===============================	===============================</span><br><span class="line">				down_xxx()</span><br><span class="line">				排队</span><br><span class="line">				睡眠</span><br><span class="line">up_yyy()</span><br><span class="line">LOAD waiter-&gt;task;</span><br><span class="line">STORE waiter-&gt;task;</span><br><span class="line">				由其他事件唤醒</span><br><span class="line">&lt;preempt&gt;</span><br><span class="line">				恢复处理</span><br><span class="line">				down_xxx() 返回</span><br><span class="line">				调用 foo()</span><br><span class="line">				foo() 破坏了 *waiter</span><br><span class="line">&lt;/preempt&gt;</span><br><span class="line">LOAD waiter-&gt;list.next;</span><br><span class="line">--- 错误 ---</span><br></pre></td></tr></table></figure>
+<p>可以使用信号量锁来处理这个问题，但是这样的话，在被唤醒后 down_xxx() 函数就不必<br>再次获得自旋锁了。</p>
+<p>处理这个问题的方法是插入一个通用的SMP内存屏障：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">LOAD waiter-&gt;list.next;</span><br><span class="line">LOAD waiter-&gt;task;</span><br><span class="line">smp_mb();</span><br><span class="line">STORE waiter-&gt;task;</span><br><span class="line">CALL wakeup</span><br><span class="line">RELEASE task</span><br></pre></td></tr></table></figure>
+<p>在这种情况下，屏障保证了在屏障之前的所有内存访问相对于系统上的其他CPU看起来都是在屏障之<br>后的所有内存访问之前发生的。它并 <em>不</em> 保证在屏障指令本身完成时，屏障之前的所有内存访问<br>都将完成。</p>
+<p>在一个UP系统中 - 在这里这不会成为问题 - smp_mb()只是一个编译器屏障，因此确保编译器<br>以正确的顺序发出指令，而无需实际干预CPU。由于只有一个CPU，那个CPU的依赖排序逻辑将处理<br>其他所有内容。<br><font color="##FF0000"><br>comment: 没有理解本节的内容。<br></font></p>
+<h2 id="原子操作"><a href="#原子操作" class="headerlink" title="原子操作"></a>原子操作</h2><p>它们中有的包含通用内存屏障，有的没有，内核大量依赖原子操作。</p>
+<p>有关更多信息，请参阅Documentation/atomic_t.txt。</p>
+<h2 id="访问设备"><a href="#访问设备" class="headerlink" title="访问设备"></a>访问设备</h2><p>许多设备可以进行内存映射，因此对CPU来说，访问它们就像访问内存一样。要控制这样的设备，<br>驱动程序通常必须以完全正确的顺序进行内存访问。</p>
+<p>然而，拥有聪明的CPU或聪明的编译器会产生一个潜在的问题，即驱动代码中仔细安排的访问<br>顺序如果没有按照所需的顺序到达设备，CPU或编译器认为重新排序、组合或合并访问更有效的<br>话，就会导致设备故障。</p>
+<p>在Linux 内核中，I/O应该通过适当的访问例程(如inb()或writel()) 完成，这些例程知道<br>如何使此类访问适当地顺序进行。在大多数情况下，这使得显式使用内存屏障变得不必要，<br>但是，如果访问函数用于引用具有宽松内存访问属性的I/O内存窗口，则需要 <em>强制性</em> 内存<br>屏障来强制排序。</p>
+<p>有关更多信息，请参阅Documentation/driver-api/device-io.rst。</p>
+<h2 id="中断"><a href="#中断" class="headerlink" title="中断"></a>中断</h2><p>驱动程序可能会被其自身的中断服务例程中断，因此驱动程序的两个部分可能会相互干扰对设<br>备的控制或访问。</p>
+<p>至少在某种程度上，可以通过禁用本地中断(一种锁定形式)来缓解这种情况，这样关键操作<br>都包含在驱动程序中的禁用中断部分内。在驱动程序的中断例程执行期间，驱动程序的核心可<br>能无法在同一CPU上运行，而且在处理当前中断之前，不允许再次发生中断，因此中断处理程<br>序不需要对其进行锁定。</p>
+<p>然而，考虑一个与以太网卡通信的驱动程序，该以太网卡具有地址寄存器和数据寄存器。如果<br>驱动程序的核心在禁用中断的情况下与卡进行通信，然后调用驱动程序的中断处理程序：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">LOCAL IRQ DISABLE</span><br><span class="line">writew(ADDR, 3);</span><br><span class="line">writew(DATA, y);</span><br><span class="line">LOCAL IRQ ENABLE</span><br><span class="line">&lt;interrupt&gt;</span><br><span class="line">writew(ADDR, 4);</span><br><span class="line">q = readw(DATA);</span><br><span class="line">&lt;/interrupt&gt;</span><br></pre></td></tr></table></figure>
+<p>如果排序规则足够宽松，那么在第二次写入地址寄存器之后，可能会发生对数据寄存器的写：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">STORE *ADDR = 3, STORE *ADDR = 4, STORE *DATA = y, q = LOAD *DATA</span><br></pre></td></tr></table></figure>
+<p>如果排序规则宽松，必须假定在禁用中断的部分内完成的访问可能会泄漏到其外部，并且可<br>能与在中断中执行的访问交错，反之亦然，除非使用隐式或显式屏障。</p>
+<p>通常这不会是问题，因为在这些部分内完成的I/O访问将包括对严格排序的I/O寄存器的同步<br>读操作，这些操作形成了隐式的I/O屏障。</p>
+<p>类似的情况可能发生在中断例程和在单独的CPU上运行的两个相互通信的例程之间。如果可能<br>出现这种情况，那么应使用禁用中断的锁来保证排序。</p>
+<h1 id="内核-I-O-屏障"><a href="#内核-I-O-屏障" class="headerlink" title="内核 I/O 屏障"></a>内核 I/O 屏障</h1><p>通过I/O与外围设备进行交互，在不同架构和设备间有很大的差异。因此，不打算移植的驱动程序<br>可能依赖于其目标系统的特定行为，以尽可能轻量地实现同步。对于打算在多个架构和总线实现之间<br>移植的驱动程序，内核提供了一系列函数，提供不同程度的排序保证：</p>
+<ul>
+<li><p>readX(), writeX():</p>
+<p> readX()和writeX() MMIO访问器接受一个指向被访问外设的__iomem *参数。对于<br> 具有默认I/O属性的映射指针(例如，由ioremap()返回的指针)，排序保证如下：</p>
+<ol>
+<li><p>所有针对同一外设的readX()和writeX()访问彼此有序。这确保了同一CPU线程<br>对特定设备的MMIO寄存器访问将按程序顺序到达。</p>
+</li>
+<li><p>一个持有自旋锁的CPU线程发出的writeX()将在另一个CPU线程在后续获取相同<br>自旋锁后发出的对同一外设的writeX()之前排序。这确保了在持有自旋锁时发出<br>的对特定设备的MMIO寄存器写入将按照获取锁的顺序到达。</p>
+</li>
+<li><p>一个CPU线程对外设的writeX()将首先等待由同一线程发出或传播给同一线程的<br>所有先前对内存的写入完成。这确保了CPU对由dma_alloc_coherent()分配的<br>出站DMA缓冲区的写入在CPU写入其MMIO控制寄存器以触发传输时对DMA引擎可见。</p>
+</li>
+<li><p>一个CPU线程从外设读取的readX()将在相同线程的任何后续内存读取开始之前完<br>成。这确保了CPU从DMA引擎的MMIO状态寄存器读取以确定DMA传输已完成后从由<br>dma_alloc_coherent()分配的传入DMA缓冲区不会看到过时的数据。</p>
+<font color="##FF0000">
+comment: 第3/4点有点问题，这里是否使用smp_rb/smp_wb，这里的关键点在哪里？
+</font></li>
+<li><p>一个CPU线程从外设读取的readX()将在相同线程上的任何后续delay()循环开始<br>执行之前完成。这确保了CPU对外设的两个MMIO寄存器写入至少相隔1us，如果<br>第一个写入立即使用readX()读回并在第二个writeX()之前调用udelay(1)：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">writel(42, DEVICE_REGISTER_0); // 到达设备 ...</span><br><span class="line">readl(DEVICE_REGISTER_0);</span><br><span class="line">udelay(1);</span><br><span class="line">writel(42, DEVICE_REGISTER_1); // ...至少等待 1us。</span><br></pre></td></tr></table></figure>
+<p>具有非默认属性的__iomem指针的排序属性(例如，由ioremap_wc()返回的指针)<br>特定于底层架构，因此上述保证通常不能依赖于访问这些类型的映射。</p>
+<font color="##FF0000">
+comment: 这个点有点莫名其妙？
+</font></li>
+</ol>
+</li>
+<li><p>readX_relaxed(), writeX_relaxed():</p>
+<p> 这些类似于readX()和writeX()，但提供较弱的内存排序保证。具体来说，它们不<br> 保证与锁定、正常内存访问或delay()循环(即上述第2-5 点)有序，但仍保证在使用<br> 具有默认I/O属性的映射的__iomem指针时，与来自相同CPU线程的其他访问有序。</p>
+</li>
+<li><p>readsX(), writesX():</p>
+<p> readsX()和writesX()MMIO访问器设计用于访问位于不支持DMA的外设上的基于寄存<br> 器的内存映射FIFO。因此，它们只提供readX_relaxed()和writeX_relaxed()的排序<br> 保证，如上文所述。</p>
+</li>
+<li><p>inX(), outX():</p>
+<p> inX()和outX()访问器旨在访问传统的端口映射I/O外设，在某些架构上可能需要特殊<br> 指令(尤其是x86)。所访问外设的端口号作为参数传递。</p>
+<p> 由于许多CPU架构最终通过内部虚拟内存映射访问这些外设，因此inX()和outX()<br> 提供的可移植排序保证与分别访问具有默认I/O属性的映射时readX()和writeX()<br> 提供的保证相同。</p>
+<p> 设备驱动程序可能期望outX()发出一个非传递写事务，在返回之前等待来自I/O外<br> 设的完成响应。这并不是所有架构都能保证的，因此不属于可移植排序语义的一部分。</p>
+</li>
+<li><p>insX(), outsX():</p>
+<p> 如上所述，分别访问具有默认I/O属性的映射时，insX()和outsX()访问器提供与<br> readsX()和writesX()相同的排序保证。</p>
+</li>
+<li><p>ioreadX(), iowriteX():</p>
+<p> 这些将根据它们实际执行的访问类型执行适当的操作，无论是inX()/outX()还是<br> readX()/writeX()。</p>
+</li>
+</ul>
+<p>除了字符串访问器(insX()、outsX()、readsX()和writesX())之外，上述所有内容都假定<br>外设为小端模式，并因此在大端架构上执行字节交换操作。</p>
+<h1 id="假定的最小执行顺序模型"><a href="#假定的最小执行顺序模型" class="headerlink" title="假定的最小执行顺序模型"></a>假定的最小执行顺序模型</h1><p>CPU必须确保本核视角下本核的指令是按顺序执行的，本核的乱序是一个黑箱。不同架构的<br>内存一致性模型不同，因此我们要选择一致性最差的CPU作为模型，即DEC Alpha。</p>
+<p>这意味着必须假设CPU将以任何顺序执行指令，甚至可能是并行执行。如果指令流中的一个<br>指令依赖于较早的指令，则被依赖的较早指令满足该指令的条件[*]后才能执行这条指令。<br>换句话说：要保持指令间的因果关系。</p>
+<p> [*] 一些指令具有多种效果 - 例如改变条件代码、改变寄存器或改变内存 - 不同的指令<br>     可能依赖于不同的效果。</p>
+<p>CPU可能丢弃没有效果的指令。例如，如果两个相邻的指令都将立即数读到同一个寄存器中，<br>那第一个指令可能会被丢弃。</p>
+<p>同样，编译器也会在保持因果关系的情况下以任何方式重新排序指令。</p>
+<h1 id="CPU-缓存的影响"><a href="#CPU-缓存的影响" class="headerlink" title="CPU 缓存的影响"></a>CPU 缓存的影响</h1><p>被缓存的内存的操作在系统中的感知方式在一定程度上受到位于CPU和内存之间的缓存以及<br>维护系统状态一致性的内存一致性系统的影响。</p>
+<p>就CPU通过缓存与系统其他部分交互的方式而言，内存系统必须包括CPU的缓存，而内存屏<br>障在很大程度上作用在CPU和其缓存之间的接口上(在下图中，内存屏障在虚线上起作用):</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">    &lt;--- CPU ---&gt;         :       &lt;----------- Memory -----------&gt;</span><br><span class="line">                          :</span><br><span class="line">+--------+    +--------+  :   +--------+    +-----------+</span><br><span class="line">|        |    |        |  :   |        |    |           |    +--------+</span><br><span class="line">|  CPU   |    | Memory |  :   | CPU    |    |           |    |        |</span><br><span class="line">|  Core  |---&gt;| Access |-----&gt;| Cache  |&lt;--&gt;|           |    |        |</span><br><span class="line">|        |    | Queue  |  :   |        |    |           |---&gt;| Memory |</span><br><span class="line">|        |    |        |  :   |        |    |           |    |        |</span><br><span class="line">+--------+    +--------+  :   +--------+    |           |    |        |</span><br><span class="line">                          :                 | Cache     |    +--------+</span><br><span class="line">                          :                 | Coherency |</span><br><span class="line">                          :                 | Mechanism |    +--------+</span><br><span class="line">+--------+    +--------+  :   +--------+    |           |    |	      |</span><br><span class="line">|        |    |        |  :   |        |    |           |    |        |</span><br><span class="line">|  CPU   |    | Memory |  :   | CPU    |    |           |---&gt;| Device |</span><br><span class="line">|  Core  |---&gt;| Access |-----&gt;| Cache  |&lt;--&gt;|           |    |        |</span><br><span class="line">|        |    | Queue  |  :   |        |    |           |    |        |</span><br><span class="line">|        |    |        |  :   |        |    |           |    +--------+</span><br><span class="line">+--------+    +--------+  :   +--------+    +-----------+</span><br><span class="line">                          :</span><br><span class="line">                          :</span><br></pre></td></tr></table></figure>
+<p>有的读或写操作可能实际上没有在发出它的CPU外部出现，因为它可能已经在CPU自己的缓存<br>中得到满足，但就其他CPU而言，它仍然会表现得好像已经发生了完整的内存访问，因为缓存<br>一致性机制将在缓存间传播内存操作。</p>
+<p>CPU核心可以以它认为合适的任何顺序执行指令，前提是保持预期的程序因果关系。一些指令<br>生成读和写操作，然后进入要执行的内存访问队列。核心可以按照它希望的任何顺序将这些<br>放入队列中，并继续执行，直到它被迫等待指令完成。</p>
+<p>内存屏障关心的是控制访问从CPU端到内存端的顺序，以及系统中其他观察者感知到的效果发生的顺序。</p>
+<p>[!] 在给定的CPU内部，不需要内存屏障，因为CPU总是会看到它们自己的读和写操作，就好像<br>它们是按照程序顺序发生的一样。</p>
+<p>[!] MMIO或其他设备访问可能会绕过缓存系统。这取决于通过哪个内存窗口访问设备的属性和(或)<br>CPU可能具有的任何特殊设备通信指令的使用。</p>
+<h2 id="CACHE-一致性-VS-DMA"><a href="#CACHE-一致性-VS-DMA" class="headerlink" title="CACHE 一致性 VS DMA"></a>CACHE 一致性 VS DMA</h2><p>并不是所有架构都维护DMA的cache一致性。如果脏cache还没有刷到内存中，那DMA设备访问<br>内存时可能得到旧数据。为了解决这个问题，内核必须在向设备传递数据前将相应cacheline刷到内<br>存中。</p>
+<p>另外, 设备通过DMA写到内存，内存中的新数据可能会被写回的脏cache覆盖。也可能会因为cache没<br>有更新而被CPU忽略，直到cache被丢弃并重新读。为了解决这个问题，内核必须在设备向内存写完<br>数据之后将对应的cacheline无效化以重新从内存中读新数据。<br><font color="##FF0000"><br>comment: 这里描述的其实也就是DMA没有做cache一致性时，CPU和外设同步数据的基本方法。<br></font></p>
+<p>Documentation/core-api/cachetlb.rst中有更多关于cache管理的信息。</p>
+<h2 id="CACHE-一致性-VS-MMIO"><a href="#CACHE-一致性-VS-MMIO" class="headerlink" title="CACHE 一致性 VS MMIO"></a>CACHE 一致性 VS MMIO</h2><p>内存映射I/O是通过内存地址发起的IO，这些内存地址是CPU内存空间的一部分，其属性与通常<br>的RAM不同。</p>
+<p>在这些属性之中，尤其要注意访问会完全绕过缓存，直接与设备总线通信。这意味着，MMIO访问可能<br>会超越之前发出的已经存在于缓存中的内存访问。在这种情况下，仅使用内存屏障是不够的，<br>如果两个操作有依赖关系，则必须在写缓存和MMIO访问之间刷新缓存。</p>
+<h1 id="CPU-做的事情"><a href="#CPU-做的事情" class="headerlink" title="CPU 做的事情"></a>CPU 做的事情</h1><p>程序员通常确信CPU一定会按照自己编写的顺序来执行内存操作。看下面的代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">a = READ_ONCE(*A);</span><br><span class="line">WRITE_ONCE(*B, b);</span><br><span class="line">c = READ_ONCE(*C);</span><br><span class="line">d = READ_ONCE(*D);</span><br><span class="line">WRITE_ONCE(*E, e);</span><br></pre></td></tr></table></figure>
+<p>他们会希望CPU按照指令顺序来执行内存操作，让系统外的观察者能看到明确的操作顺序。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">LOAD *A, STORE *B, LOAD *C, LOAD *D, STORE *E.</span><br></pre></td></tr></table></figure>
+
+<p>然而，现实是非常混乱的，编译器通常不会按照代码顺序生成汇编，CPU也不按汇编语句顺序执行</p>
+<ul>
+<li><p> 读需要立即完成以使指令继续执行，而写操作通常可以推迟；</p>
+</li>
+<li><p> 读可以预测，如果证明是不必要的，结果会被丢弃；</p>
+</li>
+<li><p> 读可能是投机性的，导致结果在预期事件序列中的错误时间被取走。</p>
+</li>
+<li><p> 内存访问是乱序的，以便更好地利用CPU总线和缓存。</p>
+</li>
+<li><p>当与内存或I/O硬件交互时，如果硬件可以对相邻位置进行批量访问，<br> 那多个读或多个写可以合并起来执行以提高性能，</p>
+</li>
+<li><p>CPU的数据缓存可能会影响顺序，虽然缓存一致性机制可能会缓解这个问题。<br> 但不能保证一致性机制一定会按顺序传播内存操作。</p>
+</li>
+</ul>
+<p>因此，另一个CPU可能观察到的是：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">LOAD *A, ..., LOAD &#123;*C,*D&#125;, STORE *E, STORE *B</span><br><span class="line"></span><br><span class="line">(&quot;LOAD &#123;*C,*D&#125;&quot; 是一个合并的操作)</span><br></pre></td></tr></table></figure>
+<p>但是，CPU看到的自己访问是正确排序的，不需要内存屏障。 例如使用以下代码：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">U = READ_ONCE(*A);</span><br><span class="line">WRITE_ONCE(*A, V);</span><br><span class="line">WRITE_ONCE(*A, W);</span><br><span class="line">X = READ_ONCE(*A);</span><br><span class="line">WRITE_ONCE(*A, Y);</span><br><span class="line">Z = READ_ONCE(*A);</span><br></pre></td></tr></table></figure>
+<p>假设没有外部干预，我们可以假设最终结果将呈现为：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">U == *A 的原始值</span><br><span class="line">X == W</span><br><span class="line">Z == Y</span><br><span class="line">*A == Y</span><br></pre></td></tr></table></figure>
+<p>上述代码可能会导致 CPU 生成完整的内存访问序列：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">U=LOAD *A, STORE *A=V, STORE *A=W, X=LOAD *A, STORE *A=Y, Z=LOAD *A</span><br></pre></td></tr></table></figure>
+<p>该序列可能会被任意乱序或组合。请注意，在上面的示例中，READ_ONCE()和WRITE_ONCE()<br>是 <em>必须</em> 的，因为有些架构可能会对相同位置的连续读进行重排序。在这样的架构上，<br>READ_ONCE()和WRITE_ONCE()做任何必要的操作以防止这种情况，例如，在Itanium上，<br>READ_ONCE()和WRITE_ONCE()使用的volatile类型转换导致GCC发出特殊的ld.acq和st.rel指令，<br>以防止这种重排序。</p>
+<p>编译器也可以合并，丢弃或延迟一些指令，比如：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*A = V;</span><br><span class="line">*A = W;</span><br></pre></td></tr></table></figure>
+<p>或许会被简化为：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*A = W;</span><br></pre></td></tr></table></figure>
+<p>如果没有写屏障或WRITE_ONCE()，会仅保留最后一次写。类似的：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*A = Y;</span><br><span class="line">Z = *A;</span><br></pre></td></tr></table></figure>
+<p>如果不使用内存屏障或READ_ONCE()和WRITE_ONCE()，代码会被简化为：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">*A = Y;</span><br><span class="line">Z = Y;</span><br></pre></td></tr></table></figure>
+<p>那么CPU将不会向外发出读*A的指令。</p>
+<h2 id="接下来是-Alpha"><a href="#接下来是-Alpha" class="headerlink" title="接下来是 Alpha"></a>接下来是 Alpha</h2><p>DEC Alpha CPU是内存一致性最差的CPU之一。不仅如此，某些版本的Alpha CPU具有分割<br>的数据cache，这两个cache间没有地址依赖机制，是唯一需要使用地址依赖屏障的地方。</p>
+<p>Linux将Alpha作为内存模型，尽管从v4.15开始，Linux内核在Alpha架构上将smp_mb()添加<br>到READ_ONCE()，大大减少了其对内存模型的影响。</p>
+<h2 id="虚拟机客户机"><a href="#虚拟机客户机" class="headerlink" title="虚拟机客户机"></a>虚拟机客户机</h2><p>即使客户机本身编译为不支持SMP，也可能会受到宿主机SMP效应的影响，从而在与宿主机交互<br>时发生错误。在UP客户机与宿主机交互时，可以用强制屏障，但并不是最优解。</p>
+<p>内核提供了低级别的virt_mb()等宏。即使客户机编译为UP，它们也会生成与编译为SMP时的<br>smp_mb()等效的代码。客户机应在与(可能是SMP的) 主机同步时使用virt_mb()而不是smp_mb()。</p>
+<p>在所有其他方面，它们等同于smp_mb()等，特别是，它们不控制MMIO效果：要控制MMIO效果，<br>请使用强制屏障。</p>
+<h1 id="使用案例"><a href="#使用案例" class="headerlink" title="使用案例"></a>使用案例</h1><h2 id="环形缓冲区"><a href="#环形缓冲区" class="headerlink" title="环形缓冲区"></a>环形缓冲区</h2><p>内存屏障可用于实现环形缓冲，而无需锁来将生产者与使用者序列化。具体见：</p>
+<p>Documentation/core-api/circular-buffers.rst</p>
+]]></content>
+      <tags>
+        <tag>Linux内核</tag>
+        <tag>memory barrier</tag>
+      </tags>
+  </entry>
 </search>
