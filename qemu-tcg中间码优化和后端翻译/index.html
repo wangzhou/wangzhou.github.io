@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文介绍qemu tcg下中间码翻译和后端翻译的基本逻辑，代码分析基于qemu v7.1.50， 文中涉及的测试场景，我们选择riscv作为guest、arm64作为host。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-03-15T14:22:00.000Z">
-<meta property="article:modified_time" content="2023-04-21T09:22:44.832Z">
+<meta property="article:modified_time" content="2023-09-28T01:46:08.366Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="QEMU">
 <meta name="twitter:card" content="summary">
@@ -135,7 +135,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">242</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">243</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -233,7 +233,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-04-21 17:22:44" itemprop="dateModified" datetime="2023-04-21T17:22:44+08:00">2023-04-21</time>
+                <time title="修改时间：2023-09-28 09:46:08" itemprop="dateModified" datetime="2023-09-28T09:46:08+08:00">2023-09-28</time>
               </span>
 
           
@@ -275,7 +275,7 @@
 <p> 从名字就可以看出reachable_code_pass应该做的是一些死代码的删除，这里检测到运行不到<br> 的IR就直接从IR链表里把他们删掉。</p>
 <p> 中间码优化的输出还是IR链表和相关的TCG寄存器，可见我们也可以把这两个函数注释掉，<br> 从而把中间码优化关掉。可以看出，中间码优化和编译器IR优化的逻辑是类似的。</p>
 <p> 中间码优化的具体case本文就不继续展开了，后续有需要再写吧。</p>
-<h2 id="寄存器活性分析"><a href="#寄存器活性分析" class="headerlink" title="寄存器活性分析"></a>寄存器活性分析</h2><p> qemu最终还是要把IR和TCG寄存器翻译成host指令和host寄存器，才能在host机器上运行,<br> 这一节和下一节就是要解决这个问题。直观来看，IR和host指令大概是可以对应上的，这里<br> 要解决的关键问题就是怎么把虚拟级的TCG寄存器映射到host物理寄存器上。</p>
+<h2 id="寄存器活性分析"><a href="#寄存器活性分析" class="headerlink" title="寄存器活性分析"></a>寄存器活性分析</h2><p> qemu最终还是要把IR和TCG寄存器翻译成host指令和host寄存器，才能在host机器上运行,<br> 这一节和下一节就是要解决这个问题。直观来看，IR和host指令大概是可以对应上的，这里<br> 要解决的关键问题就是怎么把虚拟机的TCG寄存器映射到host物理寄存器上。</p>
 <p> 我们先看下具体的两条riscv指令是怎么翻译成host指令的:</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">riscv guest汇编:</span><br><span class="line"></span><br><span class="line">  0x0000000000010172:  1101              addi            sp,sp,-32</span><br><span class="line">  0x0000000000010174:  ec06              sd              ra,24(sp)</span><br><span class="line"></span><br><span class="line">中间码：</span><br><span class="line"></span><br><span class="line">  ---- 0000000000010172 0000000000000000</span><br><span class="line">  add_i64 x2/sp,x2/sp,$0xffffffffffffffe0</span><br><span class="line">  </span><br><span class="line">  ---- 0000000000010174 0000000000000000</span><br><span class="line">  add_i64 tmp4,x2/sp,$0x18</span><br><span class="line">  qemu_st_i64 x1/ra,tmp4,leq,0</span><br><span class="line"></span><br><span class="line">ARM64 host汇编：</span><br><span class="line"></span><br><span class="line">    -- guest addr 0x0000000000010172 + tb prologue</span><br><span class="line">  0xffff9c000140:  b85f8274  ldur     w20, [x19, #-8]</span><br><span class="line">  0xffff9c000144:  7100029f  cmp      w20, #0</span><br><span class="line">  0xffff9c000148:  5400064b  b.lt     #0xffff9c000210</span><br><span class="line">  0xffff9c00014c:  f9400a74  ldr      x20, [x19, #0x10]</span><br><span class="line">  0xffff9c000150:  d1008294  sub      x20, x20, #0x20</span><br><span class="line">  0xffff9c000154:  f9000a74  str      x20, [x19, #0x10]</span><br><span class="line">    -- guest addr 0x0000000000010174</span><br><span class="line">  0xffff9c000158:  91006295  add      x21, x20, #0x18</span><br><span class="line">  0xffff9c00015c:  f9400676  ldr      x22, [x19, #8]</span><br><span class="line">  0xffff9c000160:  f83f6ab6  str      x22, [x21, xzr]</span><br></pre></td></tr></table></figure>
 <p> riscv的addi被翻译成中间码add_i64, 注意中间码中的x2/sp是TEMP_GLOBAL类型的TCG寄存器，<br> riscv的sd指令被翻译成两条中间码，第一个中间码计算store的地址，并存在tmp4里，第二个<br> 中间码把ra寄存器的值保存到tmp4指向的地址。</p>
@@ -435,7 +435,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">242</span>
+          <span class="site-state-item-count">243</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
