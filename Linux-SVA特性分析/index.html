@@ -31,7 +31,7 @@
 <meta property="og:description" content="最近Linux社区在上传SVA特性(share virtual memory), 简单讲这个特性可以达到 这样的功能，就是可以是设备直接使用进程里的虚拟地址。如果把设备操作映射到用户态， 就可以在用户态叫设备直接使用进程虚拟地址。设备可以使用进程虚拟地址做DMA，如果 设备功能强大，比如可以执行一段指令，设备甚至可以直接执行相应进程虚拟地址上的 指令。目前SVA特性正处于上传阶段，这个特性的补丁涉">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2021-06-27T10:08:06.000Z">
-<meta property="article:modified_time" content="2023-03-02T06:20:02.289Z">
+<meta property="article:modified_time" content="2023-10-07T10:51:13.292Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="SMMU">
 <meta property="article:tag" content="Linux内核">
@@ -138,7 +138,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">243</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">244</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -236,7 +236,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-03-02 14:20:02" itemprop="dateModified" datetime="2023-03-02T14:20:02+08:00">2023-03-02</time>
+                <time title="修改时间：2023-10-07 18:51:13" itemprop="dateModified" datetime="2023-10-07T18:51:13+08:00">2023-10-07</time>
               </span>
 
           
@@ -252,7 +252,7 @@
 
       
         <h2 id="使用场景介绍"><a href="#使用场景介绍" class="headerlink" title="使用场景介绍"></a>使用场景介绍</h2><p>  如上，SVA特性可以做到进程虚拟地址在进程和设备之间共享。最直观的使用场景就是在<br>  用户态做DMA。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">            </span><br><span class="line">   +------------------+     +----------------+</span><br><span class="line">   |   process        |     |  process       |       ...</span><br><span class="line">   |                  |     |                |</span><br><span class="line">   | va = malloc();   |     |                |</span><br><span class="line">   | set dma dst: va  |     |                |</span><br><span class="line">   |      +---------+ |     |                |          用户态</span><br><span class="line">   +------+ mmap io +-+     +----------------+</span><br><span class="line">&lt;---------+         +------------------------------------------&gt; </span><br><span class="line">          +---------+</span><br><span class="line">                       内核</span><br><span class="line"></span><br><span class="line">&lt;--------------------------------------------------------------&gt; </span><br><span class="line">               +--------------+</span><br><span class="line">               |  DMA dst: va |</span><br><span class="line">               |              |</span><br><span class="line">               |  设备        |</span><br><span class="line">               +--------------+</span><br></pre></td></tr></table></figure>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">            </span><br><span class="line">   +------------------+     +----------------+</span><br><span class="line">   |   process        |     |  process       |       ...</span><br><span class="line">   |                  |     |                |</span><br><span class="line">   | va = malloc();   |     |                |</span><br><span class="line">   | set dma dst: va  |     |                |</span><br><span class="line">   |      +---------+ |     |                |          用户态</span><br><span class="line">   +------+ mmap io +-+     +----------------+</span><br><span class="line">&lt;---------+         +------------------------------------------&gt; </span><br><span class="line">          +---------+</span><br><span class="line">                       内核</span><br><span class="line"></span><br><span class="line">&lt;--------------------------------------------------------------&gt; </span><br><span class="line">               +--------------+</span><br><span class="line">               |  DMA dst: va |</span><br><span class="line">               |              |</span><br><span class="line">               |  device      |</span><br><span class="line">               +--------------+</span><br></pre></td></tr></table></figure>
 <p>  如上图所示，在SVA的支持下，我们可以在用户态进程malloc一段内存，然后把得到va<br>  直接配置给设备的DMA，然后启动DMA向va对应的虚拟地址写数据，当然也可以从va对应<br>  的虚拟地址上往设备读数据。这里我们把设备DMA相关的寄存器先mmap到用户态，这样<br>  DMA操作在用户态就可以完成。</p>
 <p>  可以注意到，SVA可以支持功能很大一部分取决于设备的功能，SVA就是提供一个进程和<br>  设备一致的虚拟地址空间，其他的设备想怎么用都可以。如上，如果设备做的足够强，<br>  设备完全可以执行va上对应的代码。</p>
 <p>  可以看到，设备完全可以把自身的资源分配给不同的进程同时使用。</p>
@@ -442,7 +442,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">243</span>
+          <span class="site-state-item-count">244</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
