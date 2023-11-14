@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文总结ARM架构下和原子操作相关的一些指令，后续相关内容都总结到这里。 涉及到代码分析时，使用的内核版本是v6.5-rc3。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-08-21T10:45:44.000Z">
-<meta property="article:modified_time" content="2023-08-21T10:49:14.416Z">
+<meta property="article:modified_time" content="2023-10-27T08:57:24.804Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="ARM64">
@@ -131,12 +131,12 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">90</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">92</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">245</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">248</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -226,10 +226,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2023-08-21 18:45:44 / 修改时间：18:49:14" itemprop="dateCreated datePublished" datetime="2023-08-21T18:45:44+08:00">2023-08-21</time>
+              <time title="创建时间：2023-08-21 18:45:44" itemprop="dateCreated datePublished" datetime="2023-08-21T18:45:44+08:00">2023-08-21</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2023-10-27 16:57:24" itemprop="dateModified" datetime="2023-10-27T16:57:24+08:00">2023-10-27</time>
+              </span>
 
           
             <div class="post-description">本文总结ARM架构下和原子操作相关的一些指令，后续相关内容都总结到这里。 涉及到代码分析时，使用的内核版本是v6.5-rc3。</div>
@@ -262,6 +268,7 @@
 <p>event register如果没有set，WFE正常进入低功耗状态，event register如果已经被set，<br>WFE指令并不能触发core进入低功耗，而且event register会被清理掉。可以看到LDXR/STXR<br>这一节提到使用sevl + wfe清理掉之前可能set的event register，这里不管之前event register<br>有没有set，这样操作总能把event register清理掉。</p>
 <p>唤醒WFE的evnet有: SEV指令; 当前core收到并可以处理中断；asynchronous external request<br>debug event; timer event stream; global monitor被清理掉。其中最后一种event就是我们<br>上面在LDXR/STXR一节中提到的情况。</p>
 <p>如上，SEV(send Event)和SEVL(send Event Local)，都可以set event register，只不过<br>作用core的范围不一样。SEV还可以一把唤醒所有core上WFE，如果一个core已经WFE了，语意<br>上就不可能再执行SEVL唤醒，所以可以看到spec里也没有相关的定义。</p>
+<p>可以看到一个core WFE睡眠后被唤醒，触发其唤醒的事件可能不是它期望的，所以，被唤醒<br>的core需要执行检测代码，看看是否自己等待的事件发生，如果不是被自己等待的事件唤醒，<br>就需要再次执行WFE去睡眠。</p>
 <h2 id="PRFM"><a href="#PRFM" class="headerlink" title="PRFM"></a>PRFM</h2><p>CASP指令的示例代码里提到了PRFM，这里把预取相关的指令都展开看下。PRFM完成对地址上<br>数据的预取，具体硬件可以把它实现成提前加载数据到cache，这个指令可以带不同的参数。</p>
 <h2 id="customized-instruction"><a href="#customized-instruction" class="headerlink" title="customized instruction"></a>customized instruction</h2><p>ARM支持其它厂商可以自定义指令，相关的预留指令空间的定义可以查看ARM用户手册的这个<br>位置：Reserved encoding space for IMPLEMENTATION DEFINED instructions</p>
 
@@ -387,7 +394,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">245</span>
+          <span class="site-state-item-count">248</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -398,7 +405,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">90</span>
+        <span class="site-state-item-count">92</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

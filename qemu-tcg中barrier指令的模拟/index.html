@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析qemu tcg中barrier指令模拟的基本逻辑，分析基于qemu代码的版本是v8.1.50。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="qemu tcg中barrier指令的模拟">
+<meta property="og:url" content="http://wangzhou.github.io/qemu-tcg%E4%B8%ADbarrier%E6%8C%87%E4%BB%A4%E7%9A%84%E6%A8%A1%E6%8B%9F/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析qemu tcg中barrier指令模拟的基本逻辑，分析基于qemu代码的版本是v8.1.50。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-11-14T00:29:28.000Z">
+<meta property="article:modified_time" content="2023-11-14T03:51:47.819Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="QEMU">
+<meta property="article:tag" content="计算机体系结构">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/qemu-tcg%E4%B8%ADbarrier%E6%8C%87%E4%BB%A4%E7%9A%84%E6%A8%A1%E6%8B%9F/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>qemu tcg中barrier指令的模拟 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">92</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">248</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu-tcg%E4%B8%ADbarrier%E6%8C%87%E4%BB%A4%E7%9A%84%E6%A8%A1%E6%8B%9F/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          qemu tcg中barrier指令的模拟
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-11-14 08:29:28 / 修改时间：11:51:47" itemprop="dateCreated datePublished" datetime="2023-11-14T08:29:28+08:00">2023-11-14</time>
+            </span>
+
+          
+            <div class="post-description">本文分析qemu tcg中barrier指令模拟的基本逻辑，分析基于qemu代码的版本是v8.1.50。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="问题"><a href="#问题" class="headerlink" title="问题"></a>问题</h2><p>qemu tcg模拟中会遇到两类barrier相关的问题，第一类是qemu tcg需要直接支持guest barrier<br>指令的模拟，在支持一个构架时，qemu的前端翻译需要把guest的barrier指令先翻译成qemu<br>barrier相关的中间码(INDEX_op_mb)，后端翻译再在host机器上支持中间码的语意。</p>
+<p>第二类问题有点隐晦: 不同构架的内存模型定义是不一样的，比如X86的内存模型是TSO，这<br>个模型下只有不同地址的WAR是可以乱序的，但是ARM64是弱内存模型，不同地址的读写都是<br>可以乱序的。这样，在qemu tcg模拟多核的时候就可能出现host/guest内存模型不一致带来<br>的问题，这个问题在guest是强内存模型，host是弱内存模型时会变得尤为凸显，需要注意<br>的是，反过来guest是弱内存模型，host是强内存模型这里也会有问题。</p>
+<p>qemu的官方文档在讲到多核模拟的时候也提到了这个问题，具体可以参考<span class="exturl" data-url="aHR0cHM6Ly93d3cucWVtdS5vcmcvZG9jcy9tYXN0ZXIvZGV2ZWwvbXVsdGktdGhyZWFkLXRjZy5odG1s">这里<i class="fa fa-external-link-alt"></i></span>的Memory Consistency小节。</p>
+<p>具体上看，这个问题是很好理解的，比如guest X86上的两个不同地址的写被翻译到一个tb里，<br>guest X86认为这两个写指令是不会乱序的，这两个X86上的写指令翻译到ARM64也是写指令，<br>但是在ARM64 host机器上执行相关的写指令时，ARM64上这两条写指令是可能会乱序的，如果<br>翻译的时候不加入barrier指令维持X86上的内存序语意，最后在多核模拟的时候可能就会出错。</p>
+<h2 id="模拟逻辑"><a href="#模拟逻辑" class="headerlink" title="模拟逻辑"></a>模拟逻辑</h2><p>如上qemu中已经解决了相关的问题，qemu提供了一个barrier相关的中间码INDEX_op_mb，这<br>个中间码可以带上各种参数表示各种barrier的语意:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">typedef enum &#123;</span><br><span class="line">    /* Used to indicate the type of accesses on which ordering</span><br><span class="line">       is to be ensured.  Modeled after SPARC barriers.</span><br><span class="line"></span><br><span class="line">       This is of the form TCG_MO_A_B where A is before B in program order.</span><br><span class="line">    */</span><br><span class="line">    TCG_MO_LD_LD  = 0x01,</span><br><span class="line">    TCG_MO_ST_LD  = 0x02,</span><br><span class="line">    TCG_MO_LD_ST  = 0x04,</span><br><span class="line">    TCG_MO_ST_ST  = 0x08,</span><br><span class="line">    TCG_MO_ALL    = 0x0F,  /* OR of the above */</span><br><span class="line"></span><br><span class="line">    /* Used to indicate the kind of ordering which is to be ensured by the</span><br><span class="line">       instruction.  These types are derived from x86/aarch64 instructions.</span><br><span class="line">       It should be noted that these are different from C11 semantics.  */</span><br><span class="line">    TCG_BAR_LDAQ  = 0x10,  /* Following ops will not come forward */</span><br><span class="line">    TCG_BAR_STRL  = 0x20,  /* Previous ops will not be delayed */</span><br><span class="line">    TCG_BAR_SC    = 0x30,  /* No ops cross barrier; OR of the above */</span><br><span class="line">&#125; TCGBar;</span><br></pre></td></tr></table></figure>
+<p>比如，上面TCG_MO_LD_LD表示load/load之间要保序，TCG_BAR_LDAQ表示acquire语意的barrier。<br>单独使用LDAQ/STRL的语意是明确的，怎么使用LD/ST这组barrier需要找下具体的位置，SC<br>的使用场景也需要找下。</p>
+<p>如上，对于第一类问题，qemu前端翻译用qemu barrier中间码支持guest barrier的语意，<br>注意，相关的支持可能会把barrier的语意增强，保证模拟功能正确即可。ARM64上DSB/DMB<br>的qemu支持是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">/* qemu/target/arm/tcg/translate-a64.c */</span><br><span class="line">static bool trans_DSB_DMB(DisasContext *s, arg_DSB_DMB *a)</span><br><span class="line">&#123;</span><br><span class="line">    /* We handle DSB and DMB the same way */</span><br><span class="line">    TCGBar bar;</span><br><span class="line"></span><br><span class="line">    switch (a-&gt;types) &#123;</span><br><span class="line">    case 1: /* MBReqTypes_Reads */</span><br><span class="line">        bar = TCG_BAR_SC | TCG_MO_LD_LD | TCG_MO_LD_ST;</span><br><span class="line">        break;</span><br><span class="line">    case 2: /* MBReqTypes_Writes */</span><br><span class="line">        bar = TCG_BAR_SC | TCG_MO_ST_ST;</span><br><span class="line">        break;</span><br><span class="line">    default: /* MBReqTypes_All */</span><br><span class="line">        bar = TCG_BAR_SC | TCG_MO_ALL;</span><br><span class="line">        break;</span><br><span class="line">    &#125;</span><br><span class="line">    /*</span><br><span class="line">     * 从这里实现可以看到，user mode只有在多线程的时候才需要实现barrier，user mode</span><br><span class="line">     * 在单线程下是不用实现barrier的。system mode都需要插入barrier支持guest barrier</span><br><span class="line">     * 的语意。</span><br><span class="line">     */</span><br><span class="line">    tcg_gen_mb(bar);</span><br><span class="line">    return true;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到，上面支持了DMB ST/LD的定义，比如ARM的定义中，DMB LD就是要保证LD/LD以及LD/ST<br>之间的顺序。但是，这里没有搞清楚TCG_BAR_SC的语意，DMB LD不是保证LD/LD以及LD/ST的<br>顺序就可以了么？DSB的支持也没有搞明白，DSB是保证非访存指令和访存指令之间的顺序，<br>难道TCG_BAR_SC还有这个语意？</p>
+<p>对于第二类情况，qemu会在load/store翻译里隐式的插入必要的barrier中间码。qemu怎么<br>知道guest/host之间的具体指令翻译时是否需要插入barrier来保证guest访存指令的语意呢？<br>qemu定义了各个构架下的memory order上的约束，比如ARM64上是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">/* qemu/target/arm/cpu.h */</span><br><span class="line">#define TCG_GUEST_DEFAULT_MO      (0)</span><br><span class="line">/* qemu/tcg/aarch64/tcg-target.h */</span><br><span class="line">#define TCG_TARGET_DEFAULT_MO     (0)</span><br></pre></td></tr></table></figure>
+<p>X86上是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">#define TCG_TARGET_DEFAULT_MO     (TCG_MO_ALL &amp; ~TCG_MO_ST_LD)</span><br><span class="line">/* The x86 has a strong memory model with some store-after-load re-ordering */</span><br><span class="line">#define TCG_GUEST_DEFAULT_MO      (TCG_MO_ALL &amp; ~TCG_MO_ST_LD)</span><br></pre></td></tr></table></figure>
+<p>TARGET表示TCG的目标，所以是host，GUEST表示guest。所以TCG_GUEST_DEFAULT_MO和<br>TCG_GUEST_DEFAULT_MO在一个qemu tcg模拟中是确定的值，比如在ARM64上模拟X86，那么<br>TCG_GUEST_DEFAULT_MO取X86的定义(TCG_MO_ALL &amp; ~TCG_MO_ST_LD)，TCG_TARGET_DEFAULT_MO<br>取ARM64的定义。TCG_MO_ALL &amp; ~TCG_MO_ST_LD表示X86下的memory order是放松了ST/LD之间<br>的顺序，放松了WAR的顺序，ARM64是弱内存序，对不同地址的load/store都没有约束，所以<br>这里是0。没有搞清X86这里的写法，如果是放松store-after-load，应该是~TCG_MO_LD_ST?</p>
+<p>qemu在load/store中间码的支持里，用tcg_gen_req_mo函数判断是否需要插入barrier，如果<br>需要插入，就直接插入对应barrier的中间码：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">/* 这里以st_i32_int举例，其他load/store的实现类似 */</span><br><span class="line">tcg_gen_qemu_st_i32_int</span><br><span class="line">  +-&gt; tcg_gen_req_mo(TCG_MO_LD_ST | TCG_MO_ST_ST);</span><br><span class="line">    +-&gt; type &amp;= tcg_ctx-&gt;guest_mo;</span><br><span class="line">    +-&gt; type &amp;= ~TCG_TARGET_DEFAULT_MO;</span><br><span class="line">    +-&gt; if (type) &#123;</span><br><span class="line">            tcg_gen_mb(type | TCG_BAR_SC);</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure>
+<p>qemu tcg中load/store指令的中间码的支持会调到如上的一组函数中，具体load/store中间码<br>的支持可以参考<a href="https://wangzhou.github.io/qemu-tcg%E8%AE%BF%E5%AD%98%E6%8C%87%E4%BB%A4%E6%A8%A1%E6%8B%9F/">这里</a>。</p>
+<p>tcg_gen_req_mb的输入表示要支持guest barrier的语意，tcg_ctx-&gt;guest_mo是TCG_GUEST_DEFAULT_MO，<br>第一个&amp;操作表示guest上要求内存序才有必要继续要求host去支持，第二个&amp;表示guest上要<br>求但是host上不支持的内存序才有必要插入barrier指令支持。在最后插入barrier中间码的<br>时候只插入对应约束的barrier就好，所以不清楚这里为什么要加强到TCG_BAR_SC?</p>
+<p>注意，这里st_i32_int需要保证和它之前的load/store指令保序，和他store指令保序，这个<br>看起来是这里默认是TSO的约束，如果guest是ARM64，第一个&amp;操作会直接过滤掉tcg_gen_req_mo<br>输入中的默认约束。</p>
+<p>对于X86 guest/ARM64 host的场景，第一个&amp;操作后type为TCG_MO_LD_ST | TCG_MO_ST_ST，<br>第二个&amp;操作后type为TCG_MO_LD_ST | TCG_MO_ST_ST，插入mb的type是LD_ST/ST_ST/SC。</p>
+<p>如上的两种情况生成的barrier中间码在后端翻译时被翻译成host上的barrier指令，ARM64<br>后端对barrier的支持如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">/* qemu/tcg/aarch64/tcg-target.c.inc */</span><br><span class="line">static inline void tcg_out_mb(TCGContext *s, TCGArg a0)</span><br><span class="line">&#123;</span><br><span class="line">    static const uint32_t sync[] = &#123;</span><br><span class="line">        [0 ... TCG_MO_ALL]            = DMB_ISH | DMB_LD | DMB_ST,</span><br><span class="line">        [TCG_MO_ST_ST]                = DMB_ISH | DMB_ST,</span><br><span class="line">        [TCG_MO_LD_LD]                = DMB_ISH | DMB_LD,</span><br><span class="line">        [TCG_MO_LD_ST]                = DMB_ISH | DMB_LD,</span><br><span class="line">        [TCG_MO_LD_ST | TCG_MO_LD_LD] = DMB_ISH | DMB_LD,</span><br><span class="line">    &#125;;</span><br><span class="line">    tcg_out32(s, sync[a0 &amp; TCG_MO_ALL]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>可以看到X86 guest/ARM64 host的场景下，st_i32_int中ARM64 host上插入的barrier指令是<br>DMB，作用范围是inner域，DMB_LD | DMB_ST形成的DMB编码的CRm是0b1011，汇编表示是DMB ISH，<br>语意是拦住DMB前后的store和load。</p>
+<p>可以看到X86到ARM64的翻译，其实只要实现ST_ST/LD_LD/ST_LD的语意就好，但是这里因为<br>翻译的缘故，最后的翻译加强到store/load之间都保序了，实际上这里降低了程序的性能。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/QEMU/" rel="tag"><i class="fa fa-tag"></i> QEMU</a>
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ARM64%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E7%AC%94%E8%AE%B0-B2-2-B2-3/" rel="prev" title="ARM64内存模型笔记-B2.2/B2.3">
+      <i class="fa fa-chevron-left"></i> ARM64内存模型笔记-B2.2/B2.3
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/" rel="next" title="使用herd7做ARM内存模型验证">
+      使用herd7做ARM内存模型验证 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%97%AE%E9%A2%98"><span class="nav-number">1.</span> <span class="nav-text">问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A8%A1%E6%8B%9F%E9%80%BB%E8%BE%91"><span class="nav-number">2.</span> <span class="nav-text">模拟逻辑</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">248</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">92</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文是ARM64 spec 2.2&#x2F;2.3章节的学习笔记。ARM的spec不同的版本这两节的定义语言 描述变化有点大，我们这里使用的是2023.4.12的版本，另外，这个版本的行文似乎 比较乱，看的时候可以对比着上一个版本的看。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ARM64内存模型笔记-B2.2&#x2F;B2.3">
+<meta property="og:url" content="http://wangzhou.github.io/ARM64%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E7%AC%94%E8%AE%B0-B2-2-B2-3/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文是ARM64 spec 2.2&#x2F;2.3章节的学习笔记。ARM的spec不同的版本这两节的定义语言 描述变化有点大，我们这里使用的是2023.4.12的版本，另外，这个版本的行文似乎 比较乱，看的时候可以对比着上一个版本的看。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-11-11T08:19:24.000Z">
+<meta property="article:modified_time" content="2023-11-11T08:22:23.161Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="ARM64">
+<meta property="article:tag" content="内存模型">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/ARM64%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E7%AC%94%E8%AE%B0-B2-2-B2-3/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ARM64内存模型笔记-B2.2/B2.3 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">92</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">248</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/ARM64%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E7%AC%94%E8%AE%B0-B2-2-B2-3/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ARM64内存模型笔记-B2.2/B2.3
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-11-11 16:19:24 / 修改时间：16:22:23" itemprop="dateCreated datePublished" datetime="2023-11-11T16:19:24+08:00">2023-11-11</time>
+            </span>
+
+          
+            <div class="post-description">本文是ARM64 spec 2.2/2.3章节的学习笔记。ARM的spec不同的版本这两节的定义语言 描述变化有点大，我们这里使用的是2023.4.12的版本，另外，这个版本的行文似乎 比较乱，看的时候可以对比着上一个版本的看。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="2-2"><a href="#2-2" class="headerlink" title="2.2"></a>2.2</h1><p>这一节定义的是ARM64中定义的原子行为，这个可以看作是软硬件对原子行为定义的约定。<br>比如，2.2.1就定义了哪些是single-copy atomicity的，我理解这些定义的atomicity，在<br>软件开来应该都是原子的，这部分的定义和硬件怎么实现是无关的。</p>
+<h2 id="2-2-1"><a href="#2-2-1" class="headerlink" title="2.2.1"></a>2.2.1</h2><p>定义哪些操作是single-copy atomicity。我们挑选几条看下，第一条”A read that is<br>generated by a load instruction that loads a single general-purpose register<br>and …”，这条是说一个自然对齐的load指令一定是原子的。</p>
+<p>2.2.1章节随后对所有的情况做了明确的定义，可以看到SIMD相关的定义占了大部分。</p>
+<h2 id="2-2-2"><a href="#2-2-2" class="headerlink" title="2.2.2"></a>2.2.2</h2><p>single-copy atomic访问的定义，就是定义single-copy atomic操作具有的性质: 1. 两个<br>single-copy atomic写，如果地址重叠，那么一定是一个整体上在另一个的前或后执行；<br>2. 两个single-copy atomic操作，一个读一个写，访问地址重叠，如果他们之间存在RAW关系，<br>写不会coherence-before或coherence-after读，第二点没有读懂，这到底要说啥？</p>
+<h2 id="2-2-3"><a href="#2-2-3" class="headerlink" title="2.2.3"></a>2.2.3</h2><p>定义了multi-copy atomicity: 相同地址上的写是串行的，所有observer看到的写顺序是一样<br>的，所有observer是同步读到相同地址上的值的。</p>
+<h2 id="2-2-4"><a href="#2-2-4" class="headerlink" title="2.2.4"></a>2.2.4</h2><p>ARM定义Normal/device memory都不要求是multi-copy atomic。</p>
+<h2 id="2-2-5"><a href="#2-2-5" class="headerlink" title="2.2.5"></a>2.2.5</h2><p>多核之间，一个core执行的指令可能被另一个core修改，这一节的内容与此相关。</p>
+<h2 id="2-2-6"><a href="#2-2-6" class="headerlink" title="2.2.6"></a>2.2.6</h2><p>原子指令在实现上的一些约束。</p>
+<h1 id="2-3"><a href="#2-3" class="headerlink" title="2.3"></a>2.3</h1><p>这一节定义ARM的内存模型，为了方便说明，前面几节都是在介绍定义。</p>
+<h2 id="2-3-1"><a href="#2-3-1" class="headerlink" title="2.3.1"></a>2.3.1</h2><p>这一节是基础名词的定义，这些基础名词的定义和后面使用的地方是对应的，这里给出了所有<br>情况下的定义，我们这里先根据基本的定义，把握下定义的主线。所以，我们这里先不关注<br>某些特性的所有定义，比如和memory tag相关的定义，后面如果需要，我们在针对某个特性<br>整体考虑。</p>
+<p>observer: 定义系统里可以发起读写请求的部件，比如CPU核或者外设。</p>
+<p>common shareability domain:</p>
+<p>location: 物理或者虚拟地址上的一个byte。</p>
+<p>program order: 程序中所展现的指令之间的先后关系。 </p>
+<p>effects: 指令执行产生的影响，比如对寄存器有影响的叫register effect，对内存的影响<br>         叫memory effect，这里的effect的分类有点随心所欲，似乎是哪里需要了，就在<br>     这里加个定义，比如还有什么branching effect, TLBI effect, fault effect…</p>
+<p>reads-from-register: 描述的是相同寄存器之间的RAW关系。</p>
+<p>reads-from memory: 描述的是相同地址之间的RAW关系。没有提是不是相同observer，所以<br>                   这个关系是可以存在不同observer上的。</p>
+<p>coherence order: 描述多个observer对相同地址写操作的关系。注意这里说这个是一个<br>                 “total order”，序理论上全序是指集合中任意两个元素都是可比的。</p>
+<p>local read successor: 在一个observer上，描述相同地址之间的RAW关系。</p>
+<p>local write successor: 在一个observer上，描述相同地址之间的写操作在写操作或读操作<br>                       之后的关系。</p>
+<p>coherence-before:<br>在一个coherence order关系里，排在前面的写操作coherence-before后面的写操作。<br>store addr(W3)/load addr(R1)/store addr(W2)的关系里，如果R1 reads-from-memory W3,<br>W3 coherence-before W2, 那么R1 coherence-before W2。(什么鬼?)</p>
+<p>对于store addr(W1) -&gt; store addr(W2)和store addr(W1) -&gt; load addr(R2)，两种情况中<br>后者均没有对前者有coherence-before的关系。(啥也没有说?)<br>…  </p>
+<p>observed-by: 在不同observer上，如果W2 coherence-after RW1，就是说在相同地址上W2<br>         的访问排到RW1的后面，我们说RW1 observed-by W2。(W2和RW1需要是explict<br>         的memory effect，先忽略Tag相关操作)</p>
+<p>overlapping accesses: 就是地址访问有重叠。</p>
+<p>single-copy-atomic-class: 所有single-copy-atomic触发的memory effects组成的集合。</p>
+<p>single-copy-atomic-order-before: ??</p>
+<p>implicit translation table descriptor(TTD) memory effects:<br>硬件对页表内存做隐式内存访问产生的effect，具体上有page table walk和对access/dirty<br>bit的修改。</p>
+<p>hardware update effect: 特指对access/dirty bit修改产生的effect。基于这个还定义了<br>hardware-update-predecessor/hardware-update-successor。</p>
+<p>tag memory effects/checked memory effects: 这两个是和memory tag相关的effect。</p>
+<p>barrier effects: spec上写的是DSB/DMB/ISB带来的effect，其他barrier指令怎么看？</p>
+<p>context synchronization effects(CSE effect): ISB或异常进入退出带来的effect。</p>
+<p>branch effects: 各种branch指令带来的改变PC的effect。</p>
+<p>TLBI effects/completed TLBI effect: tlbi指令会产生TLBI effect，tlbi后面加一个DSB.FULL<br>指令会产生completed TLBI effect。基于此概念，还定义了TLBI-before/TLBI-after。</p>
+<p>fault effects, exception entry/return effects: 这块定义的比较混乱，定义关系之间<br>会重叠，比如异常进入退出的effect，在上面又叫CSE effect。反正按照字面意思可以看懂<br>就好。</p>
+<p>TLB uncacheable effects: 把translation fault/access flag fault/address size fault<br>产生的effect归类为TLB uncacheable effect。基于这个概念还定义了TLB uncacheable-write-predecessor和<br>TLB uncacheable-write-successor。</p>
+<p>low order bits/same low order bits/same location: 这组定义是为了定义最后的same<br>location，这里说的不清楚。</p>
+<h2 id="2-3-2"><a href="#2-3-2" class="headerlink" title="2.3.2"></a>2.3.2</h2><p>这一节定义的是单条指令内在dependency关系，像CAS/SWAP这种读写effect都有的指令，<br>CAS Xs, Xt, [Xn]指令中，如果Xs和Xn地址上的数据相等，就把Xt的值写到Xn地址上。</p>
+<p>注意，2.3.2的标题是“intrinsic dependency relations”，就是这一节定义的还是”关系“，<br>并没有定义指令之间要准守的先后循序。</p>
+<h2 id="2-3-3"><a href="#2-3-3" class="headerlink" title="2.3.3"></a>2.3.3</h2><p>translation-intrinsically-before。协议里写比较模糊，加个例子比较好。</p>
+<h2 id="2-3-4"><a href="#2-3-4" class="headerlink" title="2.3.4"></a>2.3.4</h2><p>tag-check-intrinsically-before</p>
+<h2 id="2-3-5"><a href="#2-3-5" class="headerlink" title="2.3.5"></a>2.3.5</h2><p>各种dependency的定义，定义的是依赖的形式，至于基于这些依赖形式的指令先后顺序，这里<br>并没有定义。</p>
+<p>dependency through registers and memory:<br>一个PE上，寄存器或者地址上的RAW关系。一条指令中的data dependency关系。关系可以传递。</p>
+<p>basic dependency:<br>两个effect是一样的(相同observed，相同作用结果)。上述的registers/memory dependency。</p>
+<p>address dependency:<br>简单理解为，对于两个memory effect的指令，后一条指令用了前一条指令的输出作为地址。</p>
+<p>data dependency:<br>简单理解为，对于两个memory effect的指令，后一条指令的数据用了前一条指令的输出。</p>
+<p>control dependency:<br>只是定义了控制依赖的形式，有没有序要上要求，这里没有说啊。</p>
+<p>所以，我们可以简单总结下，对于address/data/control dependency基本上描述的是两条<br>memory操作指令之间的依赖关系，这些依赖关系不是前后指令直接在地址上的依赖关系。<br>可以看到这里和RISCV中定义的address/data/control dependency基本上是一样的。</p>
+<p>后面pick xxx dependency中，似乎后一条指令里还有intrinsic的依赖？</p>
+<h2 id="2-3-6"><a href="#2-3-6" class="headerlink" title="2.3.6"></a>2.3.6</h2><p>各种order relation的定义。</p>
+<p>CSE-ordered-before: 如上面提到的，上下文同步时的order。控制依赖里如果前一个指令<br>有显示memory read, 后一个指令有CSE effect，就是这种order。结合后面看，这种情况下<br>也是保序的。</p>
+<p>dependency-ordered-before:</p>
+<p>这里在定义order了，单核上的各种基本序都是这条里面定义的，注意这里的“序“指的还是<br>关系。“A dependency creates externally-visible order between …”，dependency创建<br>了order，但是这里并没有说order里元素的先后关系。</p>
+<p>注意这里的order细化了上面的dependency，我们看control dependency相关的order，在这里<br>明确提出了在一个control dependency里，后面的一个是memory write。也就是这里对后一个<br>effect是memory read的control dependency关系是没有序上的定义的，配合后面创建先后<br>关系的定义，control dependency里，后面的memory read是不存在先后顺序的约束的，这个<br>和我们一般的认知也是相符的。</p>
+<p>pick-ordered-before:</p>
+<p>atomic-ordered-before:</p>
+<p>DSB-ordered-before:</p>
+<p>barrier-ordered-before:</p>
+<p>主要讲DMB的order。</p>
+<p>TTD-read-ordered-before:</p>
+<p>TLBI-ordered-before:</p>
+<p>TLBI-coherence-before:</p>
+<p>locally-ordered-before:</p>
+<p>这里基本上汇集了单核上的所有order的定义。</p>
+<p>pick-locally-ordered-before:</p>
+<p>hardware-required-ordered-before:</p>
+<p>包含了locally-ordered-before？</p>
+<p>hazard-ordered-before:</p>
+<h2 id="2-3-7"><a href="#2-3-7" class="headerlink" title="2.3.7"></a>2.3.7</h2><p>External ordering constraint的定义，包含了单核上order的定义，描述中使用了“ordered-before”<br>的词语：“An arbitrary pair of effects is ordered”, 这里才出现ordered(被排序)的概念。</p>
+<p>external visibility requirement<br>external completion requirement<br>external global completion requirement 都展开分析下…</p>
+<p>之前的ARM spec里有“Internal visibility requirement”的定义，里面明确有这样的语句：<br>“…, then M1 will be seen to occur before M2 by that Observer”，像这样的语句才是<br>在明确定义指令的先后关系。(2023.4.12版本的spec没有这一章节)</p>
+<h2 id="2-3-8"><a href="#2-3-8" class="headerlink" title="2.3.8"></a>2.3.8</h2><p>completion and endpoint ordering。</p>
+<h2 id="2-3-10"><a href="#2-3-10" class="headerlink" title="2.3.10"></a>2.3.10</h2><p>SVE相关的内存序定义。</p>
+<h2 id="2-3-11"><a href="#2-3-11" class="headerlink" title="2.3.11"></a>2.3.11</h2><p>投机执行相关的约束。</p>
+<h2 id="2-3-12"><a href="#2-3-12" class="headerlink" title="2.3.12"></a>2.3.12</h2><p>ARM里所有barrier指令在这一节定义。</p>
+<h2 id="2-3-13"><a href="#2-3-13" class="headerlink" title="2.3.13"></a>2.3.13</h2><p>limited ordering regions。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/ARM64/" rel="tag"><i class="fa fa-tag"></i> ARM64</a>
+              <a href="/tags/%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B/" rel="tag"><i class="fa fa-tag"></i> 内存模型</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E9%98%BF%E5%A7%86%E8%BE%BE%E5%B0%94%E5%AE%9A%E7%90%86%E7%9A%84%E6%B5%8B%E8%AF%95/" rel="prev" title="阿姆达尔定理的测试">
+      <i class="fa fa-chevron-left"></i> 阿姆达尔定理的测试
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/qemu-tcg%E4%B8%ADbarrier%E6%8C%87%E4%BB%A4%E7%9A%84%E6%A8%A1%E6%8B%9F/" rel="next" title="qemu tcg中barrier指令的模拟">
+      qemu tcg中barrier指令的模拟 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#2-2"><span class="nav-number">1.</span> <span class="nav-text">2.2</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-1"><span class="nav-number">1.1.</span> <span class="nav-text">2.2.1</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-2"><span class="nav-number">1.2.</span> <span class="nav-text">2.2.2</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-3"><span class="nav-number">1.3.</span> <span class="nav-text">2.2.3</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-4"><span class="nav-number">1.4.</span> <span class="nav-text">2.2.4</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-5"><span class="nav-number">1.5.</span> <span class="nav-text">2.2.5</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-2-6"><span class="nav-number">1.6.</span> <span class="nav-text">2.2.6</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#2-3"><span class="nav-number">2.</span> <span class="nav-text">2.3</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-1"><span class="nav-number">2.1.</span> <span class="nav-text">2.3.1</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-2"><span class="nav-number">2.2.</span> <span class="nav-text">2.3.2</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-3"><span class="nav-number">2.3.</span> <span class="nav-text">2.3.3</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-4"><span class="nav-number">2.4.</span> <span class="nav-text">2.3.4</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-5"><span class="nav-number">2.5.</span> <span class="nav-text">2.3.5</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-6"><span class="nav-number">2.6.</span> <span class="nav-text">2.3.6</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-7"><span class="nav-number">2.7.</span> <span class="nav-text">2.3.7</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-8"><span class="nav-number">2.8.</span> <span class="nav-text">2.3.8</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-10"><span class="nav-number">2.9.</span> <span class="nav-text">2.3.10</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-11"><span class="nav-number">2.10.</span> <span class="nav-text">2.3.11</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-12"><span class="nav-number">2.11.</span> <span class="nav-text">2.3.12</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2-3-13"><span class="nav-number">2.12.</span> <span class="nav-text">2.3.13</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">248</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">92</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文整理riscv的内存模型，基于riscv unprivileged ISA 20191213这个版本。其实 对于使用弱内存序的构架，它们的内存模型都是比较相似的，无非是细节上有可能有 一点不一样，本文也可以做为弱内存序相关的一个基础介绍。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-02-25T09:43:09.000Z">
-<meta property="article:modified_time" content="2023-09-18T10:45:55.651Z">
+<meta property="article:modified_time" content="2023-11-14T00:51:53.011Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="内存管理">
@@ -132,12 +132,12 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">90</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">92</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">245</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">248</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -235,7 +235,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-09-18 18:45:55" itemprop="dateModified" datetime="2023-09-18T18:45:55+08:00">2023-09-18</time>
+                <time title="修改时间：2023-11-14 08:51:53" itemprop="dateModified" datetime="2023-11-14T08:51:53+08:00">2023-11-14</time>
               </span>
 
           
@@ -271,7 +271,7 @@
 <p> 第七条规则中的RCsc指的是Release Consistency with sequentially-consistent synchronization<br> operation，对应的概念还有RCpc，这两者是acquire/release的两种分类，描述的是，比如<br> 上图中如果“other store/load“里如果有LDAR，那么这个LDAR是否可以和STLR乱序，如果<br> acquire/release的种类是RCsc，那么不能乱序，如果是RCpc，是可以乱序的。riscv的WMO<br> 中的acquire/release的种类是RCsc。</p>
 <p> 第八条规则说的a和b是一个pair，是说lr/sc指令组成的pair。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">• Syntactic Dependencies </span><br><span class="line"></span><br><span class="line">  9. b has a syntactic address dependency on a</span><br><span class="line"></span><br><span class="line">  10. b has a syntactic data dependency on a</span><br><span class="line"></span><br><span class="line">  11. b is a store, and b has a syntactic control dependency on a </span><br></pre></td></tr></table></figure>
-<p> 这几条规则说的是指令之间语意上的依赖，和最开始访存地址重合的依赖比较类似。</p>
+<p> 这几条规则说的是指令之间语意上的依赖，和最开始访存地址重合的依赖比较类似。riscv<br> 上对地址依赖和数据依赖的定义如下：对于两条内存操作指令，如果后一条指令的地址输入<br> 寄存器依赖前一条指令，就存在一个地址依赖，如果后一条指令的数据依赖前一条指令，就<br> 存在一个数据依赖，所以所谓地址依赖和数据依赖都描述的是两条访存指令之间的关系。</p>
 <p> 需要注意的是规则11，这条规则提到了“控制依赖”，控制依赖的定义是，指令a和指令b，<br> 如果中间还有一条分支或者间接跳转指令(branch and indirect jump)m，如果a和m存在<br> Syntactic Dependencies，那么b和a之间就存在一个控制依赖，而规则11是说，在a和b之间<br> 存在一个控制依赖时，如果b是个store指令，那么a和b是不能乱序的。</p>
 <p> riscv spec里在“Syntactic Dependencies”这一节定义各种依赖关系的定义，但是只是说<br> 当两条指令满足某种情况时，它们之间叫什么关系，并不是满足这种关系后就有序的约束，<br> riscv spec随后在“Preserved Program Order”这一节借助”Syntactic Dependencies”的定义，<br> 描述内存序的约束，规则9和规则10，直接就说满足地址依赖和数据依赖的两条指令有内存<br> 序上的约束，而规则11是说在满足控制依赖关系时，只对后面是store的情况有序上的约束。</p>
 <p> 规则11的代码示意如下，左边两个是不会乱序的情况，其中一个是汇编实现，一个是对应的<br> C语言实现，最右边的是需要加读barrier的场景。</p>
@@ -413,7 +413,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">245</span>
+          <span class="site-state-item-count">248</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -424,7 +424,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">90</span>
+        <span class="site-state-item-count">92</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>

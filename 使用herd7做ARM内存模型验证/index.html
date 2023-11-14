@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文介绍使用herd7做ARM内存模型验证的基本逻辑。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="使用herd7做ARM内存模型验证">
+<meta property="og:url" content="http://wangzhou.github.io/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文介绍使用herd7做ARM内存模型验证的基本逻辑。">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://wangzhou.github.io/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/herd7_1.png">
+<meta property="og:image" content="http://wangzhou.github.io/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/herd7_2.png">
+<meta property="article:published_time" content="2023-11-14T00:32:39.000Z">
+<meta property="article:modified_time" content="2023-11-14T03:48:42.153Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="ARM64">
+<meta property="article:tag" content="内存模型，herd">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://wangzhou.github.io/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/herd7_1.png">
+
+<link rel="canonical" href="http://wangzhou.github.io/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>使用herd7做ARM内存模型验证 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">92</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">248</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          使用herd7做ARM内存模型验证
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-11-14 08:32:39 / 修改时间：11:48:42" itemprop="dateCreated datePublished" datetime="2023-11-14T08:32:39+08:00">2023-11-14</time>
+            </span>
+
+          
+            <div class="post-description">本文介绍使用herd7做ARM内存模型验证的基本逻辑。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="ARM内存模型"><a href="#ARM内存模型" class="headerlink" title="ARM内存模型"></a>ARM内存模型</h2><p>ARM spec的B2章节中介绍了ARM的内存模型，B2章节的核心内容是定义了一套指令之间需要<br>遵守的执行顺序上的规则，这些规则之外的指令顺序都是可以乱序的。</p>
+<p>对于这些规则，ARM需要确保当这些规则运行在一起的时候，相互之间没有冲突。程序员要<br>确保在这组规则的下，写出的程序得到的各种结果是符合程序员预期的。</p>
+<p>我们看一个两个core上指令序例的例子，这个例子其实就是一个简单的Litmus测试用例。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">AArch64 MP </span><br><span class="line">&#123;</span><br><span class="line">0:X1=x; 0:X3=y;</span><br><span class="line">1:X1=y; 1:X3=x;</span><br><span class="line">&#125;</span><br><span class="line"> P0          | P1          ;</span><br><span class="line"> MOV W0,#1   | LDR W0,[X1] ;</span><br><span class="line"> STR W0,[X1] | LDR W2,[X3] ;</span><br><span class="line"> MOV W2,#1   |             ;</span><br><span class="line"> STR W2,[X3] |</span><br></pre></td></tr></table></figure>
+<p>P0/P1两个core, X1/X3表示两个寄存器，其中的内容是两个地址，x/y是对应地址上的值,<br>如果X1/X3是不同的地址，我们就先只看load/store的可能顺序，可能的顺序有：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line">------------------------------------------------------------</span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line">             |                               |</span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             |                               |</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">------------------------------------------------------------</span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">------------------------------------------------------------</span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             |                               |</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line">------------------------------------------------------------</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line">------------------------------------------------------------</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line">             |                               |</span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">------------------------------------------------------------</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             |                               |</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">             |                               |</span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line">             |                               |</span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line">------------------------------------------------------------</span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line">             |                               |</span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             |                               |</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">------------------------------------------------------------</span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">------------------------------------------------------------</span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             |                               |</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line">------------------------------------------------------------</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line">------------------------------------------------------------</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line">             |                               |</span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">------------------------------------------------------------</span><br><span class="line"> STR W0,[X1] |                   STR W2,[X3] | </span><br><span class="line">             |                               |</span><br><span class="line"> STR W2,[X3] |                   STR W0,[X1] | </span><br><span class="line">             | LDR W2,[X3]                   | LDR W2,[X3]</span><br><span class="line">             |                               |</span><br><span class="line">             | LDR W0,[X1]                   | LDR W0,[X1]</span><br><span class="line">------------------------------------------------------------</span><br></pre></td></tr></table></figure>
+<p>应该是4*3*2的一个全排列，那么也就需要验证如上所有的情况和其他规则不冲突，以上所有<br>的输出结果都是合法的结果。可以看到人脑已经无法完成这样的工作，需要借助特性的工具<br>来完成这样的验证。</p>
+<h2 id="herd7-cat-Litmus使用的基本逻辑"><a href="#herd7-cat-Litmus使用的基本逻辑" class="headerlink" title="herd7/cat/Litmus使用的基本逻辑"></a>herd7/cat/Litmus使用的基本逻辑</h2><p>ARM使用herd7+cat+Litmus的方式来验证内存模型的正确性，ARM的官网上有一个herd7+cat+Litmus<br>验证内存模型的使用方式，具体可以参考<span class="exturl" data-url="aHR0cHM6Ly9jb21tdW5pdHkuYXJtLmNvbS9hcm0tY29tbXVuaXR5LWJsb2dzL2IvYXJjaGl0ZWN0dXJlcy1hbmQtcHJvY2Vzc29ycy1ibG9nL3Bvc3RzL2hvdy10by11c2UtdGhlLW1lbW9yeS1tb2RlbC10b29s">这里<i class="fa fa-external-link-alt"></i></span>。</p>
+<p>其中我们用cat文件描述ARM的内存模型定义，可以看到cat文件里(aarch64-v08.cat)描述的<br>定义基本上和ARMspec B2.3章节是一一对应的。</p>
+<p>用Litmus的方式定义要测试的指令序列，Litmus还可以写执行结果相关的断言，Litmus可以<br>遍历所有可能结果，以此检测断言的正确与否。</p>
+<p>而herd7以cat文件和Litmus测试用例为参数运行模型，得到Litmus测试用例在cat定义模型下<br>的所有输出结果，并画出输出结果对应的图形。</p>
+<p>ARM提供了一个<span class="exturl" data-url="aHR0cHM6Ly9kZXZlbG9wZXIuYXJtLmNvbS9BcmNoaXRlY3R1cmVzL01lbW9yeSUyME1vZGVsJTIwVG9vbA==">网站<i class="fa fa-external-link-alt"></i></span>，可以形象的展示如上的整个流程。把上一小节的Litmus测试用例输入<br>左边的窗口，右边的窗口可以选择不同的模型，点击Run按钮运行模型：<br><img src="/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/herd7_1.png" alt="herd7验证ARM内存模型"></p>
+<p>在下面的输出窗口可以到看到P1上X0/X2的各种可能输出的值，已经产生这些输出值时，指令<br>的可能执行顺序：<br><img src="/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/herd7_2.png" alt="如上模型的部分输出"></p>
+<p>可以看到P1 X0/X2的可能结果为00/01/10/11，图上用ca(coherence after)/rf(read from)<br>标记了产生对应结果的指令实际执行序列。</p>
+<p>我们具体看下00/01的可能执行序列。先看00，当P0写X在P1读X之后，P0写Y在P1读Y之后，<br>P1的X0/X2的结果值就是0/0; 再看01，当P1读X在P0写X之后，P0写Y在P1读Y之后，P1的X0/X2<br>的结果值就是0/1。我们看这个图时，总是从箭头被指向的一方读起，比如W[y]=1 &lt;–ca– R[y]=0<br>就是P0写Y <em>coherence after</em> P1读Y。</p>
+<p>可以看到如上的这种表示方法以一种简洁的方式综合了导致某种结果的指令实际执行序列，<br>也简洁的表示出了某种场景下多核间可能的所有指令执行序列的情况。</p>
+<p>整套herd+cat+Litmus的测试方法中，cat里描述的是完整的模型定义，但Litmus中只能有有限<br>的测试用例，所有Litmus用例都通过，并不能证明cat中定义的模型内部没有逻辑冲突。对于<br>Litmus中的单个用例，测试可以输出单个用例在模型中运行的所有可能结果。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/ARM64/" rel="tag"><i class="fa fa-tag"></i> ARM64</a>
+              <a href="/tags/%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%EF%BC%8Cherd/" rel="tag"><i class="fa fa-tag"></i> 内存模型，herd</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/qemu-tcg%E4%B8%ADbarrier%E6%8C%87%E4%BB%A4%E7%9A%84%E6%A8%A1%E6%8B%9F/" rel="prev" title="qemu tcg中barrier指令的模拟">
+      <i class="fa fa-chevron-left"></i> qemu tcg中barrier指令的模拟
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#ARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B"><span class="nav-number">1.</span> <span class="nav-text">ARM内存模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#herd7-cat-Litmus%E4%BD%BF%E7%94%A8%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">2.</span> <span class="nav-text">herd7&#x2F;cat&#x2F;Litmus使用的基本逻辑</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">248</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">92</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
