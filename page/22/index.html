@@ -133,7 +133,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">248</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">249</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -196,6 +196,80 @@
 
           <div class="content index posts-expand">
             
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Dump-PCIe%E8%AE%BE%E5%A4%87BAR%E5%AF%84%E5%AD%98%E5%99%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/Dump-PCIe%E8%AE%BE%E5%A4%87BAR%E5%AF%84%E5%AD%98%E5%99%A8/" class="post-title-link" itemprop="url">Dump PCIe设备BAR寄存器</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2021-06-27 18:03:34" itemprop="dateCreated datePublished" datetime="2021-06-27T18:03:34+08:00">2021-06-27</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2022-07-24 23:20:53" itemprop="dateModified" datetime="2022-07-24T23:20:53+08:00">2022-07-24</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>调试的时候需要dump PCIe设备BAR里各个寄存器的内容，一般我们可以读 /sys/devices/<device_path>/resource[n]这个文件得到。
+Martoni写了一个小软件可以方便resource里内容的读取。这个软件在： https://github.com/Martoni/pcie_debug。
+本文介绍这个工具的使用。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/Dump-PCIe%E8%AE%BE%E5%A4%87BAR%E5%AF%84%E5%AD%98%E5%99%A8/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
       
   
   
@@ -844,78 +918,6 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%BA%93%E5%AE%9E%E7%8E%B0%E7%A7%81%E6%9C%89%E9%A9%B1%E5%8A%A8%E7%9A%84%E5%8A%A0%E8%BD%BD/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%BA%93%E5%AE%9E%E7%8E%B0%E7%A7%81%E6%9C%89%E9%A9%B1%E5%8A%A8%E7%9A%84%E5%8A%A0%E8%BD%BD/" class="post-title-link" itemprop="url">使用动态库实现私有驱动的加载</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2021-06-21 13:05:08" itemprop="dateCreated datePublished" datetime="2021-06-21T13:05:08+08:00">2021-06-21</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-05-19 12:01:55" itemprop="dateModified" datetime="2023-05-19T12:01:55+08:00">2023-05-19</time>
-              </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>本文讨论linux下使用动态库加载私有驱动库的一个设计。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/%E4%BD%BF%E7%94%A8%E5%8A%A8%E6%80%81%E5%BA%93%E5%AE%9E%E7%8E%B0%E7%A7%81%E6%9C%89%E9%A9%B1%E5%8A%A8%E7%9A%84%E5%8A%A0%E8%BD%BD/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
@@ -987,7 +989,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">248</span>
+          <span class="site-state-item-count">249</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

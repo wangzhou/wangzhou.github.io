@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="文本分析Linux内核内存管理中伙伴系统的基本逻辑。代码分析基于v6.5-rc3。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux内存管理-伙伴系统分析">
+<meta property="og:url" content="http://wangzhou.github.io/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="文本分析Linux内核内存管理中伙伴系统的基本逻辑。代码分析基于v6.5-rc3。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-11-20T10:50:43.000Z">
+<meta property="article:modified_time" content="2023-11-20T10:53:29.537Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta property="article:tag" content="内存管理">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux内存管理-伙伴系统分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">92</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">249</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux内存管理-伙伴系统分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-11-20 18:50:43 / 修改时间：18:53:29" itemprop="dateCreated datePublished" datetime="2023-11-20T18:50:43+08:00">2023-11-20</time>
+            </span>
+
+          
+            <div class="post-description">文本分析Linux内核内存管理中伙伴系统的基本逻辑。代码分析基于v6.5-rc3。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>伙伴系统的目的就是为了缓解内存分配中的内存碎片。写过内存分配的人对此有直接的认识，<br>系统里有一大块内存，不同的用户不断请求和释放不同大小的内存，一个直观的管理办法是，<br>把这一大块内存按照相同的单位分成大小相等的块，根据请求内存的大小依次从这些块中分配<br>内存，当大小内存混合分配时，随着内存块的不断分配和释放，小块内存很容易分配的很分散，<br>导致大块内存分配困难。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">+---+---+---+---+---+---+---+---+           +---+---+---+---+---+---+---+---+</span><br><span class="line">| a | b | b | b | c | d | d | d |           | a |   |   |   | c |   |   |   |</span><br><span class="line">+---+---+---+---+---+---+---+---+           +---+---+---+---+---+---+---+---+</span><br><span class="line">| d | e | f | f | f | f | g | h |   ----&gt;   |   | e |   |   |   |   | g |   |</span><br><span class="line">+---+---+---+---+---+---+---+---+           +---+---+---+---+---+---+---+---+</span><br><span class="line">| h | h | h | h | h | i | j | j |           |   |   |   |   |   | i |   |   |</span><br><span class="line">+---+---+---+---+---+---+---+---+           +---+---+---+---+---+---+---+---+</span><br></pre></td></tr></table></figure>
+<p>如上即使大的内存块释放了，由于小内存块分散分布，我们无法跨越小内存块而分配出大的<br>内存块来。</p>
+<p>我们可以想到的一个朴素逻辑: 小块内存在一个内存块里分，大块内存在另一个内存块里<br>分，这里所谓的大小内存块可以有很多级。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">     +---+---+---+---+---+---+---+---+</span><br><span class="line">L0   | a | b | c | d |   |   |   |   |</span><br><span class="line">     +---+---+---+---+---+---+---+---+</span><br><span class="line">L1   | e | e | f | f | g | g |   |   |</span><br><span class="line">     +---+---+---+---+---+---+---+---+</span><br><span class="line">L2   | h | h | h | h | i | i | i | i |</span><br><span class="line">     +---+---+---+---+---+---+---+---+</span><br></pre></td></tr></table></figure>
+<p>如上，一个小块内存(可以叫一个page)的分配只在L0的内存块里分，只在L1分配连续两个page，<br>只在L2分配连续四个page。这样小的内存块天然就被局限在特定的内存区域里了，它们不会<br>出来捣乱。</p>
+<p>但是，这里有个问题，比如L0内存分完了，L1/L2又有内存，如何把L1/L2的内存让出来给L0<br>用，L0用完后再换给L1/L2。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">     +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+</span><br><span class="line">L0   | a |--&gt;| b |--&gt;| c |--&gt;| d |--&gt;| j |--&gt;| k |--&gt;| l |--&gt;| m |</span><br><span class="line">     +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+</span><br><span class="line"></span><br><span class="line">     +---+---+   +---+---+   +-------+   +---+---+</span><br><span class="line">L1   | e | e |--&gt;| f | f |--&gt;| g | g |--&gt;|   |   |</span><br><span class="line">     +---+---+   +---+---+   +---+---+   +---+---+   -------------\</span><br><span class="line">                                                                   \</span><br><span class="line">     +---+---+---+---+   +---+---+---+---+                          \</span><br><span class="line">L2   | h | h | h | h |--&gt;| i | i | i | i |                           \      allocated</span><br><span class="line">     +---+---+---+---+   +---+---+---+---+                            \       |</span><br><span class="line">                                                                       v      v</span><br><span class="line"></span><br><span class="line">     +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+  +---+</span><br><span class="line">L0   | a |--&gt;| b |--&gt;| c |--&gt;| d |--&gt;| j |--&gt;| k |--&gt;| l |--&gt;| m |--&gt;|   |  |   |</span><br><span class="line">     +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+   +---+  +---+</span><br><span class="line"></span><br><span class="line">     +---+---+   +---+---+   +-------+</span><br><span class="line">L1   | e | e |--&gt;| f | f |--&gt;| g | g |</span><br><span class="line">     +---+---+   +---+---+   +---+---+</span><br><span class="line"></span><br><span class="line">     +---+---+---+---+   +---+---+---+---+</span><br><span class="line">L2   | h | h | h | h |--&gt;| i | i | i | i |</span><br><span class="line">     +---+---+---+---+   +---+---+---+---+</span><br></pre></td></tr></table></figure>
+<p>如上，在各个内存区域里，使用链表管理各个内存块，当L0的内存不够用的时候，就从更高<br>一级的内存域里(如上是L1)把一个大内存块分开，一部分分给用户使用，一部分挂入L0的空闲<br>内存链表。当L0 allocated内存使用完，返回空闲链表时，如果它的“伙伴”也是空闲的，那么<br>就可以把他们合并成一个L1的大块，挂回L1的空闲链表，这样分配大内存块时，就可以使用。<br>注意，伙伴系统里的空闲链表上的是空闲的内存，如上图里为了表示方便，在内存块里写了<br>字母表示连续分配的内存。</p>
+<p>实际上，伙伴系统里一开始并没有给小块内存链表上固定的分内存，就是伙伴系统不是专门<br>划分出L0/L1/L2的固定内存区域的，伙伴系统在初始化的时候把内存挂在大内存块的链表上，<br>当需要小内存的时候，再从大内存块一级一级拆出来分到小内存链表上。注意这样的分配方<br>式并不是小内存块都在连续区域里的，分配的时候还是可能有碎片出现，逻辑上看，伙伴系统<br>需要尽量先把一个大内存块分完，再拆另外的大内存块。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">                                           +---+   +---+          +---+   +---+    </span><br><span class="line">L0                                         | 2 |   | 1&#x27;|          | 2&#x27;|   | 1&#x27;|    </span><br><span class="line">                                           +---+   +---+          +---+   +---+    </span><br><span class="line">                                        =&gt; +---+---+         =&gt; +---+---+        </span><br><span class="line">L1                                         | 3 | 4 |            | 3 | 4 |        </span><br><span class="line">                                           +---+---+            +---+---+        </span><br><span class="line">   +---+---+---+---+  +---+---+---+---+    +---+---+---+---+    +---+---+---+---+</span><br><span class="line">L2 | 1 | 2 | 3 | 4 |-&gt;| 5 | 6 | 7 | 8 |    | 5 | 6 | 7 | 8 |    | 5 | 6 | 7 | 8 |</span><br><span class="line">   +---+---+---+---+  +---+---+---+---+    +---+---+---+---+    +---+---+---+---+</span><br></pre></td></tr></table></figure>
+<p>如上，分配完块1内存(分配出的内存块用n’表示)，再需要分L0内存时，我们应该把块1的伙伴<br>块2分配出去使用，而不是去拆L1中更大的块，拆大块内存必要引起碎片化加重。进一步看L0<br>中有更多的小块可选的时候，应该怎么选择分配出去的小块，看起来可以从链表里任意找，<br>因为凡是加到链表里的块，它的伙伴一定已经被分配出去了(最大的块除外)。</p>
+<h2 id="内存迁移和伙伴系统的关系"><a href="#内存迁移和伙伴系统的关系" class="headerlink" title="内存迁移和伙伴系统的关系"></a>内存迁移和伙伴系统的关系</h2><p>内存迁移的基本逻辑。在有虚拟内存的系统里，比如Linux系统，内核给用户呈现的内存语意<br>在虚拟地址上，也就是说用户针对一个虚拟地址读写数据就可以了，这给内核内部扩展了腾挪<br>空间，也就是说一个虚拟地址上的数据可能一会保存在一个物理内存上，一会保存在另一个<br>物理地址上。这里物理页面上数据迁移的动作就叫内存迁移。</p>
+<p>内存迁移的一个目的就是提高访问性能，进程可能会在不同核上迁移，如果不同核跨越了NUMA<br>节点，内存访问的效率会降低，内核通过内存迁移把数据搬移到CPU所在NUMA的内存上，这样<br>相同NUMA内内存访问效率高。</p>
+<p>内存迁移也可以缓解内存上的碎片，比如对于如上从L1拆借到L0的内存(如上中间的图)，我们<br>可以把块1‘上的数据迁移到其他page上，这样块1就可以释放回伙伴系统，块1可以和块2合并，<br>块12可以和块34合并，从而拼回L2的块1234。</p>
+<p>可以看到，虚拟内存支持的地址空间重映射是内存迁移可以使用的基础，不然都是物理内存，<br>PA已经给到用户，你再把数据迁移到新的PA上就乱了。可以看到内存迁移包含：1. 数据在<br>物理内存上的搬移；2. 虚拟地址到物理地址的重映射。我们这里考虑和伙伴系统的关系，<br>所以，只考虑第一点。一般第一点这样的内存迁移又叫内存规整(memory compaction)。</p>
+<p>内存迁移是有成本的，对于有些页可以直接定义为unmovable页，内存迁移不能作用于这些页。</p>
+<h2 id="大页和伙伴系统的关系"><a href="#大页和伙伴系统的关系" class="headerlink" title="大页和伙伴系统的关系"></a>大页和伙伴系统的关系</h2><p>大页有传统大页和透明大页(THP)，传统大页和伙伴系统没有关系，THP的大页一般是2MB页，<br>也就是伙伴系统里order是9的页(一个基础页是4KB)，当order为9的内存域里没有内存可分配<br>时就要通过内存迁移调整出2MB大页。(需要结合代码确定这个逻辑)</p>
+<h2 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h2><p>实际上，如果你用/proc/buddyinfo查看系统一开始buddy系统的信息，会发现内存基本上都<br>挂在order上最大的空闲链表上，特定order的内存区域不断的从大order内存区域上拆下来。</p>
+<p>Linux内核内存管理整体脉络可以参考<a href="https://wangzhou.github.io/PLKA%E7%AC%AC%E4%B8%89%E7%AB%A0%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/">这里</a>，内存管理的基本数据结构(pglist_data/zone/free_area)，<br>也在这里有所介绍。</p>
+<p>我们分别找下伙伴系统代码的几个关键位置：1. 系统一开始怎么被给到伙伴系统；2. 内存<br>怎么从伙伴系统分配出去；3. 内存释放到伙伴系统后，怎么合并成大内存。</p>
+<p>上面的参考文章里已经指出伙伴系统初始化的代码路径，最后是调用__free_memory_core进行<br>初始化。没有搞清的逻辑是，free_area里的movable/unmovable等不同迁移属性的内存区域<br>是否是一开始初始化好一整块的？</p>
+<p>alloc_pages是伙伴系统的核心分配函数，顺着往下走可以到get_page_from_freelist，这个<br>是伙伴系统的核心分配函数，再往下走是慢速路径了，我们这这里不看。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">get_page_from_freelist</span><br><span class="line">  +-&gt; rmqueue</span><br><span class="line">    +-&gt; rmqueue_buddy</span><br><span class="line">      +-&gt; __rmqueue</span><br><span class="line">            /*</span><br><span class="line">             * 这里从伙伴系统的freelist上取节点下来，然后使用__ClearPageBuddy，</span><br><span class="line">             * 标记对应的struct page脱离伙伴系统的管理。</span><br><span class="line">             *</span><br><span class="line">             * 注意__ClearPageBuddy函数是用宏定义在include/linux/page-flags.h里的。</span><br><span class="line">             */</span><br><span class="line">        +-&gt; __rmqueue_smallest</span><br></pre></td></tr></table></figure>
+
+<p>伙伴系统释放内存的核心函数是：free_pages，一路调用到__free_one_page，这个函数实际<br>执行内存释放和伙伴合并的逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">__free_one_page</span><br><span class="line">  +-&gt; while (order &lt; MAX_ORDER) &#123;</span><br><span class="line">            /*</span><br><span class="line">             * 可以看见伙伴系统找buddy的逻辑是很简单的: page_pfn ^ (1 &lt;&lt; order)，</span><br><span class="line">             * 其实就是把pfn的最低有效bit反转下。</span><br><span class="line">             */</span><br><span class="line">        +-&gt; find_buddy_page_pfn</span><br><span class="line">      &#125;</span><br><span class="line">  +-&gt; done_merging</span><br><span class="line">    ...</span><br></pre></td></tr></table></figure>
+<p>注意, 这里可以看到，伙伴系统并没有固定的数据结构记录谁是谁的buddy，只是每次都用<br>如上的简单算法直接计算得到buddy，计算只是得到可能的buddy，随后还要用page_is_buddy<br>再做下最终确认。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"><i class="fa fa-tag"></i> Linux内核</a>
+              <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" rel="tag"><i class="fa fa-tag"></i> 内存管理</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E4%BD%BF%E7%94%A8herd7%E5%81%9AARM%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B%E9%AA%8C%E8%AF%81/" rel="prev" title="使用herd7做ARM内存模型验证">
+      <i class="fa fa-chevron-left"></i> 使用herd7做ARM内存模型验证
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98%E8%BF%81%E7%A7%BB%E5%92%8C%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="nav-number">2.</span> <span class="nav-text">内存迁移和伙伴系统的关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A4%A7%E9%A1%B5%E5%92%8C%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F%E7%9A%84%E5%85%B3%E7%B3%BB"><span class="nav-number">3.</span> <span class="nav-text">大页和伙伴系统的关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">4.</span> <span class="nav-text">代码分析</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">249</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">92</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
