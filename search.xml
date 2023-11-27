@@ -1353,11 +1353,7 @@ crypto_comp_compress的时候都是关闭抢占的(是否要关闭调度), 这�
   <entry>
     <title>Linux workqueue分析</title>
     <url>/Linux-workqueue%E5%88%86%E6%9E%90/</url>
-    <content><![CDATA[<ol>
-<li>workqueue基本使用方法</li>
-</ol>
-<hr>
-<p> workqueue机制可以异步执行内核其他模块的任务。内核其他模块有任务需要异步执行的<br> 时候，可以调用workqueue提供的接口，把任务丢给一个对应的内核线程去执行。这里<br> 提到的任务定义是一个函数。</p>
+    <content><![CDATA[<h2 id="workqueue基本使用方法"><a href="#workqueue基本使用方法" class="headerlink" title="workqueue基本使用方法"></a>workqueue基本使用方法</h2><p> workqueue机制可以异步执行内核其他模块的任务。内核其他模块有任务需要异步执行的<br> 时候，可以调用workqueue提供的接口，把任务丢给一个对应的内核线程去执行。这里<br> 提到的任务定义是一个函数。</p>
 <p> 这里我们提到的workqueue是内核最新的版本，它的正规名字叫做Concurrency Managed<br> Workqueue。代码路劲在：linux/kernel/workqueue.c, linux/include/linux/workqueue.h</p>
 <p> workqueue相关的基本概念有: work, workqueue, pool workqueue, worker pool, worker,<br> per-cpu worker pool, unbound worker pool, per-cpu workqueue, unbound workqueue.</p>
 <p> work, workqueue是workqueue对其他模块的接口。使用者要先创建需要执行的任务, 即work。<br> 然后调用workqueue API把这个任务放入相关的workqueue里执行。</p>
@@ -1371,25 +1367,13 @@ crypto_comp_compress的时候都是关闭抢占的(是否要关闭调度), 这�
 <p> 以上的数据结构大致是这样的:</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+----------+</span><br><span class="line">|unbound wq+-+- kworker pool(node0)-+- worker0 (u&lt;work pool id&gt;:&lt;worker num&gt;)</span><br><span class="line">+----------+ |                      +- worker1</span><br><span class="line">             |                      `- ...</span><br><span class="line">             |</span><br><span class="line">             `- kworker pool(node1)-+- worker0</span><br><span class="line">                                    +- worker1</span><br><span class="line">                                    `- ...</span><br><span class="line">+------------+</span><br><span class="line">|numa node 0 |</span><br><span class="line">|            |  .-- kworker pool    -+- worker0 (&lt;cpu num&gt;:&lt;worker num&gt;)</span><br><span class="line">|   cpu 0 ---+--+-- kworker pool[H]  +- worker1 </span><br><span class="line">|            |  .-- kworker pool     `- ...</span><br><span class="line">|   cpu 1 ---+--+-- kworker pool[H] -+- worker0 (&lt;cpu num&gt;:&lt;worker num&gt;H)</span><br><span class="line">+------------+                       +- worker1</span><br><span class="line">                                     `- ...</span><br><span class="line">+------------+</span><br><span class="line">|numa node 1 |</span><br><span class="line">|            |</span><br><span class="line">|   cpu 2    |      ...</span><br><span class="line">|            |</span><br><span class="line">|   cpu 3    |</span><br><span class="line">+------------+</span><br></pre></td></tr></table></figure>
 
-<ol start="2">
-<li>workqueue代码的基本结构</li>
-</ol>
-<hr>
-<p> 详见简介中的连接, 这四篇文章已经讲的很好。</p>
-<ol start="3">
-<li>workqeueu API再挖掘</li>
-</ol>
-<hr>
-<p> 如上，workqueue的work不会直接和worker绑定，而是在queue_work的时候选择一个<br> kworker pool。</p>
+<h2 id="workqueue代码的基本结构"><a href="#workqueue代码的基本结构" class="headerlink" title="workqueue代码的基本结构"></a>workqueue代码的基本结构</h2><p> 详见简介中的连接, 这四篇文章已经讲的很好。</p>
+<h2 id="workqeueu-API再挖掘"><a href="#workqeueu-API再挖掘" class="headerlink" title="workqeueu API再挖掘"></a>workqeueu API再挖掘</h2><p> 如上，workqueue的work不会直接和worker绑定，而是在queue_work的时候选择一个<br> kworker pool。</p>
 <p> 对于unbound workqueue, alloc_workqueue中会判断系统里是否有相同的kworker pool,<br> 如果有，就用已有的kworker pool。判断相同的依据是nice，cpumask，no numa。对于<br> per-cpu workqueue，直接选择当前cpu上的kworker pool。</p>
 <p> 创建一个新的kworker pool肯定至少要创建一个内核线程。所以，如果alloc_workqueue<br> 复用旧的kworker pool可能会用之前kworker pool里的线程，如果alloc_workqueue里创建<br> 新的kworker pool，那么这个步骤就会新建一个内核线程。</p>
 <p> kworker pool的worker是动态调整的，pool里的线程都处于阻塞状态的时候，pool就会<br> 新起一个线程执行work。下面的测试中，我们给一个unbound wq里发work，每个work里<br> sleep一段时间，可以看到，这个unbound wq是复用的系统已经有的kworker pool，在用完<br> 该kworker pool里本来已有的线程后，该worker pool会起新的线程执行work, 过一会<br> 可以发现，该worker pool里的线程有一部分被回收。(case 3)</p>
 <p> 注意, 在申请workqueue的时候加上WQ_SYSFS参数，可以把该workqueue的信息通过sysfs<br> 暴露到用户态：e.g. /sys/bus/workqueue/devices/writeback</p>
-<ol start="4">
-<li>测试</li>
-</ol>
-<hr>
-<p> 如下附录中的测试代码, 以下是测试得到的结论:</p>
+<h2 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h2><p> 如下附录中的测试代码, 以下是测试得到的结论:</p>
 <p> case 1: queue_work_on, 对unbound work queue操作时只能把work放在对应numa node上<br>         的cpu，无法具体到cpu。</p>
 <p> case 2: schedule_work可以把work放到当前的cpu上。</p>
 <p> case 3: 当kwork pool里的线程都处于block状态的时候，如果有work需要执行，对应<br>         的pool就会新分配内核线程。(这个对于per-cpu和unbound work queue都是一样的)</p>
@@ -7473,6 +7457,13 @@ vfio会用UNMANAGED domain。(具体逻辑： todo)
 <p>多核系统下的LSU。Paul很出名的文章《Memory Barriers: a Hardware View for Software Hackers》<br>里指出之所以存在barrier是CPU微架构上引入store buffer和invalid queue导致的，我们看看<br>能不能把这里的store buffer和LSU里的store buffer的概念整合到一起理解。</p>
 <p>其实，我们这里讨论的store buffer和文章里讨论的store buffer逻辑上是一致的，commit<br>store进store buffer的原因都是防止核被挂住，在多核情况下，一个store操作还需要和其它<br>核做通信，如果一直等其它核的响应，虽然可以保证数据的一致性，但是牺牲了本核的性能。</p>
 <p>注意这里的关键点是store buffer里处于3状态的store操作如何写存储器，如果对于不同地址<br>的store操作依然是顺序的，就不会出问题，如果对于不同地址的store是可以乱序的，就会<br>出现文章里错误执行的行为。只不过文章里，对于可以直接写cache的操作就直接写cache了，<br>这个和所有commit store都进store buffer，store buffer里可以乱序是一样的行为。</p>
+<p>我们把barrier的逻辑也尝试整合进来，为了简化理解，我们这里认为如上1和2的store被放<br>在核内的store queue里，如上的3状态的store会被发到核外的store buffer上。可以看见<br>对于store barrier，其实现逻辑可能就是当CPU检测到store barrier时，停止向store buffer<br>里发请求，并且持续等待到store buffer里的请求都完成，store barrier这个指令才能提交，<br>store barrier提交时，恢复core向store buffer的请求通路。所谓store buffer里请求都完成，<br>在多核系统下，是指完成了对应的MESI协议的多核一致性协议操作，比如，如果要对一个<br>share状态的cache line写，这个请求完成指当前core向一同share这个cache line的core发<br>cache invalid消息，并接收到所有应答。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-------------+     +-------------+     +-------------+</span><br><span class="line">| core 0      |     | core 1      |     | core 2      |</span><br><span class="line">|             |     |             |     |             |</span><br><span class="line">| store queue |     | store queue |     | store queue |</span><br><span class="line">+-------------+     +-------------+     +-------------+</span><br><span class="line">       v                   v                   v</span><br><span class="line">+-------------+     +-------------+     +-------------+</span><br><span class="line">| store buffer|     | store buffer|     | store buffer|</span><br><span class="line">| A B C       |     |             |     |             |</span><br><span class="line">+-------------+     +-------------+     +-------------+</span><br><span class="line">              \</span><br><span class="line">               -- invalid --------&gt;----&gt;-------</span><br><span class="line">                             \                 \</span><br><span class="line">  cache lines         cache lines         cache lines</span><br><span class="line">               &lt;---- ack --                    /</span><br><span class="line">               &lt;---------- ack ----------------</span><br></pre></td></tr></table></figure>
+<p>如上图，core 0上如果有一个store barrier，core0关闭store queue到store buffer的通路，<br>并把store buffer里已经存在的store请求完成。注意这里的完成是指其他core上也看到一致<br>的数据，那么对于store barrier隔开的两个store请求，他们在cache系统上生效确实保证了<br>先后。</p>
+<p>但是，这里需要注意的是，store barrier保证前后两个store的顺序，但是并不保证其他core<br>上看到的顺序，这里关键之处是其他core上的指令执行是乱序的。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">core 0:                  core 1:</span><br><span class="line"></span><br><span class="line">store X1, [addr1]       load X3, [addr2]</span><br><span class="line">store barrier</span><br><span class="line">store X2, [addr2]       load X4, [addr1]</span><br></pre></td></tr></table></figure>
+<p>store barrier虽然可以保证core 0上两个store的顺序，但是core1上第二条load可能早就<br>乱序执行把地址addr1上的数据load到X4里了，当core1从addr2上确实load到core0写如入<br>的X2时，第二条load指令上X4是addr1上的旧值。</p>
+<p>所以，如上经典的MP场景下，为了保证信息传递的正确性，要在core1的两个load之间加load<br>barrier，本质上就是不使用投机得到的load结果，重新执行load barrier之后的load指令。</p>
 <p>考虑把invalid queue的逻辑也一起整合进来。CPU里的一个core(B)收到另一个core(A)发给<br>它的一个invalid cache请求，core B自己还有一堆事要做，于是core B把这个invalid cache<br>请求放到自己的invalid queue里，回响应给core A，随后core B再去做invalid queue中的请求。<br>但是，正如上面所提到的，core B会投机执行它自己核上的load指令，如果投机执行正确，<br>Core B完全可能提交的是invalid cache之前就拿到的cache上的数据，这样load提交的结果<br>就错了。</p>
 ]]></content>
       <tags>
