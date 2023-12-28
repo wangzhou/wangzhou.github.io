@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析Linux上perf子系统的基本逻辑，分析基于的内核版本是v6.7-rc6，分析基于 ARM64架构和RISCV构架。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux perf构架分析">
+<meta property="og:url" content="http://wangzhou.github.io/Linux-perf%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析Linux上perf子系统的基本逻辑，分析基于的内核版本是v6.7-rc6，分析基于 ARM64架构和RISCV构架。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-12-28T11:47:28.000Z">
+<meta property="article:modified_time" content="2023-12-28T12:00:49.837Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="软件性能">
+<meta property="article:tag" content="Linux内核">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/Linux-perf%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux perf构架分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">92</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">251</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux-perf%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux perf构架分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2023-12-28 19:47:28 / 修改时间：20:00:49" itemprop="dateCreated datePublished" datetime="2023-12-28T19:47:28+08:00">2023-12-28</time>
+            </span>
+
+          
+            <div class="post-description">本文分析Linux上perf子系统的基本逻辑，分析基于的内核版本是v6.7-rc6，分析基于 ARM64架构和RISCV构架。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>perf是Linux上支持程序调优的子系统，这个子系统很大的依赖硬件自带的PMU设备完成程序<br>性能相关参数的采集，程序员可以使用收集到的数据完成程序调优。</p>
+<p>所谓PMU设备其实是核上自带一组counter以及其控制寄存器的抽象，程序员通过PMU的控制<br>寄存器控制counter收集的数据，以及counter的运行或停止等。一般来说，counter有两种<br>使用方法，一种是直接记录对应事件发生的次数，记录程序的运行参数时，通常这样使用<br>counter，比如我们记录运行一个程序需要多少个CPU cycle。另一种是给counter设定一个<br>门限，当计数到门限时触发中断，中断处理函数中可以做相应的记录，这种使用方法一般用<br>来做采样，比如我们可以每隔一定的cycle触发一个中断，在中断处理函数里记录当前PC对应<br>的函数，这样就可以根据记录数据得到基于采样的程序执行时的热点函数分布。</p>
+<p>Linux的perf子系统对于PMU进行了抽象封装，提供一组易用的接口给用户使用。同时perf子<br>系统还把基于软件trace point等的各种其他观测机制集成进来，我们这里先只考虑和PMU对<br>应的perf功能。</p>
+<p>我们考虑perf子系统需要做的工作。1. perf子系统需要给用户提供一组接口，支持用户发送<br>程序信息收集的命令，读程序运行产生的数据，2. 因为各个硬件厂家的PMU各不相同，perf<br>子系统需要有一个公共的抽象以支持各种不同的PMU，3. 很多时候我们只是统计一个进程的<br>数据，而Linux是一个多进程系统，这就需要perf子系统对数据统计进行控制，比如，程序<br>运行时开始统计，程序调度出去时停止统计，这种控制可能是比较复杂的，比如进程在不同<br>核之间迁移的时候，进程数据的统计也要跟着一起迁移，4.为了方便用户使用，需要提供<br>相应的用户态工具，发送perf命令，解析perf数据。</p>
+<h2 id="perf用户态工具"><a href="#perf用户态工具" class="headerlink" title="perf用户态工具"></a>perf用户态工具</h2><p>perf用户态工具的代码在Linux内核tools/perf目录下，其实是可以独立内核编译的用户态<br>工具。用户态工具的基本逻辑比较简单，一般在主进程里完成命令解析和相关配置，创建<br>子进程运行被测程序，主进程通过perf_event_open/ioctl等接口配置和控制perf寄存器，<br>主进程完成perf寄存器控制和子进程启动等同步操作，最后主进程还要解析和展示数据。</p>
+<p>我们具体看下perf stat的代码逻辑要点:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">/* tools/perf/perf.c */</span><br><span class="line">main</span><br><span class="line">  +-&gt; run_argv</span><br><span class="line">    +-&gt; handle_internal_command</span><br><span class="line">      +-&gt; run_builtin</span><br><span class="line">            /* builtin-stat.c */</span><br><span class="line">        +-&gt; cmd_stat (p-&gt;fn)</span><br><span class="line">          +-&gt; run_perf_stat</span><br><span class="line">            +-&gt; __run_perf_stat</span><br><span class="line">                  /* 里面fork出子进程，阻塞等待父进程 */</span><br><span class="line">              +-&gt; evlist__prepare_workload</span><br><span class="line">                  /* 一路调用下去，最后使用perf_event_open系统调用创建counter */</span><br><span class="line">              +-&gt; create_perf_stat_counter</span><br><span class="line">                  /* 一路调用下去, 使用ioctl enable counter */</span><br><span class="line">              +-&gt; enable_counters</span><br><span class="line">                  /* 启动子进程 */</span><br><span class="line">              +-&gt; evlist__start_workload</span><br></pre></td></tr></table></figure>
+
+<p>man perf_event_open可以查看该系统调用的具体参数，我们可以跟踪下一个perf_event具体<br>是怎么被映射到底层的PMU counter上的。</p>
+<p>perf_event_open的入参是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu, int group_fd,</span><br><span class="line">                    unsigned long flags);</span><br></pre></td></tr></table></figure>
+<p>基本逻辑是pid和cpu控制要跟踪的进程和CPU，group_fd可以支持同时跟踪一组event，具体<br>要跟踪的事件在attr里定义。</p>
+<p>attr是一个大杂汇，内核通过attr.type/attr.config定义具体的event，公共的event有对应<br>的type/config的定义，硬件厂商子定义的event使用PERF_TYPE_RAW作为type，attr.size定义<br>这个结构体的大小，各个版本的perf_event_open的attr的size可能是不一样的，这里应该<br>是只传递指针和size，靠这种方法做接口的演进。</p>
+<h2 id="perf内核构架"><a href="#perf内核构架" class="headerlink" title="perf内核构架"></a>perf内核构架</h2><h3 id="核心构架"><a href="#核心构架" class="headerlink" title="核心构架"></a>核心构架</h3><p>perf系统调用入口：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">/* linux/kernel/events/core.c */</span><br><span class="line">perf_event_open</span><br><span class="line">      /* 注册给task_struct */</span><br><span class="line">  +-&gt; perf_install_in_context</span><br></pre></td></tr></table></figure>
+<p>perf_event_open根据用户指令的event，在PMU硬件上分配具体的counter(这里只考虑硬件<br>event的情况)，并把对应的event向task_struct注册，task_struct里用perf_event_context<br>记录和当前线程相关的event，这里把event和task_struct绑定是为了后续在线程调度的时候<br>停止和重启具体event的计数。perf_event_open生成匿名文件，并返回对应fd，随后用户通过<br>fd控制对应的event。</p>
+<p>perf ioctl入口：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">/* linux/kernel/events/core.c */</span><br><span class="line">perf_ioctl</span><br><span class="line">  +-&gt; ...</span><br></pre></td></tr></table></figure>
+
+<p>Linux调度进程，把一个进程投入运行，相关的counter也要投入运行，调用路径估计是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">/* linux/kernel/events/core.c */</span><br><span class="line">__perf_event_task_sched_in</span><br><span class="line">  +-&gt; perf_event_context_sched_in</span><br><span class="line">    +-&gt; perf_event_sched_in</span><br><span class="line">      +-&gt; ctx_sched_in</span><br><span class="line">        +-&gt; ctx_groups_sched_in</span><br><span class="line">          +-&gt; pmu_groups_sched_in</span><br><span class="line">            +-&gt; merge_sched_in</span><br><span class="line">              +-&gt; group_sched_in</span><br><span class="line">                +-&gt; event_sched_in</span><br></pre></td></tr></table></figure>
+<p>可以看到event_sched_in将调用具体PMU的add回调函数，把event加回来。这里的整体逻辑是<br>线程被调度出CPU之前使用__perf_event_task_sched_out暂停event的行为并保存当前统计值，<br>线程被重新调度进CPU的时候使用如上的__perf_event_task_sched_in恢复event的上下文并<br>重新开始event的运行。</p>
+<p>底层的具体操作在PMU驱动的add/del回调函数中完成，其中既控制PMU counter的启停，又<br>恢复/保存counter的值到event上下文。</p>
+<h3 id="PMU驱动"><a href="#PMU驱动" class="headerlink" title="PMU驱动"></a>PMU驱动</h3><p>我们以ARM PMUv3驱动为例分析，看看具体硬件怎么和perf核心构架连在一起。其中核心逻辑<br>就是Linux为PMU硬件抽象了一个struct pmu数据结构，各个PMU驱动要实现pmu数据结构里<br>perf_event的控制逻辑，并把自己的pmu注册到perf子系统上。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">/* linux/drivers/perf/arm_pmuv3.c */</span><br><span class="line">armv8_pmu_device_probe</span><br><span class="line">      /* 在其中创建struct pmu，并添加ARM PMUv3的各种回调函数 */</span><br><span class="line">  +-&gt; armpmu_alloc</span><br><span class="line">  +-&gt; armpmu_register</span><br></pre></td></tr></table></figure>
+
+<p>PMU驱动的另一个重要功能是注册了PMU中断处理函数，PMU中断处理函数处理具体counter<br>的溢出中断，调用perf子系统API记录中断发生时的程序上下文数据。</p>
+<h2 id="TopDown模型"><a href="#TopDown模型" class="headerlink" title="TopDown模型"></a>TopDown模型</h2><p>使用TopDown模型分析程序性能是Intel提出的一种程序性能分析方法，如上使用一组counter<br>分析程序性能问题并不能系统的看问题，TopDown的方式可以系统的分析程序的性能问题。</p>
+<p>简单讲，通过perf记录输出的一组程序运行参数，可以得到CPU在运行这段程序时，CPU上<br>cycle的分布情况，这个分布情况可以从上到下的逐步细分，最后定位到具体是哪里的问题。</p>
+<p>Linux系统上已经支持使用perf直接得到TopDown结果，ARM64上目前还没有厂家可以做到。<br>相关的信息可以参考<a href="https://wangzhou.github.io/%E7%8E%B0%E4%BB%A3CPU%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E4%B8%8E%E4%BC%98%E5%8C%96-%E7%AC%94%E8%AE%B0/">这里</a>。</p>
+<h2 id="ARM-PMU扩展特性"><a href="#ARM-PMU扩展特性" class="headerlink" title="ARM PMU扩展特性"></a>ARM PMU扩展特性</h2><ul>
+<li><p>SPE</p>
+</li>
+<li><p>uncore PMU</p>
+</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E6%80%A7%E8%83%BD/" rel="tag"><i class="fa fa-tag"></i> 软件性能</a>
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"><i class="fa fa-tag"></i> Linux内核</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E7%8E%B0%E4%BB%A3CPU%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E4%B8%8E%E4%BC%98%E5%8C%96-%E7%AC%94%E8%AE%B0/" rel="prev" title="现代CPU性能分析与优化-笔记">
+      <i class="fa fa-chevron-left"></i> 现代CPU性能分析与优化-笔记
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#perf%E7%94%A8%E6%88%B7%E6%80%81%E5%B7%A5%E5%85%B7"><span class="nav-number">2.</span> <span class="nav-text">perf用户态工具</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#perf%E5%86%85%E6%A0%B8%E6%9E%84%E6%9E%B6"><span class="nav-number">3.</span> <span class="nav-text">perf内核构架</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%A0%B8%E5%BF%83%E6%9E%84%E6%9E%B6"><span class="nav-number">3.1.</span> <span class="nav-text">核心构架</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#PMU%E9%A9%B1%E5%8A%A8"><span class="nav-number">3.2.</span> <span class="nav-text">PMU驱动</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TopDown%E6%A8%A1%E5%9E%8B"><span class="nav-number">4.</span> <span class="nav-text">TopDown模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ARM-PMU%E6%89%A9%E5%B1%95%E7%89%B9%E6%80%A7"><span class="nav-number">5.</span> <span class="nav-text">ARM PMU扩展特性</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">251</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">92</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2023</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

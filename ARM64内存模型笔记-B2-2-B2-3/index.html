@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文是ARM64 spec 2.2&#x2F;2.3章节的学习笔记。ARM的spec不同的版本这两节的定义语言 描述变化有点大，我们这里使用的是2023.4.12的版本，另外，这个版本的行文似乎 比较乱，看的时候可以对比着上一个版本的看。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2023-11-11T08:19:24.000Z">
-<meta property="article:modified_time" content="2023-12-08T11:16:41.135Z">
+<meta property="article:modified_time" content="2023-12-11T01:39:53.195Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="计算机体系结构">
 <meta property="article:tag" content="ARM64">
@@ -137,7 +137,7 @@
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">249</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">251</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -235,7 +235,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2023-12-08 19:16:41" itemprop="dateModified" datetime="2023-12-08T19:16:41+08:00">2023-12-08</time>
+                <time title="修改时间：2023-12-11 09:39:53" itemprop="dateModified" datetime="2023-12-11T09:39:53+08:00">2023-12-11</time>
               </span>
 
           
@@ -258,7 +258,7 @@
 <h2 id="2-2-4"><a href="#2-2-4" class="headerlink" title="2.2.4"></a>2.2.4</h2><p>ARM定义Normal/device memory都不要求是multi-copy atomic。</p>
 <h2 id="2-2-5"><a href="#2-2-5" class="headerlink" title="2.2.5"></a>2.2.5</h2><p>多核之间，一个core执行的指令可能被另一个core修改，这一节的内容与此相关。</p>
 <h2 id="2-2-6"><a href="#2-2-6" class="headerlink" title="2.2.6"></a>2.2.6</h2><p>原子指令在实现上的一些约束。</p>
-<h1 id="2-3"><a href="#2-3" class="headerlink" title="2.3"></a>2.3</h1><p>这一节定义ARM的内存模型，为了方便说明，前面几节都是在介绍定义。总的来讲，定义包括<br>两大类，第一类是静态定义的order上的约束，比如，address dependency，当两个指令有<br>存在这样的关系的时候，两个指令的实际执行顺序是确定的，第二类是指令的可能行为，比如，<br>read from，在两个core之间，当一个core上的store指令和另一个core上的load指令访问相同<br>地址的时候，他们之间就可能存在read from关系，就是store改变了地址上的数据，然后load<br>从地址上读到改变的数据，但是这个read from关系只是表示结果，因为可能load在store前<br>运行，这样就不会有read form的关系。ARM spec里对这两类定义区分的并不是很清晰，当然<br>也可能是英语水平的原因。</p>
+<h1 id="2-3"><a href="#2-3" class="headerlink" title="2.3"></a>2.3</h1><p>这一节定义ARM的内存模型，为了方便说明，前面几节都是在介绍定义。</p>
 <h2 id="2-3-1"><a href="#2-3-1" class="headerlink" title="2.3.1"></a>2.3.1</h2><p>这一节是基础名词的定义，这些基础名词的定义和后面使用的地方是对应的，这里给出了所有<br>情况下的定义，我们这里先根据基本的定义，把握下定义的主线。所以，我们这里先不关注<br>某些特性的所有定义，比如和memory tag相关的定义，后面如果需要，我们在针对某个特性<br>整体考虑。</p>
 <p>observer: 定义系统里可以发起读写请求的部件，比如CPU核或者外设。</p>
 <p>common shareability domain:</p>
@@ -284,19 +284,15 @@
 <p>barrier effects: spec上写的是DSB/DMB/ISB带来的effect，其他barrier指令怎么看？</p>
 <p>context synchronization effects(CSE effect): ISB或异常进入退出带来的effect。</p>
 <p>branch effects: 各种branch指令带来的改变PC的effect。</p>
-<p>TLBI effects/completed TLBI effect: tlbi指令会产生TLBI effect，tlbi后面加一个DSB.FULL<br>指令会产生completed TLBI effect。基于此概念，还定义了TLBI-before/TLBI-after，比如，<br>TLBI-before的定义是，一个completed TLBI effect和一个TTB read之间的顺序。</p>
+<p>TLBI effects/completed TLBI effect: tlbi指令会产生TLBI effect，tlbi后面加一个DSB.FULL<br>指令会产生completed TLBI effect。基于此概念，还定义了TLBI-before/TLBI-after。</p>
 <p>fault effects, exception entry/return effects: 这块定义的比较混乱，定义关系之间<br>会重叠，比如异常进入退出的effect，在上面又叫CSE effect。反正按照字面意思可以看懂<br>就好。</p>
 <p>TLB uncacheable effects: 把translation fault/access flag fault/address size fault<br>产生的effect归类为TLB uncacheable effect。基于这个概念还定义了TLB uncacheable-write-predecessor和<br>TLB uncacheable-write-successor。</p>
 <p>low order bits/same low order bits/same location: 这组定义是为了定义最后的same<br>location，这里说的不清楚。</p>
-<h2 id="2-3-2"><a href="#2-3-2" class="headerlink" title="2.3.2"></a>2.3.2</h2><p>这一节定义的是单条指令内在dependency关系，像CSEL/CAS/SWAP这种读写effect都有的指令，<br>CAS Xs, Xt, [Xn]指令中，如果Xs和Xn地址上的数据相等，就把Xt的值写到Xn地址上。</p>
+<h2 id="2-3-2"><a href="#2-3-2" class="headerlink" title="2.3.2"></a>2.3.2</h2><p>这一节定义的是单条指令内在dependency关系，像CAS/SWAP这种读写effect都有的指令，<br>CAS Xs, Xt, [Xn]指令中，如果Xs和Xn地址上的数据相等，就把Xt的值写到Xn地址上。</p>
 <p>注意，2.3.2的标题是“intrinsic dependency relations”，就是这一节定义的还是”关系“，<br>并没有定义指令之间要准守的先后循序。</p>
-<p>CSEL Xd, Xn, Xm, cond 指令根据cond从PSTATE.NZCV的对应位或取信息，然后把Xn或Xm的<br>值传递给Xd。</p>
-<p>SWP Xs, Xt, [Xn] 指令把Xn地址上的值load出来(data)，把Xs写入Xn的地址，并把之前load<br>出的data写到Xt里。</p>
 <h2 id="2-3-3"><a href="#2-3-3" class="headerlink" title="2.3.3"></a>2.3.3</h2><p>translation-intrinsically-before。协议里写比较模糊，加个例子比较好。</p>
-<p>对于同一个指令中的两个effect，一个是implicit TTD read memory effect R1，后者是<br>显示内存读写effect或者是fault effect E2。如果R1和一个intrinsic branch effect B3<br>有数据依赖，B3和E2有控制依赖，那么E1和E2就存在这个关系。</p>
-<p>直观上看，最明显的一个例子就是load/store触发page fault的流程。不清楚E2是显示内存<br>读写的时候，具体的场景是什么？</p>
 <h2 id="2-3-4"><a href="#2-3-4" class="headerlink" title="2.3.4"></a>2.3.4</h2><p>tag-check-intrinsically-before</p>
-<h2 id="2-3-5"><a href="#2-3-5" class="headerlink" title="2.3.5"></a>2.3.5</h2><p>各种dependency的定义，定义的是依赖的形式，至于基于这些依赖形式的指令先后顺序，这里<br>并没有定义。但是，可以看到这里定义的各种dependency关系，到后面会有对应的静态order<br>定义出来。</p>
+<h2 id="2-3-5"><a href="#2-3-5" class="headerlink" title="2.3.5"></a>2.3.5</h2><p>各种dependency的定义，定义的是依赖的形式，至于基于这些依赖形式的指令先后顺序，这里<br>并没有定义。</p>
 <p>dependency through registers and memory:<br>一个PE上，寄存器或者地址上的RAW关系。一条指令中的data dependency关系。关系可以传递。</p>
 <p>basic dependency:<br>两个effect是一样的(相同observed，相同作用结果)。上述的registers/memory dependency。</p>
 <p>address dependency:<br>简单理解为，对于两个memory effect的指令，后一条指令用了前一条指令的输出作为地址。</p>
@@ -307,61 +303,25 @@
 <h2 id="2-3-6"><a href="#2-3-6" class="headerlink" title="2.3.6"></a>2.3.6</h2><p>各种order relation的定义。</p>
 <p>CSE-ordered-before: 如上面提到的，上下文同步时的order。控制依赖里如果前一个指令<br>有显示memory read, 后一个指令有CSE effect，就是这种order。结合后面看，这种情况下<br>也是保序的。</p>
 <p>dependency-ordered-before:</p>
-<p>这里在定义order了，单核上的各种基本序都是这条里面定义的。“A dependency creates<br>externally-visible order between …”，dependency创建了order，可以认为，这里定义<br>的是第一类静态order的约束。</p>
+<p>这里在定义order了，单核上的各种基本序都是这条里面定义的，注意这里的“序“指的还是<br>关系。“A dependency creates externally-visible order between …”，dependency创建<br>了order，但是这里并没有说order里元素的先后关系。</p>
 <p>注意这里的order细化了上面的dependency，我们看control dependency相关的order，在这里<br>明确提出了在一个control dependency里，后面的一个是memory write。也就是这里对后一个<br>effect是memory read的control dependency关系是没有序上的定义的，配合后面创建先后<br>关系的定义，control dependency里，后面的memory read是不存在先后顺序的约束的，这个<br>和我们一般的认知也是相符的。<br>…</p>
 <p>pick-ordered-before:</p>
 <p>atomic-ordered-before:</p>
-<p>说明的是load-exclusive/store-exclusive指令里包含的order语意。</p>
 <p>DSB-ordered-before:</p>
-<p>DSB的order定义。</p>
 <p>barrier-ordered-before:</p>
-<p>主要讲DMB的order，以及带acquire/release属性的院子指令的order。</p>
+<p>主要讲DMB的order。</p>
 <p>TTD-read-ordered-before:</p>
-<p>这里描述了两种满足情况的定义，描述都是用effect的，为了简化描述，我们这里都有指令<br>来说明。第一种情况：E1 -&gt; TLBI(E3) -&gt; DSB.FULL(E4) -&gt; E2(spec上说E2在E3之后?)(E2<br>不能是隐式内存effect)，也就是说E1改了页表，后面要加TLBI/DSB才能和E2中的内存访问<br>保序，这里E1/E2是什么effect，spec里没有写出来。第二种情况：FEAT_ETS2(enhanced<br>translation synchronization)支持时，情况1中的E2可以是implicit TTD memory effect。</p>
-<p>在如上的两种情况中，E3是TLBI effect，那么根据TLBI-after的定义，E1是一个TTD read。<br>大概场景如下：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">core0:           core1:</span><br><span class="line"></span><br><span class="line">TTD read(E1)</span><br><span class="line">                 TLBI(E3)</span><br><span class="line">                 DSB.FULL(E4) E2</span><br></pre></td></tr></table></figure>
-<p>spec上说E2 program after E3，那么E2可能在DSB之前也可能在DSB之后？具体对应软件上<br>的什么场景？</p>
 <p>TLBI-ordered-before:</p>
-<p>一共有三种情况，第一种就是如上的TTD-read-ordered-before。后两种也依赖TTD的这个关系，<br>搞懂TTD是关键 :(</p>
 <p>TLBI-coherence-before:</p>
-<p>晕…</p>
 <p>locally-ordered-before:</p>
 <p>这里基本上汇集了单核上的所有order的定义。</p>
 <p>pick-locally-ordered-before:</p>
 <p>hardware-required-ordered-before:</p>
-<p>包含了locally-ordered-before，又汇集了如上的其他类型的order定义。可以看到这里面<br>包含的都是我们最上面说的第一类静态的order关系。</p>
+<p>包含了locally-ordered-before，又汇集了如上的其他类型的order定义。</p>
 <p>hazard-ordered-before:</p>
 <p>应该是特殊定义的一种order？</p>
-<h2 id="2-3-7"><a href="#2-3-7" class="headerlink" title="2.3.7"></a>2.3.7</h2><p>External ordering constraint的定义，包含了单核上order的定义，以及我们上面说的第二<br>类关系的表述，终极的约束是这些全部定义放到一起不能出现矛盾，就是定义的order关系<br>链上不能有环。</p>
-<p>external visibility requirement:</p>
-<p>这里external visibility requirement的描述包括了hardware-required-ordered-before,<br>hardware-required-ordered-before包含了单核上order的定义。</p>
-<p>所以，这一节定义的order上的约束可以分两个大类，一个是单核上的order约束，一个是多核<br>上order约束的传递关系，其中第一个可以认为是我们上面说的静态定义的order关系，第二个<br>是上面第二类关系的延续。我们一个一个看下这里的定义:</p>
-<ul>
-<li><p>E1 hardware-required-ordered-before E2</p>
-</li>
-<li><p>E1 hazard-ordered-before E2</p>
-</li>
-<li><p>E1 Observed-by E2 or effects belongs to same single-copy-atomicity class as E2</p>
-<p>(single-copy-atomicity class是什么意思?) 结合observed-by的语意，这里似乎是在说<br>多核之间对同一地址数据的自然观察结果，也就是说所谓“E1 Observed-by E2”是一个结果。</p>
-</li>
-<li><p>E1是implicit TTD effect, E2 reads-from E1</p>
-<p>这里只是说可能有这样的关系存在。</p>
-</li>
-<li><p>E2是implicit TTD effect, E2 reads-from E1</p>
-</li>
-<li><p>E2 TLB uncacheable successor of E1</p>
-</li>
-<li><p>E2 hardware update successor of E1</p>
-</li>
-<li><p>E1 coherence-before E2，E1或E2是hardware update effect</p>
-</li>
-<li><p>E2 TLBI-coherence-after E1</p>
-</li>
-<li><p>E1 TLBI-ordered-before E2</p>
-</li>
-<li><p>E1 ordered-before E3，E3 ordered-before E2</p>
-</li>
-</ul>
+<h2 id="2-3-7"><a href="#2-3-7" class="headerlink" title="2.3.7"></a>2.3.7</h2><p>External ordering constraint的定义，包含了单核上order的定义，描述中使用了“ordered-before”<br>的词语：“An arbitrary pair of effects is ordered”, 这里才出现ordered(被排序)的概念。</p>
+<p>external visibility requirement:<br>这里external visibility requirement的描述包括了hardware-required-ordered-before,<br>hardware-required-ordered-before包含了单核上order的定义。<br>…</p>
 <p>external completion requirement。</p>
 <p>external global completion requirement 都展开分析下…</p>
 <p>之前的ARM spec里有“Internal visibility requirement”的定义，里面明确有这样的语句：<br>“…, then M1 will be seen to occur before M2 by that Observer”，像这样的语句才是<br>在明确定义指令的先后关系。(2023.4.12版本的spec没有这一章节)</p>
@@ -494,7 +454,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">249</span>
+          <span class="site-state-item-count">251</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>

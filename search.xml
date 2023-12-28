@@ -343,9 +343,9 @@
     <url>/C%E8%AF%AD%E8%A8%80%E5%B5%8C%E5%85%A5ARM64%E6%B1%87%E7%BC%96/</url>
     <content><![CDATA[<h2 id="使用场景"><a href="#使用场景" class="headerlink" title="使用场景"></a>使用场景</h2><p>   嵌入汇编一般用在c语言无法使用的地方，比如要操作系统寄存器了，比如要直接调用<br>   汇编指令完成功能了(内存屏障，刷cache), 还有就是要优化性能。Linux内核里和硬件<br>   直接接触的体系架构相关的代码有很多是直接用汇编写的。</p>
 <h2 id="嵌入汇编的语法"><a href="#嵌入汇编的语法" class="headerlink" title="嵌入汇编的语法"></a>嵌入汇编的语法</h2><p>   asm volatile(code : output operand list : input operand list: clobber list);</p>
-<p>   其中volatile告诉编译器不要去优化这里的汇编代码。防止你辛苦写的汇编代码一下被<br>   编译器优化的面目全非。</p>
+<p>   其中volatile告诉编译器不要去优化这里的汇编代码。防止你辛苦写的汇编代码一下被<br>   编译器优化的面目全非。output/input的定义是针对C语言里的变量，在汇编里是输入<br>   还是输出，下面的input/output operand中，汇编里的变量都和C里的变量有绑定，这<br>   很容易看出汇编里是只读某个C变量(input)，还是要对一个C变量做修改(output)。</p>
 <p>   有时你会看到这样的嵌入汇编代码：<br>   <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">asm(&quot;mov %[result], %[value], ror #1&quot; : [result] &quot;=r&quot; (y) : [value] &quot;r&quot; (x) :)</span><br></pre></td></tr></table></figure><br>   但是一般的，比如在linux内核里你看到的是这样的：<br>   <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">asm(&quot;mov %0, %1, ror #1&quot; : &quot;=r&quot; (result) : &quot;r&quot; (value));</span><br></pre></td></tr></table></figure><br>   唯一不同的是，code里和operand里参数的对应关系的写法。我们这里用第二种方法，<br>   它的对应关系是，从output operand list到input operand list, 参数的命名从0开始，<br>   依次是%0，%1…</p>
-<p>   operand list的一般格式是：”常量” (参数)。参数是和C语言里变量的接口，比如：<br>   <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">static inline void __raw_writel(u32 val, volatile void __iomem *addr)</span><br><span class="line">&#123;</span><br><span class="line">	asm volatile(&quot;str %w0, [%1]&quot; : : &quot;rZ&quot; (val), &quot;r&quot; (addr));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><br>   这里的val和addr就是C代码里的变量。常量的意义可以参考:<br>   <span class="exturl" data-url="aHR0cHM6Ly9nY2MuZ251Lm9yZy9vbmxpbmVkb2NzL2djYy9Db25zdHJhaW50cy5odG1s">https://gcc.gnu.org/onlinedocs/gcc/Constraints.html<i class="fa fa-external-link-alt"></i></span>, 简单讲这个常量可以是r,<br>   Q, m等，也可以再次被=，+， &amp;等修饰。r, m, Q讲的是这个变量可以被编译器编译在<br>   寄存器里，内存里，或者是通过指针再间接寻址下，=表示这个变量的老值可以被覆盖，<br>   +表示这个变量可读可写。这里code里的w表示这个变量的位宽，w表示是32bit的，x表示<br>   是64bit的，这里再次注意，我们现在讨论的是aarch64下的汇编。</p>
+<p>   operand list的一般格式是：”常量” (参数)。参数是和C语言里变量的接口，比如：<br>   <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">static inline void __raw_writel(u32 val, volatile void __iomem *addr)</span><br><span class="line">&#123;</span><br><span class="line">	asm volatile(&quot;str %w0, [%1]&quot; : : &quot;rZ&quot; (val), &quot;r&quot; (addr));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><br>   这里的val和addr就是C代码里的变量。常量的意义可以参考:<br>   <span class="exturl" data-url="aHR0cHM6Ly9nY2MuZ251Lm9yZy9vbmxpbmVkb2NzL2djYy9Db25zdHJhaW50cy5odG1s">https://gcc.gnu.org/onlinedocs/gcc/Constraints.html<i class="fa fa-external-link-alt"></i></span>, 简单讲这个常量可以是r,<br>   Q, m等，也可以再次被=，+， &amp;等修饰。r, m, Q讲的是这个变量可以被编译器编译在<br>   寄存器里，内存里，或者是通过指针再间接寻址下，=表示这个变量的老值可以被覆盖，<br>   +表示这个变量可读可写。这里code里的w表示这个变量的位宽，w表示是32bit的，x表示<br>   是64bit的。其中=/+不可能出现在input operand list里，因为它们都有写的语意。这里<br>   再次注意，我们现在讨论的是aarch64下的汇编。</p>
 <p>   可以随便写一个程序，aarch64-linux-gnu-gcc -S xx.c编译下，看看生成的汇编代码<br>   是怎么样的：<br>   <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">void test()</span><br><span class="line">&#123;</span><br><span class="line">        int y = 0;</span><br><span class="line">	int x = 1;</span><br><span class="line"></span><br><span class="line">	asm volatile(&quot;add %w0, %w1, 1&quot; : &quot;=r&quot; (y) : &quot;r&quot; (x) :);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure><br>   下面是编译成的汇编代码：<br>   <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">	.arch armv8-a</span><br><span class="line">	.file	&quot;embedded_asm.c&quot;</span><br><span class="line">	.text</span><br><span class="line">	.align	2</span><br><span class="line">	.global	test</span><br><span class="line">	.type	test, %function</span><br><span class="line">test:</span><br><span class="line">	sub	sp, sp, #16</span><br><span class="line">	str	wzr, [sp, 12]</span><br><span class="line">	mov	w0, 1</span><br><span class="line">	str	w0, [sp, 8]</span><br><span class="line">	ldr	w0, [sp, 8]</span><br><span class="line">#APP</span><br><span class="line">// 6 &quot;embedded_asm.c&quot; 1</span><br><span class="line">	add w0, w0, 1</span><br><span class="line">// 0 &quot;&quot; 2</span><br><span class="line">#NO_APP</span><br><span class="line">	str	w0, [sp, 12]</span><br><span class="line">	nop</span><br><span class="line">	add	sp, sp, 16</span><br><span class="line">	ret</span><br><span class="line">	.size	test, .-test</span><br><span class="line">	.ident	&quot;GCC: (Linaro GCC 6.3-2017.05) 6.3.1 20170404&quot;</span><br><span class="line">	.section	.note.GNU-stack,&quot;&quot;,@progbits</span><br></pre></td></tr></table></figure><br>   把r改成m后是这样的：<br>   <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">test:</span><br><span class="line">	sub	sp, sp, #16</span><br><span class="line">	str	wzr, [sp, 12]</span><br><span class="line">	mov	w0, 1</span><br><span class="line">	str	w0, [sp, 8]</span><br><span class="line">#APP</span><br><span class="line">// 6 &quot;embedded_asm.c&quot; 1</span><br><span class="line">	add [sp, 12], [sp, 8], 1</span><br><span class="line">// 0 &quot;&quot; 2</span><br><span class="line">#NO_APP</span><br><span class="line">	nop</span><br><span class="line">	add	sp, sp, 16</span><br><span class="line">	ret</span><br></pre></td></tr></table></figure><br>   把r改成Q后是这样的：<br>   <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">   test:</span><br><span class="line">	sub	sp, sp, #16</span><br><span class="line">	str	wzr, [sp, 12]</span><br><span class="line">	mov	w0, 1</span><br><span class="line">	str	w0, [sp, 8]</span><br><span class="line">	add	x0, sp, 12</span><br><span class="line">	add	x1, sp, 8</span><br><span class="line">#APP</span><br><span class="line">// 6 &quot;embedded_asm.c&quot; 1</span><br><span class="line">	add [x0], [x1], 1</span><br><span class="line">// 0 &quot;&quot; 2</span><br><span class="line">#NO_APP</span><br><span class="line">	nop</span><br><span class="line">	add	sp, sp, 16</span><br><span class="line">	ret</span><br></pre></td></tr></table></figure></p>
 <p>   clobber的解释gcc上说是：告知编译器嵌入的汇编代码除了影响output operand里的<br>   变量外，还对哪些寄存器或者是对内存会产生影响。把他们可以列到clobber list里面<br>   来。寄存器直接列名字，两个特殊的clobber参数是”memory”和”cc”, cc表示会影响到<br>   flags register，memory就会影响到input operant参数指向的内存。</p>
 <h2 id="举例"><a href="#举例" class="headerlink" title="举例"></a>举例</h2><p>   …</p>
@@ -6543,20 +6543,19 @@ shadow: files ldap
 <h2 id="cache"><a href="#cache" class="headerlink" title="cache"></a>cache</h2><p> todo</p>
 <h2 id="虚拟存储器"><a href="#虚拟存储器" class="headerlink" title="虚拟存储器"></a>虚拟存储器</h2><p> todo</p>
 <h2 id="分支预测"><a href="#分支预测" class="headerlink" title="分支预测"></a>分支预测</h2><p> 想要充分使用流水线就要预取指令执行，顺序执行的指令直接预取就可以，但是到了分支<br> 的时候，就要选择一条分支来预取，这时就存在各种分支预测的实现方式。分支预测的各种<br> 实现可以暂时当做黑盒来对待。预取的指令可以提前在流水线里执行，但是在分支结果出来<br> 之前不能提交。分支结果出来后，如果预取分支是对的，那么直接提交执行的结果就可以，<br> 但是，如果分支取错了就要把之前计算出的结果和正在流水线里跑的错误预取的指令和状态冲刷<br> 掉，而且还要恢复到指令分支时的状态，继续取正取的分支放到流水线里运行。</p>
-<p> 可见，如果分支预测的不准就会老是冲刷流水线，后端的执行单元得不到充分利用，用perf<br> 看就是back-end stall增大。</p>
+<p> 可见，如果分支预测的不准就会老是冲刷流水线，后端的执行单元得不到充分利用，因此<br> 而导致的性能问题叫做bad speculation bound。</p>
 <p> 分支预测失败的时候要尽快回退到分支点的状态，硬件可以使用checkpoint的方式恢复，<br> 大概是分支预取的时候把整个状态统一保存，分支预测失败的时候统一一把恢复回来。</p>
 <h2 id="指令解码"><a href="#指令解码" class="headerlink" title="指令解码"></a>指令解码</h2><p> 解码阶段需要做寄存器的重命名，有时还有把一条指令内部拆分成几条指令。对于超标量<br> 处理器，可以同时解码多条指令。这个阶段还是顺序进行的，比如4发射的处理器，就同时<br> 有四条指令送去解码。</p>
-<p> 为了使的程序执行对外保持逻辑顺序，处理器实现里一般使用重排序缓冲(ROB reorder buffer)<br> 在提交之前重排序。ROB的设计逻辑很简单，就是以指令取入的顺序在取入的时候就按顺序<br> 存在ROB这个队列里，ROB为每个指令都维护了相关的状态，ROB里的指令提交的时候是顺序<br> 进行的，这样就可以保证先进入的指令先离开处理器。这会导致ROB会被执行慢的指令堵住，<br> 不过这也没有关系，虽然当前的执行堵住了，但是后面的指令已经在ROB里就绪，一旦这个<br> 堵住ROB的指令提交，后面的完成的指令可以一次都提交了。当然受ROB深度的限制，一旦<br> ROB慢了，就会反压前端的取指单元，这时就会导致front-end stall增大。</p>
-<p> 我们可以先跑一个慢的指令比如浮点除法，后面不断的跑NOP指令，这样ROB会被填满，导致<br> front-end stall。执行单元以及执行的issue queue满了，都会导致前端反压，构造一个<br> 这样的场景看看？</p>
+<p> 为了使的程序执行对外保持逻辑顺序，处理器实现里一般使用重排序缓冲(ROB reorder buffer)<br> 在提交之前重排序。ROB的设计逻辑很简单，就是以指令取入的顺序在取入的时候就按顺序<br> 存在ROB这个队列里，ROB为每个指令都维护了相关的状态，ROB里的指令提交的时候是顺序<br> 进行的，这样就可以保证先进入的指令先离开处理器。这会导致ROB会被执行慢的指令堵住，<br> 不过这也没有关系，虽然当前的执行堵住了，但是后面的指令已经在ROB里就绪，一旦这个<br> 堵住ROB的指令提交，后面的完成的指令可以一次都提交了。当然受ROB深度的限制，一旦<br> ROB慢了，就会反压前端的取指单元，这样的因为后端没有及时执行导致的性能问题就叫做<br> back-end bound。</p>
+<p> 我们可以先跑一个慢的指令比如浮点除法，后面不断的跑NOP指令，这样ROB会被填满，导致<br> back-end bound。执行单元以及执行的issue queue满了，都会导致前端反压，构造一个<br> 这样的场景看看？</p>
 <p> 分支预测失败进行回退的时候也要清ROB里的内容。</p>
 <h2 id="寄存器重命名"><a href="#寄存器重命名" class="headerlink" title="寄存器重命名"></a>寄存器重命名</h2><p> 使用寄存器重命名消除WAW和WAR依赖。具体的实现方式有很多，基本思路就是要识别出代码<br> 中的依赖，然后重命名消除依赖，指令执行完毕后要把重命名的寄存器重新返回到软件感知<br> 的构架寄存器上。硬件为了重命名要维护重命名相关的表格。当分支预测失败的时候，也要<br> 回退寄存器重命名占用的相关资源。</p>
 <h2 id="发射"><a href="#发射" class="headerlink" title="发射"></a>发射</h2><p> 进入发射阶段之前已经完成寄存器重命名，发射把指令分发到各个执行单元之前的issue queue<br> 里，issue queue里的各个指令在资源OK时就被发送到对应的执行单元里执行。这里的资源<br> OK是指指令依赖的操作数的值都计算出来了、相关的计算单元空闲。可见，发射阶段要处理<br> 的逻辑是：1. 明确相关的依赖，依次决定何时执行指令；2. 需要有逻辑检测指令是否满足<br> 执行条件。</p>
 <p> 详细逻辑后续看需要再补齐。</p>
 <h2 id="执行"><a href="#执行" class="headerlink" title="执行"></a>执行</h2><p> 执行阶段除了要执行运算任务，还有就是要考虑旁路网络的逻辑。当指令有前后之间有依赖<br> 的时候，后一条指令需要等到前一条指令提交后再执行，这样会使流水线闲置，处理器里<br> 可以加入一定的前递逻辑，就是这里的旁路网络，这个逻辑在前一条指令计算结果得出后<br> 就可以把结果直接前递给后一条指令执行。</p>
 <p> 对于load/store这种存储指令，因为他们执行的时候可能有比较大的时延，需要考虑相应<br> 的优化办法。一般的优化办法是，对于没有数据依赖的load/store指令，放松条件允许他们<br> 乱序执行，这本书里介绍的是，一般多个store指令是按循序执行的，没有数据依赖的时候<br> load指令可以提前到store指令前执行，因为load指令常常作为被依赖的指令。</p>
-<h2 id="提交"><a href="#提交" class="headerlink" title="提交"></a>提交</h2><p> 提交阶段围绕ROB展开，ROB里的指令在完成时就可以提交，提交后软件就可以感知，可能<br> 是架构寄存器的值被更新，也可能是cache内容被更新。分支预取的指令也会排到ROB里，<br> 所以，当分支预测失败的时候，ROB还要有相关逻辑处理资源回退。处理器在执行指令的<br> 时候可能会出现异常和外部中断，比如存储器访问指令访问了错误地址、访问的物理页面<br> 不存在、外部设备给处理器发了一个中断，处理器要做到所谓精确异常，就是引发异常指令<br> 之前的指令都可以正确执行，引发异常的指令上报异常，处理器的PC需要跳到异常向量处<br> 执行代码。处理器很难在指令执行的时候就同步处理如上的逻辑，当执行指令异常发生的<br> 时候，处理器把指令异常的信息记录到ROB里，当指令提交的时候异常指令就可以得到处理，<br> 可以看到流水线里还存在异常指令之后的指令，异常处理逻辑需要把流水线里的这些残留指令<br> 排空再跳到异常向量处执行代码。可以看到异常很多的时候，不断排空流水线也会导致<br> back-end stall。外部中断的处理逻辑和异常的基本类似。</p>
+<h2 id="提交"><a href="#提交" class="headerlink" title="提交"></a>提交</h2><p> 提交阶段围绕ROB展开，ROB里的指令在完成时就可以提交，提交后软件就可以感知，可能<br> 是架构寄存器的值被更新，也可能是cache内容被更新。分支预取的指令也会排到ROB里，<br> 所以，当分支预测失败的时候，ROB还要有相关逻辑处理资源回退。处理器在执行指令的<br> 时候可能会出现异常和外部中断，比如存储器访问指令访问了错误地址、访问的物理页面<br> 不存在、外部设备给处理器发了一个中断，处理器要做到所谓精确异常，就是引发异常指令<br> 之前的指令都可以正确执行，引发异常的指令上报异常，处理器的PC需要跳到异常向量处<br> 执行代码。处理器很难在指令执行的时候就同步处理如上的逻辑，当执行指令异常发生的<br> 时候，处理器把指令异常的信息记录到ROB里，当指令提交的时候异常指令就可以得到处理，<br> 可以看到流水线里还存在异常指令之后的指令，异常处理逻辑需要把流水线里的这些残留指令<br> 排空再跳到异常向量处执行代码。可以看到异常很多的时候，不断排空流水线也会导致性能<br> 损失。外部中断的处理逻辑和异常的基本类似。</p>
 <p> 注意，上面提到的store buffer存在于处理器内部，在store指令提交的时候把store buffer<br> 里的内容写到存储器上。如果写存储器时延太长，store buffer就有可能满，从而反压之前<br> load/store执行单元的issue queue，从而又有可能反压前端。</p>
-<p> 有的处理器，比如ARM上，支持乱序，不只是内部执行可以乱序，从程序员的角度看，对于<br> 单个处理器(core)没有依赖的store/load也支持完成是乱序的。这里的逻辑需要引入处理器<br> core外部的逻辑看来，一般认为L1、L2 cache和core紧密相关，L3cache和内存是多核共享<br> 的，core和存储器(cache以及内存)之间靠总线互联，core和存储器之间的通信遵守总线协议，<br> 比如ARM的AXI协议，对于一个写操作，core发出后需要等对端应答，支持乱序完成的总线协议<br> (Out of order transaction completion)中，写操作可以不用对端应答继续发下一个写操作，<br> 经过总线传输，在存储器端完成的时候就有可能是乱序的，对于读操作也是一样可以乱序返回<br> 的。</p>
 <p> 在多核的情况下，因为有store buffer和invalid queue会带来乱序完成，这个逻辑也需要<br> 整合进来。初步看，这个逻辑和上面的逻辑似乎是两个正交的逻辑。</p>
 <p> 还有一个问题是，处理器怎么划定依赖的范围，比如，如果后续一个指令依赖之前的一个<br> 指令，之间间隔很大，处理器会不会看不到这样的依赖，先执行完成了后面的指令？仔细想下<br> 是不会出现这样的问题的，处理器在当前整个处理状态下，一定可以检测出所有的依赖，所以<br> 如果相互依赖而且跨度较大的两条指令，在处理器的当前状态内(包含整个流水线的范围内)<br> 是不会出问题的，如果第一条在流水线里，后面的一条在流水线外，因为后一条还没有执行，<br> 所以也不会出问题。</p>
 ]]></content>
@@ -8743,7 +8742,7 @@ comment: 这个点有点莫名其妙？
 <h2 id="2-2-4"><a href="#2-2-4" class="headerlink" title="2.2.4"></a>2.2.4</h2><p>ARM定义Normal/device memory都不要求是multi-copy atomic。</p>
 <h2 id="2-2-5"><a href="#2-2-5" class="headerlink" title="2.2.5"></a>2.2.5</h2><p>多核之间，一个core执行的指令可能被另一个core修改，这一节的内容与此相关。</p>
 <h2 id="2-2-6"><a href="#2-2-6" class="headerlink" title="2.2.6"></a>2.2.6</h2><p>原子指令在实现上的一些约束。</p>
-<h1 id="2-3"><a href="#2-3" class="headerlink" title="2.3"></a>2.3</h1><p>这一节定义ARM的内存模型，为了方便说明，前面几节都是在介绍定义。总的来讲，定义包括<br>两大类，第一类是静态定义的order上的约束，比如，address dependency，当两个指令有<br>存在这样的关系的时候，两个指令的实际执行顺序是确定的，第二类是指令的可能行为，比如，<br>read from，在两个core之间，当一个core上的store指令和另一个core上的load指令访问相同<br>地址的时候，他们之间就可能存在read from关系，就是store改变了地址上的数据，然后load<br>从地址上读到改变的数据，但是这个read from关系只是表示结果，因为可能load在store前<br>运行，这样就不会有read form的关系。ARM spec里对这两类定义区分的并不是很清晰，当然<br>也可能是英语水平的原因。</p>
+<h1 id="2-3"><a href="#2-3" class="headerlink" title="2.3"></a>2.3</h1><p>这一节定义ARM的内存模型，为了方便说明，前面几节都是在介绍定义。</p>
 <h2 id="2-3-1"><a href="#2-3-1" class="headerlink" title="2.3.1"></a>2.3.1</h2><p>这一节是基础名词的定义，这些基础名词的定义和后面使用的地方是对应的，这里给出了所有<br>情况下的定义，我们这里先根据基本的定义，把握下定义的主线。所以，我们这里先不关注<br>某些特性的所有定义，比如和memory tag相关的定义，后面如果需要，我们在针对某个特性<br>整体考虑。</p>
 <p>observer: 定义系统里可以发起读写请求的部件，比如CPU核或者外设。</p>
 <p>common shareability domain:</p>
@@ -8769,19 +8768,15 @@ comment: 这个点有点莫名其妙？
 <p>barrier effects: spec上写的是DSB/DMB/ISB带来的effect，其他barrier指令怎么看？</p>
 <p>context synchronization effects(CSE effect): ISB或异常进入退出带来的effect。</p>
 <p>branch effects: 各种branch指令带来的改变PC的effect。</p>
-<p>TLBI effects/completed TLBI effect: tlbi指令会产生TLBI effect，tlbi后面加一个DSB.FULL<br>指令会产生completed TLBI effect。基于此概念，还定义了TLBI-before/TLBI-after，比如，<br>TLBI-before的定义是，一个completed TLBI effect和一个TTB read之间的顺序。</p>
+<p>TLBI effects/completed TLBI effect: tlbi指令会产生TLBI effect，tlbi后面加一个DSB.FULL<br>指令会产生completed TLBI effect。基于此概念，还定义了TLBI-before/TLBI-after。</p>
 <p>fault effects, exception entry/return effects: 这块定义的比较混乱，定义关系之间<br>会重叠，比如异常进入退出的effect，在上面又叫CSE effect。反正按照字面意思可以看懂<br>就好。</p>
 <p>TLB uncacheable effects: 把translation fault/access flag fault/address size fault<br>产生的effect归类为TLB uncacheable effect。基于这个概念还定义了TLB uncacheable-write-predecessor和<br>TLB uncacheable-write-successor。</p>
 <p>low order bits/same low order bits/same location: 这组定义是为了定义最后的same<br>location，这里说的不清楚。</p>
-<h2 id="2-3-2"><a href="#2-3-2" class="headerlink" title="2.3.2"></a>2.3.2</h2><p>这一节定义的是单条指令内在dependency关系，像CSEL/CAS/SWAP这种读写effect都有的指令，<br>CAS Xs, Xt, [Xn]指令中，如果Xs和Xn地址上的数据相等，就把Xt的值写到Xn地址上。</p>
+<h2 id="2-3-2"><a href="#2-3-2" class="headerlink" title="2.3.2"></a>2.3.2</h2><p>这一节定义的是单条指令内在dependency关系，像CAS/SWAP这种读写effect都有的指令，<br>CAS Xs, Xt, [Xn]指令中，如果Xs和Xn地址上的数据相等，就把Xt的值写到Xn地址上。</p>
 <p>注意，2.3.2的标题是“intrinsic dependency relations”，就是这一节定义的还是”关系“，<br>并没有定义指令之间要准守的先后循序。</p>
-<p>CSEL Xd, Xn, Xm, cond 指令根据cond从PSTATE.NZCV的对应位或取信息，然后把Xn或Xm的<br>值传递给Xd。</p>
-<p>SWP Xs, Xt, [Xn] 指令把Xn地址上的值load出来(data)，把Xs写入Xn的地址，并把之前load<br>出的data写到Xt里。</p>
 <h2 id="2-3-3"><a href="#2-3-3" class="headerlink" title="2.3.3"></a>2.3.3</h2><p>translation-intrinsically-before。协议里写比较模糊，加个例子比较好。</p>
-<p>对于同一个指令中的两个effect，一个是implicit TTD read memory effect R1，后者是<br>显示内存读写effect或者是fault effect E2。如果R1和一个intrinsic branch effect B3<br>有数据依赖，B3和E2有控制依赖，那么E1和E2就存在这个关系。</p>
-<p>直观上看，最明显的一个例子就是load/store触发page fault的流程。不清楚E2是显示内存<br>读写的时候，具体的场景是什么？</p>
 <h2 id="2-3-4"><a href="#2-3-4" class="headerlink" title="2.3.4"></a>2.3.4</h2><p>tag-check-intrinsically-before</p>
-<h2 id="2-3-5"><a href="#2-3-5" class="headerlink" title="2.3.5"></a>2.3.5</h2><p>各种dependency的定义，定义的是依赖的形式，至于基于这些依赖形式的指令先后顺序，这里<br>并没有定义。但是，可以看到这里定义的各种dependency关系，到后面会有对应的静态order<br>定义出来。</p>
+<h2 id="2-3-5"><a href="#2-3-5" class="headerlink" title="2.3.5"></a>2.3.5</h2><p>各种dependency的定义，定义的是依赖的形式，至于基于这些依赖形式的指令先后顺序，这里<br>并没有定义。</p>
 <p>dependency through registers and memory:<br>一个PE上，寄存器或者地址上的RAW关系。一条指令中的data dependency关系。关系可以传递。</p>
 <p>basic dependency:<br>两个effect是一样的(相同observed，相同作用结果)。上述的registers/memory dependency。</p>
 <p>address dependency:<br>简单理解为，对于两个memory effect的指令，后一条指令用了前一条指令的输出作为地址。</p>
@@ -8792,61 +8787,25 @@ comment: 这个点有点莫名其妙？
 <h2 id="2-3-6"><a href="#2-3-6" class="headerlink" title="2.3.6"></a>2.3.6</h2><p>各种order relation的定义。</p>
 <p>CSE-ordered-before: 如上面提到的，上下文同步时的order。控制依赖里如果前一个指令<br>有显示memory read, 后一个指令有CSE effect，就是这种order。结合后面看，这种情况下<br>也是保序的。</p>
 <p>dependency-ordered-before:</p>
-<p>这里在定义order了，单核上的各种基本序都是这条里面定义的。“A dependency creates<br>externally-visible order between …”，dependency创建了order，可以认为，这里定义<br>的是第一类静态order的约束。</p>
+<p>这里在定义order了，单核上的各种基本序都是这条里面定义的，注意这里的“序“指的还是<br>关系。“A dependency creates externally-visible order between …”，dependency创建<br>了order，但是这里并没有说order里元素的先后关系。</p>
 <p>注意这里的order细化了上面的dependency，我们看control dependency相关的order，在这里<br>明确提出了在一个control dependency里，后面的一个是memory write。也就是这里对后一个<br>effect是memory read的control dependency关系是没有序上的定义的，配合后面创建先后<br>关系的定义，control dependency里，后面的memory read是不存在先后顺序的约束的，这个<br>和我们一般的认知也是相符的。<br>…</p>
 <p>pick-ordered-before:</p>
 <p>atomic-ordered-before:</p>
-<p>说明的是load-exclusive/store-exclusive指令里包含的order语意。</p>
 <p>DSB-ordered-before:</p>
-<p>DSB的order定义。</p>
 <p>barrier-ordered-before:</p>
-<p>主要讲DMB的order，以及带acquire/release属性的院子指令的order。</p>
+<p>主要讲DMB的order。</p>
 <p>TTD-read-ordered-before:</p>
-<p>这里描述了两种满足情况的定义，描述都是用effect的，为了简化描述，我们这里都有指令<br>来说明。第一种情况：E1 -&gt; TLBI(E3) -&gt; DSB.FULL(E4) -&gt; E2(spec上说E2在E3之后?)(E2<br>不能是隐式内存effect)，也就是说E1改了页表，后面要加TLBI/DSB才能和E2中的内存访问<br>保序，这里E1/E2是什么effect，spec里没有写出来。第二种情况：FEAT_ETS2(enhanced<br>translation synchronization)支持时，情况1中的E2可以是implicit TTD memory effect。</p>
-<p>在如上的两种情况中，E3是TLBI effect，那么根据TLBI-after的定义，E1是一个TTD read。<br>大概场景如下：</p>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">core0:           core1:</span><br><span class="line"></span><br><span class="line">TTD read(E1)</span><br><span class="line">                 TLBI(E3)</span><br><span class="line">                 DSB.FULL(E4) E2</span><br></pre></td></tr></table></figure>
-<p>spec上说E2 program after E3，那么E2可能在DSB之前也可能在DSB之后？具体对应软件上<br>的什么场景？</p>
 <p>TLBI-ordered-before:</p>
-<p>一共有三种情况，第一种就是如上的TTD-read-ordered-before。后两种也依赖TTD的这个关系，<br>搞懂TTD是关键 :(</p>
 <p>TLBI-coherence-before:</p>
-<p>晕…</p>
 <p>locally-ordered-before:</p>
 <p>这里基本上汇集了单核上的所有order的定义。</p>
 <p>pick-locally-ordered-before:</p>
 <p>hardware-required-ordered-before:</p>
-<p>包含了locally-ordered-before，又汇集了如上的其他类型的order定义。可以看到这里面<br>包含的都是我们最上面说的第一类静态的order关系。</p>
+<p>包含了locally-ordered-before，又汇集了如上的其他类型的order定义。</p>
 <p>hazard-ordered-before:</p>
 <p>应该是特殊定义的一种order？</p>
-<h2 id="2-3-7"><a href="#2-3-7" class="headerlink" title="2.3.7"></a>2.3.7</h2><p>External ordering constraint的定义，包含了单核上order的定义，以及我们上面说的第二<br>类关系的表述，终极的约束是这些全部定义放到一起不能出现矛盾，就是定义的order关系<br>链上不能有环。</p>
-<p>external visibility requirement:</p>
-<p>这里external visibility requirement的描述包括了hardware-required-ordered-before,<br>hardware-required-ordered-before包含了单核上order的定义。</p>
-<p>所以，这一节定义的order上的约束可以分两个大类，一个是单核上的order约束，一个是多核<br>上order约束的传递关系，其中第一个可以认为是我们上面说的静态定义的order关系，第二个<br>是上面第二类关系的延续。我们一个一个看下这里的定义:</p>
-<ul>
-<li><p>E1 hardware-required-ordered-before E2</p>
-</li>
-<li><p>E1 hazard-ordered-before E2</p>
-</li>
-<li><p>E1 Observed-by E2 or effects belongs to same single-copy-atomicity class as E2</p>
-<p>(single-copy-atomicity class是什么意思?) 结合observed-by的语意，这里似乎是在说<br>多核之间对同一地址数据的自然观察结果，也就是说所谓“E1 Observed-by E2”是一个结果。</p>
-</li>
-<li><p>E1是implicit TTD effect, E2 reads-from E1</p>
-<p>这里只是说可能有这样的关系存在。</p>
-</li>
-<li><p>E2是implicit TTD effect, E2 reads-from E1</p>
-</li>
-<li><p>E2 TLB uncacheable successor of E1</p>
-</li>
-<li><p>E2 hardware update successor of E1</p>
-</li>
-<li><p>E1 coherence-before E2，E1或E2是hardware update effect</p>
-</li>
-<li><p>E2 TLBI-coherence-after E1</p>
-</li>
-<li><p>E1 TLBI-ordered-before E2</p>
-</li>
-<li><p>E1 ordered-before E3，E3 ordered-before E2</p>
-</li>
-</ul>
+<h2 id="2-3-7"><a href="#2-3-7" class="headerlink" title="2.3.7"></a>2.3.7</h2><p>External ordering constraint的定义，包含了单核上order的定义，描述中使用了“ordered-before”<br>的词语：“An arbitrary pair of effects is ordered”, 这里才出现ordered(被排序)的概念。</p>
+<p>external visibility requirement:<br>这里external visibility requirement的描述包括了hardware-required-ordered-before,<br>hardware-required-ordered-before包含了单核上order的定义。<br>…</p>
 <p>external completion requirement。</p>
 <p>external global completion requirement 都展开分析下…</p>
 <p>之前的ARM spec里有“Internal visibility requirement”的定义，里面明确有这样的语句：<br>“…, then M1 will be seen to occur before M2 by that Observer”，像这样的语句才是<br>在明确定义指令的先后关系。(2023.4.12版本的spec没有这一章节)</p>
@@ -8957,6 +8916,83 @@ comment: 这个点有点莫名其妙？
       <tags>
         <tag>Linux内核</tag>
         <tag>内存管理</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>现代CPU性能分析与优化-笔记</title>
+    <url>/%E7%8E%B0%E4%BB%A3CPU%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E4%B8%8E%E4%BC%98%E5%8C%96-%E7%AC%94%E8%AE%B0/</url>
+    <content><![CDATA[<h2 id="第2章"><a href="#第2章" class="headerlink" title="第2章"></a>第2章</h2><p>性能测试时要注意CPU的动态调频，这个特性会给测量带来不确定性。(Linux系统下，动态<br>调频的控制一般在/sys/devices/system/cpu/cpux/cpufreq/下，默认是schedutil，大概的<br>意思是如果CPU负载重就提高频率跑，如果负载轻就可以适当降低频率跑。performance为<br>性能优先，会用最高频率跑)</p>
+<p>记时有两种方法，一个是记录cpu cycle，一个是通过OS的clock_gettime记录实际的时间。<br>(Intel上在用户态可以通过指令查看cpu cycle，ARM还没有这样的功能)</p>
+<h2 id="第3章"><a href="#第3章" class="headerlink" title="第3章"></a>第3章</h2><p>Intel安腾构架(Itanium)使用超长指令字(VLIW)的设计。</p>
+<p>硬件多线程机制主要的收益点是CPU存在后端长时延阻塞时(latency bound)，更加充分的利<br>用core资源。(注意，latency bound和memory bound的区别?)</p>
+<h2 id="第4章"><a href="#第4章" class="headerlink" title="第4章"></a>第4章</h2><p>这一章基于perf工具解释了一些关键指标的含义，下面直接在一台X86笔记本上使用perf看下，<br>值得一提的是，这个一台2017年的Intel笔记本，基本上的事件、topdown功能都直接支持了。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">sherlock@x86:~/notes/perf$ sudo perf stat -a ls</span><br><span class="line">[...]</span><br><span class="line"></span><br><span class="line"> Performance counter stats for &#x27;system wide&#x27;: </span><br><span class="line"></span><br><span class="line">  3.463590   cpu-clock (msec)   #    3.723 CPUs utilized   &lt;- cpu利用率, 非idle线程都计入</span><br><span class="line">        13   context-switches   #    0.004 M/sec                  </span><br><span class="line">         5   cpu-migrations     #    0.001 M/sec                  </span><br><span class="line">       100   page-faults        #    0.029 M/sec                  </span><br><span class="line"> 4,489,365   cycles             #    1.296 GHz                    </span><br><span class="line"> 2,329,591   instructions       #    0.52  insn per cycle  &lt;- IPC</span><br><span class="line">   468,854   branches           #  135.366 M/sec                  </span><br><span class="line">    18,710   branch-misses      #    3.99% of all branches &lt;- 分支预测错误率</span><br><span class="line"></span><br><span class="line"> 0.000930215 seconds time elapsed</span><br></pre></td></tr></table></figure>
+
+<h2 id="第5章"><a href="#第5章" class="headerlink" title="第5章"></a>第5章</h2><p>PMU采样模式会打断被采样进程执行，所以是有开销的(生产环境无法使用)。</p>
+<p>perf record记录的热点分布上难以看到热点函数的调用者，比如热点可能是一个库函数这样<br>很多地方都可能调用到。perf record –call-graph &lt;fp|dwarf|lbr&gt;可以看到调用者的比例，<br>但是这三种方法对被测程序有一定的要求，fp要开–fnoomit-frame-pointer编译参数，dwarf<br>要加-g编译参数，lbr要硬件支持LBR(last branch record)这个特性，且跟踪调用深度有限。</p>
+<p>屋顶线性能模型没有看懂。</p>
+<p>编译器还提供了各种静态性能分析工具和编译器优化报告。</p>
+<h2 id="第6章"><a href="#第6章" class="headerlink" title="第6章"></a>第6章</h2><p>这个章节介绍了Intel CPU上一些高级的PMU特性，主要包括topdown分析方法、LBR(last<br>branch record)、PEBS(Processor Event-Based Sampling)以及PT(Processor Trace)。</p>
+<p>在ARM上topdown的分析方法可以增加厂商自定义的PMU寄存器实现，PEBS应该对应的是SPE，<br>PT应该对应的Branch Record Buffer Extension，LBR在ARM上应该也可以用BRBE搞定。</p>
+<p>topdown的分析方法Intel很早就在产品里使用，最早的对外呈现在论文”A Top-Down Method<br>for Performance Analysis and Counters Architecture”中，这本书很多内容就是论文里<br>的内容，可以认为是论文内容的简述。topdown方式目的是要层次化的得到CPU执行一个程序，<br>资源到底都花费在了哪里，从高层到低层逐步发现性能瓶颈点。其具体达成的手段是增加必要<br>的PMU counter，收集程序运行时PMU counter的数据，然后通过一定的算法得到性能瓶颈的<br>表述。 </p>
+<p>topdown分析的最顶层是四类大的事件：front-end bound, back-end bound, bad speculation<br>和retiring。划分的方法是，对于一个可以被发射出去的uop，那么这个uop肯定是被对应的<br>执行单元执行了，所以它的结果只能有两个，一个是执行完成并且retire了，可以看到这个<br>其实就是真正做有用功的uop，另外一个是，这个uop处于错误预测路径上，最后被flush掉，<br>前者就叫retiring，后者就叫bad speculation。对于一个没有被发射出去的uop，也是有两种<br>情况，一个是后端的执行单元都忙着，虽然指令已经完成decode/rename等操作，但是后端<br>还没法执行，这个叫back-end bound, 另一个是，指令压根还没有做好发给后端的准备，这<br>个叫front-end bound。</p>
+<p>Intel的笔记本上使用perf可以很简单的得到topdown分析的输出(ubuntu 18.04):</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">sherlock@x86:~/notes/perf$ sudo perf stat -a --topdown ls</span><br><span class="line">[...]</span><br><span class="line"></span><br><span class="line"> Performance counter stats for &#x27;system wide&#x27;:</span><br><span class="line"></span><br><span class="line">            retiring       bad speculation   frontend bound    backend bound        </span><br><span class="line">S0-C0     2     18.6%          9.0%            29.2%            43.3%           </span><br><span class="line">S0-C1     2     17.1%          7.2%            49.9%            25.9%           </span><br></pre></td></tr></table></figure>
+
+<p>retiring是做有用功的比例，所有我们希望的这部分越高越好。bad speculation又分为<br>branch mispredicts和machine clears，前者是指错误的分支预测，后者是其它投机错误，<br>比如，提前指令的load操作，当遇到load/store冲突的时候，也要做flush，相当于这部分<br>投机执行时使用的硬件资源也白白浪费了。front-end bound分为fetch latency和fetch<br>band-width, 这里不是很清楚。back-end bound分为core bound和memory bound，core<br>bound是计算部件繁忙导致的bound，memory bound是存储繁忙导致的bound，memory bound<br>又分为store bound、各种cache bound以及ext memory bound等。</p>
+<h2 id="第7章"><a href="#第7章" class="headerlink" title="第7章"></a>第7章</h2><p>前端问题的调优方法(补充ARM上的具体例子，下同)。</p>
+<h2 id="第8章"><a href="#第8章" class="headerlink" title="第8章"></a>第8章</h2><p>后端问题的调优方法。注意，向量化的优化方法。</p>
+]]></content>
+      <categories>
+        <category>read</category>
+      </categories>
+      <tags>
+        <tag>计算机体系结构</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Linux perf构架分析</title>
+    <url>/Linux-perf%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/</url>
+    <content><![CDATA[<h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>perf是Linux上支持程序调优的子系统，这个子系统很大的依赖硬件自带的PMU设备完成程序<br>性能相关参数的采集，程序员可以使用收集到的数据完成程序调优。</p>
+<p>所谓PMU设备其实是核上自带一组counter以及其控制寄存器的抽象，程序员通过PMU的控制<br>寄存器控制counter收集的数据，以及counter的运行或停止等。一般来说，counter有两种<br>使用方法，一种是直接记录对应事件发生的次数，记录程序的运行参数时，通常这样使用<br>counter，比如我们记录运行一个程序需要多少个CPU cycle。另一种是给counter设定一个<br>门限，当计数到门限时触发中断，中断处理函数中可以做相应的记录，这种使用方法一般用<br>来做采样，比如我们可以每隔一定的cycle触发一个中断，在中断处理函数里记录当前PC对应<br>的函数，这样就可以根据记录数据得到基于采样的程序执行时的热点函数分布。</p>
+<p>Linux的perf子系统对于PMU进行了抽象封装，提供一组易用的接口给用户使用。同时perf子<br>系统还把基于软件trace point等的各种其他观测机制集成进来，我们这里先只考虑和PMU对<br>应的perf功能。</p>
+<p>我们考虑perf子系统需要做的工作。1. perf子系统需要给用户提供一组接口，支持用户发送<br>程序信息收集的命令，读程序运行产生的数据，2. 因为各个硬件厂家的PMU各不相同，perf<br>子系统需要有一个公共的抽象以支持各种不同的PMU，3. 很多时候我们只是统计一个进程的<br>数据，而Linux是一个多进程系统，这就需要perf子系统对数据统计进行控制，比如，程序<br>运行时开始统计，程序调度出去时停止统计，这种控制可能是比较复杂的，比如进程在不同<br>核之间迁移的时候，进程数据的统计也要跟着一起迁移，4.为了方便用户使用，需要提供<br>相应的用户态工具，发送perf命令，解析perf数据。</p>
+<h2 id="perf用户态工具"><a href="#perf用户态工具" class="headerlink" title="perf用户态工具"></a>perf用户态工具</h2><p>perf用户态工具的代码在Linux内核tools/perf目录下，其实是可以独立内核编译的用户态<br>工具。用户态工具的基本逻辑比较简单，一般在主进程里完成命令解析和相关配置，创建<br>子进程运行被测程序，主进程通过perf_event_open/ioctl等接口配置和控制perf寄存器，<br>主进程完成perf寄存器控制和子进程启动等同步操作，最后主进程还要解析和展示数据。</p>
+<p>我们具体看下perf stat的代码逻辑要点:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* tools/perf/perf.c */</span><br><span class="line">main</span><br><span class="line">  +-&gt; run_argv</span><br><span class="line">    +-&gt; handle_internal_command</span><br><span class="line">      +-&gt; run_builtin</span><br><span class="line">            /* builtin-stat.c */</span><br><span class="line">        +-&gt; cmd_stat (p-&gt;fn)</span><br><span class="line">          +-&gt; run_perf_stat</span><br><span class="line">            +-&gt; __run_perf_stat</span><br><span class="line">                  /* 里面fork出子进程，阻塞等待父进程 */</span><br><span class="line">              +-&gt; evlist__prepare_workload</span><br><span class="line">                  /* 一路调用下去，最后使用perf_event_open系统调用创建counter */</span><br><span class="line">              +-&gt; create_perf_stat_counter</span><br><span class="line">                  /* 一路调用下去, 使用ioctl enable counter */</span><br><span class="line">              +-&gt; enable_counters</span><br><span class="line">                  /* 启动子进程 */</span><br><span class="line">              +-&gt; evlist__start_workload</span><br></pre></td></tr></table></figure>
+
+<p>man perf_event_open可以查看该系统调用的具体参数，我们可以跟踪下一个perf_event具体<br>是怎么被映射到底层的PMU counter上的。</p>
+<p>perf_event_open的入参是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">int perf_event_open(struct perf_event_attr *attr, pid_t pid, int cpu, int group_fd,</span><br><span class="line">                    unsigned long flags);</span><br></pre></td></tr></table></figure>
+<p>基本逻辑是pid和cpu控制要跟踪的进程和CPU，group_fd可以支持同时跟踪一组event，具体<br>要跟踪的事件在attr里定义。</p>
+<p>attr是一个大杂汇，内核通过attr.type/attr.config定义具体的event，公共的event有对应<br>的type/config的定义，硬件厂商子定义的event使用PERF_TYPE_RAW作为type，attr.size定义<br>这个结构体的大小，各个版本的perf_event_open的attr的size可能是不一样的，这里应该<br>是只传递指针和size，靠这种方法做接口的演进。</p>
+<h2 id="perf内核构架"><a href="#perf内核构架" class="headerlink" title="perf内核构架"></a>perf内核构架</h2><h3 id="核心构架"><a href="#核心构架" class="headerlink" title="核心构架"></a>核心构架</h3><p>perf系统调用入口：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* linux/kernel/events/core.c */</span><br><span class="line">perf_event_open</span><br><span class="line">      /* 注册给task_struct */</span><br><span class="line">  +-&gt; perf_install_in_context</span><br></pre></td></tr></table></figure>
+<p>perf_event_open根据用户指令的event，在PMU硬件上分配具体的counter(这里只考虑硬件<br>event的情况)，并把对应的event向task_struct注册，task_struct里用perf_event_context<br>记录和当前线程相关的event，这里把event和task_struct绑定是为了后续在线程调度的时候<br>停止和重启具体event的计数。perf_event_open生成匿名文件，并返回对应fd，随后用户通过<br>fd控制对应的event。</p>
+<p>perf ioctl入口：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* linux/kernel/events/core.c */</span><br><span class="line">perf_ioctl</span><br><span class="line">  +-&gt; ...</span><br></pre></td></tr></table></figure>
+
+<p>Linux调度进程，把一个进程投入运行，相关的counter也要投入运行，调用路径估计是：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* linux/kernel/events/core.c */</span><br><span class="line">__perf_event_task_sched_in</span><br><span class="line">  +-&gt; perf_event_context_sched_in</span><br><span class="line">    +-&gt; perf_event_sched_in</span><br><span class="line">      +-&gt; ctx_sched_in</span><br><span class="line">        +-&gt; ctx_groups_sched_in</span><br><span class="line">          +-&gt; pmu_groups_sched_in</span><br><span class="line">            +-&gt; merge_sched_in</span><br><span class="line">              +-&gt; group_sched_in</span><br><span class="line">                +-&gt; event_sched_in</span><br></pre></td></tr></table></figure>
+<p>可以看到event_sched_in将调用具体PMU的add回调函数，把event加回来。这里的整体逻辑是<br>线程被调度出CPU之前使用__perf_event_task_sched_out暂停event的行为并保存当前统计值，<br>线程被重新调度进CPU的时候使用如上的__perf_event_task_sched_in恢复event的上下文并<br>重新开始event的运行。</p>
+<p>底层的具体操作在PMU驱动的add/del回调函数中完成，其中既控制PMU counter的启停，又<br>恢复/保存counter的值到event上下文。</p>
+<h3 id="PMU驱动"><a href="#PMU驱动" class="headerlink" title="PMU驱动"></a>PMU驱动</h3><p>我们以ARM PMUv3驱动为例分析，看看具体硬件怎么和perf核心构架连在一起。其中核心逻辑<br>就是Linux为PMU硬件抽象了一个struct pmu数据结构，各个PMU驱动要实现pmu数据结构里<br>perf_event的控制逻辑，并把自己的pmu注册到perf子系统上。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* linux/drivers/perf/arm_pmuv3.c */</span><br><span class="line">armv8_pmu_device_probe</span><br><span class="line">      /* 在其中创建struct pmu，并添加ARM PMUv3的各种回调函数 */</span><br><span class="line">  +-&gt; armpmu_alloc</span><br><span class="line">  +-&gt; armpmu_register</span><br></pre></td></tr></table></figure>
+
+<p>PMU驱动的另一个重要功能是注册了PMU中断处理函数，PMU中断处理函数处理具体counter<br>的溢出中断，调用perf子系统API记录中断发生时的程序上下文数据。</p>
+<h2 id="TopDown模型"><a href="#TopDown模型" class="headerlink" title="TopDown模型"></a>TopDown模型</h2><p>使用TopDown模型分析程序性能是Intel提出的一种程序性能分析方法，如上使用一组counter<br>分析程序性能问题并不能系统的看问题，TopDown的方式可以系统的分析程序的性能问题。</p>
+<p>简单讲，通过perf记录输出的一组程序运行参数，可以得到CPU在运行这段程序时，CPU上<br>cycle的分布情况，这个分布情况可以从上到下的逐步细分，最后定位到具体是哪里的问题。</p>
+<p>Linux系统上已经支持使用perf直接得到TopDown结果，ARM64上目前还没有厂家可以做到。<br>相关的信息可以参考<a href="https://wangzhou.github.io/%E7%8E%B0%E4%BB%A3CPU%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E4%B8%8E%E4%BC%98%E5%8C%96-%E7%AC%94%E8%AE%B0/">这里</a>。</p>
+<h2 id="ARM-PMU扩展特性"><a href="#ARM-PMU扩展特性" class="headerlink" title="ARM PMU扩展特性"></a>ARM PMU扩展特性</h2><ul>
+<li><p>SPE</p>
+</li>
+<li><p>uncore PMU</p>
+</li>
+</ul>
+]]></content>
+      <tags>
+        <tag>软件性能</tag>
+        <tag>Linux内核</tag>
       </tags>
   </entry>
 </search>
