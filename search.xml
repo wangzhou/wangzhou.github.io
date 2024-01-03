@@ -8878,7 +8878,8 @@ comment: 这个点有点莫名其妙？
 ]]></content>
       <tags>
         <tag>ARM64</tag>
-        <tag>内存模型，herd</tag>
+        <tag>内存模型</tag>
+        <tag>herd</tag>
       </tags>
   </entry>
   <entry>
@@ -8993,6 +8994,45 @@ comment: 这个点有点莫名其妙？
       <tags>
         <tag>软件性能</tag>
         <tag>Linux内核</tag>
+        <tag>perf</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>ARM64向量指令基本逻辑整理</title>
+    <url>/ARM64%E5%90%91%E9%87%8F%E6%8C%87%E4%BB%A4%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E6%95%B4%E7%90%86/</url>
+    <content><![CDATA[<h2 id="为什么要向量指令"><a href="#为什么要向量指令" class="headerlink" title="为什么要向量指令"></a>为什么要向量指令</h2><p>完成相同的功能为什么向量指令有时可以提升性能，本质上是编译器(或程序员)提前获得了<br>需要处理数据的特征，并用特殊的向量指令处理，把本来应该在硬件中处理的逻辑移动到了<br>编译器这一侧。数据具有一个定的规律是可以使用向量指令处理的前提条件。</p>
+<p>比如，我们要计算y[i] = a * x[i] + b，用一般指令就要循环的去计算，在超标量处理器中<br>这个循环计算可能被并行展开，编译器识别到被处理数据可以并行展开这样的特性，直接使用<br>向量指令进行计算。</p>
+<p>所以，向量指令擅长处理天然具有一定并行度的数据。</p>
+<h2 id="ARM64中向量指令"><a href="#ARM64中向量指令" class="headerlink" title="ARM64中向量指令"></a>ARM64中向量指令</h2><p>ARMv7中NEON指令是ARM开始对向量指令的支持，ARMv8里增加了SVE，ARMv9里增加了SVE2和SME<br>的支持。SVE/SME中的S是scalable(可扩展)的意思，通过增加一些谓词寄存器和相应指令提升<br>了向量指令的可扩展性，所谓可扩展性是说在被处理向量数据发生变化的时候，写好的代码<br>可以很好的与之适配，比如上面计算y[i] = a * x[i] + b时，不同情况下i的大小可能不一样，<br>怎么样可以用一份代码支持各种情况。SVE/SVE2中的V是vector(向量)的意思，SME的M是matrix<br>(矩阵)的意思。</p>
+<p>ARM官网上提供了一个简短的SVE指令介绍，具体的位置在<span class="exturl" data-url="aHR0cHM6Ly9kZXZlbG9wZXIuYXJtLmNvbS9kb2N1bWVudGF0aW9uLzEwMjQ3Ni8wMTAwL0ludHJvZHVjaW5nLVNWRQ==">这里<i class="fa fa-external-link-alt"></i></span>。</p>
+<h3 id="基本指令和寄存器"><a href="#基本指令和寄存器" class="headerlink" title="基本指令和寄存器"></a>基本指令和寄存器</h3><p>和一般指令一样，需要先把数据从内存放到寄存器上，计算指令的输入和输出都是寄存器，<br>ARM的向量指令设计中，增加了向量指令使用的寄存器，其中包括Z0-Z31的32个向量寄存器，<br>P0-P15的16个谓词寄存器，FFR(First Fault Register)，以及ZCR_ELx的向量长度寄存器。</p>
+<p>增加寄存器就增加了系统状态，与状态相关的上下文保存恢复的各种行为都要考虑，直观看<br>上去需要考虑的有：1. 过程调用时的寄存器保存恢复，2. 进程切换时的寄存器保存和恢复，<br>第一点要定义包含向量寄存器的过程调用ABI协议，第二点要操作系统内核支持。</p>
+<p>Z0-Z31寄存器的最大长度是2048bit，具体运行时一个寄存器中的元素个数受ZCR_ELx控制，<br>每个元素的大小是编码到向量指令里的，其中 ZCR_ELx可以是ZCR_EL1/2/3，分别控制低特权<br>和相同特权级Z0-Z31寄存器中的元素个数，可以看到进程在使用向量寄存器时需要额外的接<br>口先配置ZCR_EL1x。</p>
+<p>我们看一个具体SVE指令ADD(immediate)的编码：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-----------------+-------+-----------------+----+--------+-------+</span><br><span class="line">| 31 - 24         | 23 22 | 21 - 14         | 13 | 12 - 5 | 4 - 0 |</span><br><span class="line">+-----------------+-------+-----------------+----+--------+-------+</span><br><span class="line">| 0 0 1 0 0 1 0 1 | size  | 1 0 0 0 0 0 1 1 | sh | imm8   | Zdn   |</span><br><span class="line">+-----------------+-------+-----------------+----+--------+-------+</span><br></pre></td></tr></table></figure>
+<p>其中size编码向量寄存器里每个元素的大小，分别可以是8/16/32/64bit，对应的汇编指令是:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">ADD Zn.B Zn.B, #imm,shift</span><br><span class="line">ADD Zn.H Zn.H, #imm,shift</span><br><span class="line">ADD Zn.S Zn.S, #imm,shift</span><br><span class="line">ADD Zn.D Zn.D, #imm,shift</span><br></pre></td></tr></table></figure>
+<p>如果这时ZCR_EL1为16，那么ADD Z1.B Z1.B, #10就表示把Z1里按8bit为一个元素做划分，<br>一共有16个元素，把这16个元素每个加上10，然后更新到Z1里。</p>
+<p>对于向量的load/store操作，ARM支持所谓gather-load/scatter-store的操作，简单讲就是<br>可以用向量寄存器表示一组地址，这样就可以实现一个load把一组地址上的数据加载到寄存器，<br>或者是一个store把数据保存到一组地址上。</p>
+<p>这种数据加载和保存方式叫人直接想到的就是发生异常应该如何处理，ARM上使用独立的指令<br>控制向量load/store的异常行为，一种指令是异常照样触发，另一种是不触发异常，而把异常<br>发生时成功或失败load/store向量元素的信息保存在FFR寄存器里。</p>
+<h3 id="谓词控制"><a href="#谓词控制" class="headerlink" title="谓词控制"></a>谓词控制</h3><p>向量指令按照一定的格式做计算，谓词寄存器可以控制计算的格式，提升编程的灵活度。<br>P0-P7是访存和计算的谓词寄存器，P8-P15是循环控制的谓词寄存器。</p>
+<p>比如，加上谓词寄存器的ADD是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">+-----------------+-------+-------------------+---------+---------------+</span><br><span class="line">| 31 - 24         | 23 22 | 21 - 13           | 12 - 10 | 9 - 5 | 4 - 0 |</span><br><span class="line">+-----------------+-------+-------------------+---------+-------+-------+</span><br><span class="line">| 0 0 0 0 0 1 0 0 | size  | 1 0 0 0 0 0 1 1 0 | Pg      | Zm    | Zdn   |</span><br><span class="line">+-----------------+-------+-------------------+---------+-------+-------+</span><br></pre></td></tr></table></figure>
+<p>ADD &lt;Zdn&gt;.&lt;T&gt; &lt;Pg&gt;/M, &lt;Zdn&gt;.&lt;T&gt;, &lt;Zm&gt;.&lt;T&gt;根据Pg寄存器中的bit mask对有效位上的数据<br>做ADD操作，M(merge)表示对于无效位置上的数据不做处理，可见M语意是直接编码到指令里的。</p>
+<p>基于谓词的循环控制主要是可以动态的处理向量化时产生的边角数据。</p>
+<p>为此ARM增加了谓词生成的指令，比如whilelt/ptrue，ptrue直接根据指令中编码的pattern<br>在谓词寄存器中产生对应的值，whilelt比较两个输入值，满足比较条件的时候配置谓词寄存<br>器中的对应bit。</p>
+<p>如上谓词生成指令不只根据条件生成谓词数据，而且还会改变PSTATE中的状态寄存器(N/Z/C/V)，<br>配合条件跳转指令，可以控制包含向量指令的循环跳转逻辑。incb之类的指令可以根据pattern<br>对标量寄存器进行自增运算。这些指令的功能用普通指令也可以完成，但是使用基于向量数据<br>的指令，指令会更加紧凑。</p>
+<h3 id="异常处理"><a href="#异常处理" class="headerlink" title="异常处理"></a>异常处理</h3><p>这里看向量指令相关异常的定义，其实关键就是向量的访存指令的异常处理。ARM spec在<br>D1.3.5里对SVE相关的访存异常做了定义(SVE synchronous memory faults)。一个SVE访存<br>指令会有三个版本，比如: LD1B、LDFF1B(first fault)、LDNF1B(no fault)，其中第一种<br>指令每次访存都有可能产生异常，第二种只看第一个有效数据的异常，第三种不产生异常。</p>
+<p>第一种指令产生异常，并被操作系统修复后，似乎整个指令要全部重复执行？第二种和第三种<br>指令里被抑制产生的异常信息会被记录到FFR寄存器里。</p>
+<h2 id="向量指令用户态使用"><a href="#向量指令用户态使用" class="headerlink" title="向量指令用户态使用"></a>向量指令用户态使用</h2><p>可以使用各种向量指令库，编译器对于一些场景也可以自动编译出向量指令，手写向量汇编<br>也是一种选择。</p>
+<h2 id="相关内核支持"><a href="#相关内核支持" class="headerlink" title="相关内核支持"></a>相关内核支持</h2><h3 id="异常处理-1"><a href="#异常处理-1" class="headerlink" title="异常处理"></a>异常处理</h3><p>(todo)</p>
+<h3 id="上下文保存恢复"><a href="#上下文保存恢复" class="headerlink" title="上下文保存恢复"></a>上下文保存恢复</h3><p>Linux内核采用lazy的向量寄存器上下文保存办法，代码路径在：arch/arm64/kernel/fpsimd.c。</p>
+<h2 id="性能"><a href="#性能" class="headerlink" title="性能"></a>性能</h2><p>向量指令主要用户是HPC等特定场景，可以看到Apple M系列处理器(M1-3)里都不支持向量指令，<br>Intel的桌面处理器上支持的AVX指令被Linus认为“不务正业”。</p>
+<p>似乎向量指令的性能需要从整体功能的角度衡量，还不清楚怎么从微架构性能数据(perf)看<br>向量指令的性能？</p>
+]]></content>
+      <tags>
+        <tag>ARM64</tag>
+        <tag>向量</tag>
       </tags>
   </entry>
 </search>
