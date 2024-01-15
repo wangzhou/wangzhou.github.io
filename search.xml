@@ -1432,59 +1432,23 @@ crypto_comp_compress的时候都是关闭抢占的(是否要关闭调度), 这�
   <entry>
     <title>Linux内存相关的测试工具</title>
     <url>/Linux%E5%86%85%E5%AD%98%E7%9B%B8%E5%85%B3%E7%9A%84%E6%B5%8B%E8%AF%95%E5%B7%A5%E5%85%B7/</url>
-    <content><![CDATA[<ol>
-<li>smem</li>
-</ol>
-<hr>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">  PID User     Command                         Swap      USS      PSS      RSS </span><br><span class="line">40200 test     bash                               0   524.0K   687.0K     3.1M </span><br><span class="line">39757 test     bash                               0   524.0K   692.0K     3.2M </span><br><span class="line">40203 test     /usr/bin/python /usr/bin/sm        0     6.1M     6.2M     7.7M </span><br></pre></td></tr></table></figure>
+    <content><![CDATA[<h2 id="smem"><a href="#smem" class="headerlink" title="smem"></a>smem</h2><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">  PID User     Command                         Swap      USS      PSS      RSS </span><br><span class="line">40200 test     bash                               0   524.0K   687.0K     3.1M </span><br><span class="line">39757 test     bash                               0   524.0K   692.0K     3.2M </span><br><span class="line">40203 test     /usr/bin/python /usr/bin/sm        0     6.1M     6.2M     7.7M </span><br></pre></td></tr></table></figure>
 <p>运行smem -k命令可以看到系统里进程占用内存的情况。如上各个SS的含义是:</p>
 <p> USS: unique set size. 表示的是进程独占的物理内存，不包含动态库占的内存。<br> PSS: proportional set size. 进程自己的物理内存 + 动态库折算到进程里的内存。<br> RSS: resident set size. 进程实际使用的物理内存，包括共享库内存。<br> VSS: virtual set size. 进程使用的所有虚拟内存，包括共享库虚拟内存。</p>
-<ol start="2">
-<li>/proc/buddyinfo</li>
-</ol>
-<hr>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">Node 1, zone      DMA     10     12     11     11     13     11     10     10      6      6    226 </span><br><span class="line">Node 1, zone    DMA32      1      0      1      1      4      2      4      3      4      4    176 </span><br><span class="line">Node 1, zone   Normal  15807  52091  12723    877    258    703    579    194     35     34   5546 </span><br><span class="line">Node 3, zone   Normal  54266  41801  23819  10038   3476    641     65     29     13     19   6714 </span><br></pre></td></tr></table></figure>
+<h2 id="proc-buddyinfo"><a href="#proc-buddyinfo" class="headerlink" title="/proc/buddyinfo"></a>/proc/buddyinfo</h2><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">Node 1, zone      DMA     10     12     11     11     13     11     10     10      6      6    226 </span><br><span class="line">Node 1, zone    DMA32      1      0      1      1      4      2      4      3      4      4    176 </span><br><span class="line">Node 1, zone   Normal  15807  52091  12723    877    258    703    579    194     35     34   5546 </span><br><span class="line">Node 3, zone   Normal  54266  41801  23819  10038   3476    641     65     29     13     19   6714 </span><br></pre></td></tr></table></figure>
 <p>表示系统里伙伴系统中，2^1, 2^2…连续页有多少个，这个可以看到伙伴系统内存碎片的<br>情况。</p>
-<ol start="3">
-<li>/sys/kernel/mm/*</li>
-</ol>
-<hr>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">├── hugepages</span><br><span class="line">├── ksm</span><br><span class="line">├── swap</span><br><span class="line">└── transparent_hugepage</span><br></pre></td></tr></table></figure>
+<h2 id="sys-kernel-mm"><a href="#sys-kernel-mm" class="headerlink" title="/sys/kernel/mm/*"></a>/sys/kernel/mm/*</h2><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">├── hugepages</span><br><span class="line">├── ksm</span><br><span class="line">├── swap</span><br><span class="line">└── transparent_hugepage</span><br></pre></td></tr></table></figure>
 <p>可以看到如上各个特性的一些统计值。</p>
-<ol start="4">
-<li>pidof + pmap + /proc/pid/maps /proc/pid/smaps /proc/pid/stack</li>
-</ol>
-<hr>
-<p>./a.out &amp;<br>pmap -x <code>pidof a.out</code></p>
+<h2 id="pidof-pmap-proc-pid-maps-proc-pid-smaps-proc-pid-stack"><a href="#pidof-pmap-proc-pid-maps-proc-pid-smaps-proc-pid-stack" class="headerlink" title="pidof + pmap + /proc/pid/maps /proc/pid/smaps /proc/pid/stack"></a>pidof + pmap + /proc/pid/maps /proc/pid/smaps /proc/pid/stack</h2><p>./a.out &amp;<br>pmap -x <code>pidof a.out</code></p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">41677:   ./a.out</span><br><span class="line">Address           Kbytes     RSS   Dirty Mode  Mapping</span><br><span class="line">0000000000400000       4       4       0 r-x-- a.out</span><br><span class="line">0000000000400000       0       0       0 r-x-- a.out</span><br><span class="line">0000000000410000       4       4       4 r---- a.out</span><br><span class="line">0000000000410000       0       0       0 r---- a.out</span><br><span class="line">0000000000411000       4       4       4 rw--- a.out</span><br><span class="line">0000000000411000       0       0       0 rw--- a.out</span><br><span class="line">0000ffff8dac8000    1204     480       0 r-x-- libc-2.23.so</span><br><span class="line">0000ffff8dac8000       0       0       0 r-x-- libc-2.23.so</span><br><span class="line">0000ffff8dbf5000      60       0       0 ----- libc-2.23.so</span><br><span class="line">0000ffff8dbf5000       0       0       0 ----- libc-2.23.so</span><br><span class="line">0000ffff8dc04000      16      16      16 r---- libc-2.23.so</span><br><span class="line">0000ffff8dc04000       0       0       0 r---- libc-2.23.so</span><br><span class="line">0000ffff8dc08000       8       8       8 rw--- libc-2.23.so</span><br><span class="line">0000ffff8dc08000       0       0       0 rw--- libc-2.23.so</span><br><span class="line">0000ffff8dc0a000      16       8       8 rw---   [ anon ]</span><br><span class="line">0000ffff8dc0a000       0       0       0 rw---   [ anon ]</span><br><span class="line">0000ffff8dc0e000     112     112       0 r-x-- ld-2.23.so</span><br><span class="line">0000ffff8dc0e000       0       0       0 r-x-- ld-2.23.so</span><br><span class="line">0000ffff8dc2b000       8       8       8 rw---   [ anon ]</span><br><span class="line">0000ffff8dc2b000       0       0       0 rw---   [ anon ]</span><br><span class="line">0000ffff8dc37000       8       0       0 r----   [ anon ]</span><br><span class="line">0000ffff8dc37000       0       0       0 r----   [ anon ]</span><br><span class="line">0000ffff8dc39000       4       4       0 r-x--   [ anon ]</span><br><span class="line">0000ffff8dc39000       0       0       0 r-x--   [ anon ]</span><br><span class="line">0000ffff8dc3a000       4       4       4 r---- ld-2.23.so</span><br><span class="line">0000ffff8dc3a000       0       0       0 r---- ld-2.23.so</span><br><span class="line">0000ffff8dc3b000       8       8       8 rw--- ld-2.23.so</span><br><span class="line">0000ffff8dc3b000       0       0       0 rw--- ld-2.23.so</span><br><span class="line">0000ffffc48f9000     132      12      12 rw---   [ stack ]</span><br><span class="line">0000ffffc48f9000       0       0       0 rw---   [ stack ]</span><br><span class="line">---------------- ------- ------- ------- </span><br><span class="line">total kB            1592     672      72</span><br></pre></td></tr></table></figure>
 
 <p>/proc/pid/smaps反应一个进程里的各个vma里的信息。提供的信息比/proc/pid/maps多</p>
-<ol start="5">
-<li>numastat -p <pid></pid></li>
-</ol>
-<hr>
-<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">Per-node process memory usage (in MBs) for PID 417 (a.out)</span><br><span class="line">                           Node 0          Node 1           Total</span><br><span class="line">                  --------------- --------------- ---------------</span><br><span class="line">Huge                         0.00            0.00            0.00</span><br><span class="line">Heap                         0.01            0.00            0.01</span><br><span class="line">Stack                        0.00            0.00            0.01</span><br><span class="line">Private                      0.17            0.40            0.57</span><br><span class="line">----------------  --------------- --------------- ---------------</span><br><span class="line">Total                        0.18            0.41            0.59</span><br></pre></td></tr></table></figure>
+<h2 id="numastat-p"><a href="#numastat-p" class="headerlink" title="numastat -p "></a>numastat -p <pid></pid></h2><figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">Per-node process memory usage (in MBs) for PID 417 (a.out)</span><br><span class="line">                           Node 0          Node 1           Total</span><br><span class="line">                  --------------- --------------- ---------------</span><br><span class="line">Huge                         0.00            0.00            0.00</span><br><span class="line">Heap                         0.01            0.00            0.01</span><br><span class="line">Stack                        0.00            0.00            0.01</span><br><span class="line">Private                      0.17            0.40            0.57</span><br><span class="line">----------------  --------------- --------------- ---------------</span><br><span class="line">Total                        0.18            0.41            0.59</span><br></pre></td></tr></table></figure>
 <p>可以看到一个进程在各个numa节点上的内存使用情况，可以用这个命令观察一段时间进程<br>的内存在各个numa之间使用的情况。</p>
-<ol start="6">
-<li>mallopt</li>
-</ol>
-<hr>
-<p>C库中设定内存分配配置的接口, 通过mallopt这个函数可以改变malloc/free的行为。</p>
-<ol start="7">
-<li>mbind/madvise</li>
-</ol>
-<hr>
-<p>mbind是对应系统调用的封装，可以把虚拟内存对应的物理内存和对应的numa节点绑定。<br>madvise也是对应系统调用的封装，可以从用户态传递一些内存相关的属性给内核。</p>
-<ol start="8">
-<li>getrusage</li>
-</ol>
-<hr>
-<p>getrusage是一个库函数，可以得到一个进程的相关资源的使用情况。其中包括内存使用<br>的统计。比如其中，ru_minflt就是系统里初次分配内存这种缺页的次数，而ru_majflt<br>是从swap分区里换入内存这样缺页的数目。</p>
-<ol start="9">
-<li>proc下的关于内存的信息</li>
-</ol>
-<hr>
-<p>/proc/slabinfo<br>/proc/iomem<br>/proc/meminfo<br>/proc/vmstat<br>/proc/zoneinfo<br>/proc/vmallocinfo<br>/proc/sys/vm/*</p>
+<h2 id="mallopt"><a href="#mallopt" class="headerlink" title="mallopt"></a>mallopt</h2><p>C库中设定内存分配配置的接口, 通过mallopt这个函数可以改变malloc/free的行为。</p>
+<h2 id="mbind-madvise"><a href="#mbind-madvise" class="headerlink" title="mbind/madvise"></a>mbind/madvise</h2><p>mbind是对应系统调用的封装，可以把虚拟内存对应的物理内存和对应的numa节点绑定。<br>madvise也是对应系统调用的封装，可以从用户态传递一些内存相关的属性给内核。</p>
+<h2 id="getrusage"><a href="#getrusage" class="headerlink" title="getrusage"></a>getrusage</h2><p>getrusage是一个库函数，可以得到一个进程的相关资源的使用情况。其中包括内存使用<br>的统计。比如其中，ru_minflt就是系统里初次分配内存这种缺页的次数，而ru_majflt<br>是从swap分区里换入内存这样缺页的数目。</p>
+<h2 id="proc下的关于内存的信息"><a href="#proc下的关于内存的信息" class="headerlink" title="proc下的关于内存的信息"></a>proc下的关于内存的信息</h2><p>/proc/slabinfo<br>/proc/iomem<br>/proc/meminfo<br>/proc/vmstat<br>/proc/zoneinfo<br>/proc/vmallocinfo<br>/proc/sys/vm/*</p>
 ]]></content>
       <tags>
         <tag>内存管理</tag>
@@ -9033,6 +8997,33 @@ comment: 这个点有点莫名其妙？
       <tags>
         <tag>ARM64</tag>
         <tag>向量</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>ARM64中cache的同名重名问题</title>
+    <url>/ARM64%E4%B8%ADcache%E7%9A%84%E5%90%8C%E5%90%8D%E9%87%8D%E5%90%8D%E9%97%AE%E9%A2%98/</url>
+    <content><![CDATA[<h2 id="aliasing和homonyms的基本逻辑"><a href="#aliasing和homonyms的基本逻辑" class="headerlink" title="aliasing和homonyms的基本逻辑"></a>aliasing和homonyms的基本逻辑</h2><p>cache的基本概念在<a href="https://wangzhou.github.io/CPU%E4%B8%ADcache%E5%92%8CMMU%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">这里</a>有介绍，其中提到了在VIPT cache情况下遇到的问题。具体会遇到<br>重名(aliasing)和同名(homonyms)的问题。中文的名字看的很晕，从英文名字就看的很清楚。</p>
+<p>重名(aliasing)，就是一个物理数据，因为被虚拟地址做cache索引，映射到了两个不同的<br>cacheline上。这里遇到的核心问题是不同虚拟地址可能被map到了相同的物理地址上，所以<br>在不同核上，使用虚拟地址做索引的cache就变成了两个独立的cache，需要增加新的逻辑<br>来进行两者的同步。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">va1:                    va2:</span><br><span class="line">+----------+            +-----------+</span><br><span class="line">| cache1   |            | cache2    |</span><br><span class="line">+----------+            +-----------+</span><br><span class="line">           \            /</span><br><span class="line">            \          /</span><br><span class="line">            +----------+</span><br><span class="line">            | memory   |</span><br><span class="line">            +----------+</span><br></pre></td></tr></table></figure>
+<p>VIPT cache上重名(aliasing)问题的解决思路是把virtual index塞到页偏移的低位，这样<br>虽然是VIPT cache，但是已经等价于PIPT cache了。这种方法，在当cache比较大，way数小<br>的时候，还是可能出现重名问题。</p>
+<p>同名(homonyms)，homonyms是同音异意词的意思，简单讲就是不同进程虚拟地址相同，但是<br>map的物理地址是不同的，使用虚拟地址做cache索引时，相同的虚拟地址应该指向不同的<br>数据，如果物理tag又相同，这里就会有问题。</p>
+<p>我们具体看下同名问题出问题的情况。比如，VIPT cache:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">va1 -&gt; pa1</span><br><span class="line">va2 -&gt; pa2</span><br></pre></td></tr></table></figure>
+<p>两组映射的index，tag相同，当第一个映射向第二个映射转换时，没有刷cache，问题就会<br>出现。释放内存时就可能出现，比如释放va1-&gt;pa1，申请的时候完全可以再次给你va1-&gt;pa1，<br>之前的cache还在一定会出错。做进程切换的时候，也可能错，在第二个进程上，一样的va<br>可能映射给不同的pa，这个时候index是一样的，只要映射pa的tag和之前的一样，cpu访问<br>va就可能使用之前的cache。</p>
+<p>如果我们使用PIPT cache，上面的两个问题没有了。但是，如果cache使用完不做清理也一<br>样会出问题。因为如果不清理cache，包括flush cache和无效化cache，第一，cache中的<br>临时数据保存不到内存里，当物理内存上的数据要被swap到其它位置时，cache中的最新数据<br>没有刷回内存，就会出错；第二，下次新使用这个cache时，如果还认为cache是有效的，<br>下次访问就被旧数据干扰了。</p>
+<p>所以，即使是PIPT cache，当cache不再使用时，也要做flush和无效化操作。</p>
+<h2 id="ARM64中cache的逻辑"><a href="#ARM64中cache的逻辑" class="headerlink" title="ARM64中cache的逻辑"></a>ARM64中cache的逻辑</h2><p>ARM手册(J.a版本)对cache的实现有如下定义(D8.15)：</p>
+<p>Data和unified cache要实现成PIPT的cache，这里unified cache就是指数据和指令都存的<br>cache，一般是L2 cache。</p>
+<p>L1指令cache可以实现为PIPT/VPIPT(VMID-aware)/VIPT其中的一种，通过CTR_EL0.L1Ip这个<br>域段提示给软件。指令cache只能通过指令fetch填充，指令cache不能写，只能对指令cache<br>做invalidation。ARM spec里对L1指令cache里出现的aliasing问题的兜底解决方案是清掉<br>所有的指令cache。</p>
+<p>基于以上的定义，我们重新看看上面的问题是否存在，因为只有L1指令cache有可能通过VA<br>索引，所以只需要关注L1指令cache的情况。</p>
+<p>对于同名问题，可以在进程切换的时候，做L1icache清理。感觉这个只要清理L1 icache就好，<br>看起来IC IALLU可以完成整个功能(invalidate all (to) PoU)， 这个PoU同步点一般就是L2<br>cache。</p>
+<p>对于重名问题，现在的问题定义是，一段指令，可能被缓存到了不同VA索引的不同核的L1<br>icache上。如果只是fetch指令执行，也不会出问题，唯一可能出问题的代码本身修改了。<br>在这种情况下，自修改代码的逻辑除了要无效化本核上的icache，也要无效化可能和这个核<br>共享代码的其它核上的icache。看起来ARM上的IC IALLUIS可以完成这个功能(invalidate all<br>(to) PoU (in) inner shareble)。</p>
+<p>ARM上其它的cache都只能是PIPT cache，如上第一节中的分析，当cache对应的物理内存有<br>变动时，需要做相关的flush和无效化操作。</p>
+]]></content>
+      <tags>
+        <tag>计算机体系结构</tag>
+        <tag>ARM64</tag>
+        <tag>cache</tag>
       </tags>
   </entry>
 </search>
