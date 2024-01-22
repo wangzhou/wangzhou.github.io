@@ -9010,20 +9010,78 @@ comment: 这个点有点莫名其妙？
 <p>我们具体看下同名问题出问题的情况。比如，VIPT cache:</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">va1 -&gt; pa1</span><br><span class="line">va2 -&gt; pa2</span><br></pre></td></tr></table></figure>
 <p>两组映射的index，tag相同，当第一个映射向第二个映射转换时，没有刷cache，问题就会<br>出现。释放内存时就可能出现，比如释放va1-&gt;pa1，申请的时候完全可以再次给你va1-&gt;pa1，<br>之前的cache还在一定会出错。做进程切换的时候，也可能错，在第二个进程上，一样的va<br>可能映射给不同的pa，这个时候index是一样的，只要映射pa的tag和之前的一样，cpu访问<br>va就可能使用之前的cache。</p>
-<p>如果我们使用PIPT cache，上面的两个问题没有了。但是，如果cache使用完不做清理也一<br>样会出问题。因为如果不清理cache，包括flush cache和无效化cache，第一，cache中的<br>临时数据保存不到内存里，当物理内存上的数据要被swap到其它位置时，cache中的最新数据<br>没有刷回内存，就会出错；第二，下次新使用这个cache时，如果还认为cache是有效的，<br>下次访问就被旧数据干扰了。</p>
-<p>所以，即使是PIPT cache，当cache不再使用时，也要做flush和无效化操作。</p>
+<p>如果我们使用PIPT cache，上面的两个问题没有了。我们考虑还有没有其它问题存在。在<br>一个硬件保证cache一致性的系统，PIPT cache基本上对软件是透明的。有的情况下可能硬<br>件保证不了CPU和外设之间的cache一致性，这个时候就需要软件使用cache维护指令维护<br>cache一致性。</p>
+<p>页表存放在内存里，所以它也可能缓存在cache里。PTW作为一个master和其它master，包括，<br>其它PTW master、访存master和取指令master在cache有一定的逻辑关系，这个和具体体系<br>结构有关系，我们放到下面ARM64的部分具体分析。</p>
 <h2 id="ARM64中cache的逻辑"><a href="#ARM64中cache的逻辑" class="headerlink" title="ARM64中cache的逻辑"></a>ARM64中cache的逻辑</h2><p>ARM手册(J.a版本)对cache的实现有如下定义(D8.15)：</p>
 <p>Data和unified cache要实现成PIPT的cache，这里unified cache就是指数据和指令都存的<br>cache，一般是L2 cache。</p>
 <p>L1指令cache可以实现为PIPT/VPIPT(VMID-aware)/VIPT其中的一种，通过CTR_EL0.L1Ip这个<br>域段提示给软件。指令cache只能通过指令fetch填充，指令cache不能写，只能对指令cache<br>做invalidation。ARM spec里对L1指令cache里出现的aliasing问题的兜底解决方案是清掉<br>所有的指令cache。</p>
 <p>基于以上的定义，我们重新看看上面的问题是否存在，因为只有L1指令cache有可能通过VA<br>索引，所以只需要关注L1指令cache的情况。</p>
 <p>对于同名问题，可以在进程切换的时候，做L1icache清理。感觉这个只要清理L1 icache就好，<br>看起来IC IALLU可以完成整个功能(invalidate all (to) PoU)， 这个PoU同步点一般就是L2<br>cache。</p>
 <p>对于重名问题，现在的问题定义是，一段指令，可能被缓存到了不同VA索引的不同核的L1<br>icache上。如果只是fetch指令执行，也不会出问题，唯一可能出问题的代码本身修改了。<br>在这种情况下，自修改代码的逻辑除了要无效化本核上的icache，也要无效化可能和这个核<br>共享代码的其它核上的icache。看起来ARM上的IC IALLUIS可以完成这个功能(invalidate all<br>(to) PoU (in) inner shareble)。</p>
-<p>ARM上其它的cache都只能是PIPT cache，如上第一节中的分析，当cache对应的物理内存有<br>变动时，需要做相关的flush和无效化操作。</p>
+<p>ARM上其它的cache都只能是PIPT cache，如上第一节中的分析，一般情况下，这些cache对<br>软件都是透明的了。现代的SoC系统上，外设和CPU基本上也可以做到硬件维护cache一致性。</p>
+<p>TODO: PTW和cache之间的关系。</p>
 ]]></content>
       <tags>
         <tag>计算机体系结构</tag>
         <tag>ARM64</tag>
         <tag>cache</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Linux内存管理-内存回收</title>
+    <url>/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E5%86%85%E5%AD%98%E5%9B%9E%E6%94%B6/</url>
+    <content><![CDATA[<h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>Linux系统上的虚拟内存管理和物理内存管理的逻辑是相对正交的，我们这里提到的内存回收<br>指的物理内存管理的逻辑。</p>
+<p>从一个具体的例子做下理解，用户态调用一个munmap断开VA-&gt;PA映射和这个PA对应的物理页面<br>释放回伙伴系统的逻辑是正交的。</p>
+<p>实际上，虚拟地址是对用户态承若的语意，内核只承诺了最基本的虚拟地址保存数据的功能，<br>当访存指令在用户态访问虚拟地址上的数据时，内核保证用户态可以访问到正确的数据，其中<br>可能直接访问到数据，也可能访问的物理页面不在内存，内核负责把数据给到用户态，一般<br>的逻辑是在异常处理中加载物理页面，并把PC返回到出问题的访存指令，重新执行访存指令。<br>从用户态的角度看，异常发生时访存指令停在了那里，随后继续执行完成访问虚拟地址的行为，<br>用户态并不感知内核中物理页面管理的行为。</p>
+<p>所以，断开VA-&gt;PA映射，比如munmap中，并不会直接释放物理页面，这个过程只会改动物理<br>页面相关的反向映射以及LRU数据。</p>
+<p>内核使用LRU链表维护使用中的物理页面的冷热信息，每个NUMA节点有独立的一组LRU链表，<br>并且依据文件页/匿名页/active/inactive的不同组合形成4个LRU链表，再加上一个不可回收<br>的LRU链表(unevitable)，一个NUMA节点有5个LRU链表。</p>
+<p>LRU的转换使用了类似硬件分支预测里的两位饱和计数器的思路做active和inactive之间的<br>状态转换。内核从inactive LRU链表上回收物理内存。</p>
+<p>struct folio中的PG_referenced, PG_active是对应的“两位”，状态转移逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">inactive           inactive         active             active  </span><br><span class="line">unreferenced       referenced       unreferenced       referenced</span><br></pre></td></tr></table></figure>
+<p>2021年Linux kernel Plumber上这篇文章：”Overview of Memory Reclaim in the Current Upstream Kernel”，<br>对LRU list上的页面状态转换逻辑有很好的梳理。我们在这里简单整理下：</p>
+<p>PG_active表示当前folio在active还是inactive LRU上，一般一个folio最开始分配出来<br>的时候是在inactive LRU上，PG_referenced是unreferenced(后面就用active/inactive/<br>referenced/unreferenced表示对应的状态)，后续如果这个folio被访问到，CPU硬件会写<br>对应页表项上的access bit，内核在reclaim的流程里检测到页表项的access bit被置1，会<br>更新folio中的状态更新到referenced，此时folio依然在inactive LRU上，注意这个检测<br>referenced的流程以后会把页表项的access bit清理掉，这个是为下次访问时硬件置1做好<br>准备，referenced检测的具体代码在folio_referenced函数里。所有状态的切换逻辑依此类推，<br>可能存在特殊的转换情况，总体上看，内核会double check下物理页的访问情况，再决定在<br>active/inactive LRU链表上做移动。</p>
+<p>我们从上层看下触发状态切换的入口点在哪里。首先，内核在分配物理页面的时候(alloc_pages)，<br>如果伙伴系统的内存不足，就会触发内存回收；内核线程kswapd会检测系统中的物理内存是否<br>低于给定的水线，并在低于水线的时候启动内存回收；damon子系统新家的kdamond内核线程，<br>会根据sysfs中的配置进行相关的检测或内存回收。</p>
+<p>显然，调整folio在LRU上的相关状态和做物理页面回收是两个正交的逻辑，状态调整需要<br>具有一定的实时性，页面回收可以在可用内存少的时候再进行。</p>
+<p>状态调整需要不断的清理PTE上的access bit，然后观察物理页的访问情况，相关逻辑的开销<br>还不能大。如上分析的，对于kswapd和alloc_pages慢速路径中的页面回收，是在内存使用<br>低于一定水线进行的，实际上是把冷热内存检测调整和物理内存回收这两个相对正交的逻辑<br>放到了一起，冷热内存的检测看起来会不准。</p>
+<p>damon子系统可以根据用户配置主动进行冷热页检测，这个似乎作用要好点。</p>
+<p>对于通用物理页面的回收逻辑，我们放到下面的代码分析中。根据页面具体回收方式，<br>不同情况有不同的处理: 1. 不需要保存直接回收(缓存/没有用的内存/OOM)；2. 需要保存<br>(保存回backend文件/匿名页swap到swap分区/shrink)。</p>
+<h2 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h2><p>分配物理页面时，在慢速路径里触发内存回收的逻辑如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">alloc_pages</span><br><span class="line">  ...</span><br><span class="line">  +-&gt; __alloc_pages_slowpath</span><br><span class="line">    +-&gt; __alloc_pages_direct_reclaim</span><br><span class="line">      +-&gt; __perform_reclaim</span><br><span class="line">        +-&gt; try_to_free_pages</span><br><span class="line">          +-&gt; do_try_to_free_pages</span><br><span class="line">            +-&gt; shrink_zones</span><br><span class="line">              +-&gt; shrink_zone</span><br><span class="line">                +-&gt; shrink_zone_memcgs // 牵扯memory cgroup的逻辑</span><br><span class="line">                  +-&gt; shrink_lruvec </span><br><span class="line">                    +-&gt; shrink_list</span><br></pre></td></tr></table></figure>
+<p>shrink_list里先做shrink_active_list再做shrink_inactive_list，前者把active LRU中<br>的冷页移动到inactive LRU，后者对inactive LRU里的冷页做回收操作。</p>
+<p>kswapd的内核线程做内存回收的逻辑如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* 入口在mm/vmscan.c的kswapd_init函数，一个NUMA node会对应一个kswapd线程 */</span><br><span class="line">kswapd</span><br><span class="line">      /* todo: 分析这里水线相关的逻辑 */</span><br><span class="line">  +-&gt; balance_pgdat</span><br><span class="line">    +-&gt; kswapd_shrink_node</span><br><span class="line">      +-&gt; shrink_node</span><br></pre></td></tr></table></figure>
+
+<p>damon内核线程(kdamoned)做内核回收的逻辑需要在单独文档里展开。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">damon/paddr.c -&gt; reclaim_pages -&gt; reclaim_folio_list -&gt; shrink_folio_list</span><br></pre></td></tr></table></figure>
+
+<p>各种page fault中也会把对应的页加入LRU，这里只关注和LRU相关的逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">handle_pte_fault</span><br><span class="line"></span><br><span class="line">  +-&gt; do_pte_missing</span><br><span class="line">        /* 看起来只会加到本cpu的LRU缓存里，什么时候加入全局LRU链表? 加入什么LRU */</span><br><span class="line">    +-&gt; folio_add_lru_vma</span><br><span class="line">      +-&gt; folio_add_lru</span><br><span class="line"></span><br><span class="line">      /* 没有看明白swap的具体逻辑 */</span><br><span class="line">  +-&gt; do_swap_page</span><br><span class="line">      </span><br><span class="line">      /* numa balance里用的page fault，没有看到和LRU有关系的地方 */</span><br><span class="line">  +-&gt; do_numa_page</span><br><span class="line"></span><br><span class="line">      /* wp是write protect的意思，这个处理COW的情况，逻辑更复杂 */</span><br><span class="line">  +-&gt; do_wp_page </span><br><span class="line">    +-&gt; wp_page_copy</span><br><span class="line">      +-&gt; folio_add_lru_vma</span><br><span class="line">        +-&gt; folio_add_lru</span><br></pre></td></tr></table></figure>
+
+<p>shrink_active_list以及shrink_inactive_list基本逻辑分析如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/*</span><br><span class="line"> * 入参有：这一次扫描的页数(nr_to_scan), lruvec, 针对一个page做rmap_walk的控制</span><br><span class="line"> * 参数(struct scan_control)。</span><br><span class="line"> */</span><br><span class="line">shrink_active_list</span><br><span class="line">      /* 每次都是从active LRU的尾部开始，最大摘出nr_to_scan个folio */</span><br><span class="line">  +-&gt; isolate_lru_folios</span><br><span class="line">    +-&gt; trace_mm_vmscan_lru_isolate</span><br><span class="line">      /*</span><br><span class="line">       * 对于隔离出来的folio，一般都做如下处理。folio_referenced得到folio被引</span><br><span class="line">       * 用的次数，对于引用非0，并且是代码段的folio，把它重新加回active LRU，</span><br><span class="line">       * 其它的情况加到inactive LRU里。这里引用的含义有点模糊，从代码上看，含义</span><br><span class="line">       * 是folio-&gt;mapcount，但是在contend时，返回rmap_walk时计算得到的referenced。</span><br><span class="line">       * 不理解这里的意思？</span><br><span class="line">       */</span><br><span class="line">  +-&gt; folio_referenced</span><br><span class="line">        /* 反向映射的API，找到一个folio对应的vma，并调用sc传入的回调函数 */</span><br><span class="line">    +-&gt; rmap_walk</span><br><span class="line">          /* 针对每个反向映射中找见的vma，都用folio_referenced_one处理下 */</span><br><span class="line">      +-&gt; folio_referenced_one</span><br><span class="line">        +-&gt; page_vma_mapped_walk</span><br><span class="line">          +-&gt; ptep_clear_flush_young_notify</span><br><span class="line">                /* 体系结构相关的代码在这里清掉页表项上的access bit */</span><br><span class="line">            +-&gt; ptep_clear_flush_young</span><br></pre></td></tr></table></figure>
+<p>inactive LRU处理的逻辑和如上active LRU的类似，不过增加了很多页表回收的逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">shrink_inactive_list</span><br><span class="line">  +-&gt; isolate_lru_folios</span><br><span class="line">      /*</span><br><span class="line">       * 这个函数是inactive LRU上页做回收的核心函数, alloc_pages/alloc_contig_pages/</span><br><span class="line">       * damon中都有调用。</span><br><span class="line">       *</span><br><span class="line">       * TODO: 内容太多了...</span><br><span class="line">       * </span><br><span class="line">       * 注意: folio_test_xxx/folio_set_xxx/folio_get_xxx等，以及PG_xxx比如</span><br><span class="line">       *       PG_active/PG_young之类均定义在include/linux/page-flags.h。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; shrink_folio_list</span><br><span class="line">    +-&gt; folio_check_referenced </span><br><span class="line">      +-&gt; folio_referenced</span><br></pre></td></tr></table></figure>
+
+<p>madvise系统调用也可以触发内存回收:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">do_madvise</span><br><span class="line">  +-&gt; madvise_vma_behavior</span><br><span class="line">    +-&gt; madvise_cold/madvise_pageout</span><br><span class="line">      +-&gt; madvise_cold_or_pageout_pte_range</span><br><span class="line">        +-&gt; reclaim_pages</span><br></pre></td></tr></table></figure>
+
+<p>分配连续物理内存的alloc_contig_pages里也会尝试做内存回收:</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* page_alloc.c */</span><br><span class="line">alloc_contig_pages</span><br><span class="line">  +-&gt; reclaim_clean_pages_from_list</span><br><span class="line">    + -&gt; shrink_folio_list</span><br></pre></td></tr></table></figure>
+]]></content>
+      <tags>
+        <tag>内存管理</tag>
+        <tag>Linux</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>ARM64 FEAT_TIDCAP1基本逻辑</title>
+    <url>/ARM64-FEAT-TIDCAP1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/</url>
+    <content><![CDATA[<p>这个特性是ARMv8.8的一个mandotary的特性，基本逻辑是开启该特性的时候，ARM为其他厂商<br>预留的指令空间(Reserved encoding space for IMPLEMENTATION DEFINED instructions)<br>上如果定义了指令，CPU在执行到相关自定义指令时就会报异常。</p>
+<p>在Linux主线内核上(5.19)合入了相关patch(arm64: trap implementation defined functionality<br>in userspace)，这个patch检测FEAT_TIDCAP1，如果有就直接打开这个特性。</p>
+<p>这个特性相当于在Linux主线上断绝掉了其他厂商在ARM系统架构里自定指令的可能。</p>
+]]></content>
+      <tags>
+        <tag>ARM64</tag>
       </tags>
   </entry>
 </search>

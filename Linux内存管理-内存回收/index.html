@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文总结Linux内核里内存回收的基本逻辑，PLKA在第18章介绍了这部分内容，文本的 分析参考了PLKA的相关介绍，基于内核v6.7-rc6做代码分析。总的看新内核在内存回收 核心逻辑上变化不大，但是新加了比如folio&#x2F;damon&#x2F;multi-gen LRU等特性。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux内存管理-内存回收">
+<meta property="og:url" content="http://wangzhou.github.io/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E5%86%85%E5%AD%98%E5%9B%9E%E6%94%B6/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文总结Linux内核里内存回收的基本逻辑，PLKA在第18章介绍了这部分内容，文本的 分析参考了PLKA的相关介绍，基于内核v6.7-rc6做代码分析。总的看新内核在内存回收 核心逻辑上变化不大，但是新加了比如folio&#x2F;damon&#x2F;multi-gen LRU等特性。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-01-20T02:20:37.000Z">
+<meta property="article:modified_time" content="2024-01-20T02:22:46.251Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="Linux">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E5%86%85%E5%AD%98%E5%9B%9E%E6%94%B6/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux内存管理-内存回收 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">94</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">255</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E5%86%85%E5%AD%98%E5%9B%9E%E6%94%B6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux内存管理-内存回收
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2024-01-20 10:20:37 / 修改时间：10:22:46" itemprop="dateCreated datePublished" datetime="2024-01-20T10:20:37+08:00">2024-01-20</time>
+            </span>
+
+          
+            <div class="post-description">本文总结Linux内核里内存回收的基本逻辑，PLKA在第18章介绍了这部分内容，文本的 分析参考了PLKA的相关介绍，基于内核v6.7-rc6做代码分析。总的看新内核在内存回收 核心逻辑上变化不大，但是新加了比如folio/damon/multi-gen LRU等特性。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>Linux系统上的虚拟内存管理和物理内存管理的逻辑是相对正交的，我们这里提到的内存回收<br>指的物理内存管理的逻辑。</p>
+<p>从一个具体的例子做下理解，用户态调用一个munmap断开VA-&gt;PA映射和这个PA对应的物理页面<br>释放回伙伴系统的逻辑是正交的。</p>
+<p>实际上，虚拟地址是对用户态承若的语意，内核只承诺了最基本的虚拟地址保存数据的功能，<br>当访存指令在用户态访问虚拟地址上的数据时，内核保证用户态可以访问到正确的数据，其中<br>可能直接访问到数据，也可能访问的物理页面不在内存，内核负责把数据给到用户态，一般<br>的逻辑是在异常处理中加载物理页面，并把PC返回到出问题的访存指令，重新执行访存指令。<br>从用户态的角度看，异常发生时访存指令停在了那里，随后继续执行完成访问虚拟地址的行为，<br>用户态并不感知内核中物理页面管理的行为。</p>
+<p>所以，断开VA-&gt;PA映射，比如munmap中，并不会直接释放物理页面，这个过程只会改动物理<br>页面相关的反向映射以及LRU数据。</p>
+<p>内核使用LRU链表维护使用中的物理页面的冷热信息，每个NUMA节点有独立的一组LRU链表，<br>并且依据文件页/匿名页/active/inactive的不同组合形成4个LRU链表，再加上一个不可回收<br>的LRU链表(unevitable)，一个NUMA节点有5个LRU链表。</p>
+<p>LRU的转换使用了类似硬件分支预测里的两位饱和计数器的思路做active和inactive之间的<br>状态转换。内核从inactive LRU链表上回收物理内存。</p>
+<p>struct folio中的PG_referenced, PG_active是对应的“两位”，状态转移逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">inactive           inactive         active             active  </span><br><span class="line">unreferenced       referenced       unreferenced       referenced</span><br></pre></td></tr></table></figure>
+<p>2021年Linux kernel Plumber上这篇文章：”Overview of Memory Reclaim in the Current Upstream Kernel”，<br>对LRU list上的页面状态转换逻辑有很好的梳理。我们在这里简单整理下：</p>
+<p>PG_active表示当前folio在active还是inactive LRU上，一般一个folio最开始分配出来<br>的时候是在inactive LRU上，PG_referenced是unreferenced(后面就用active/inactive/<br>referenced/unreferenced表示对应的状态)，后续如果这个folio被访问到，CPU硬件会写<br>对应页表项上的access bit，内核在reclaim的流程里检测到页表项的access bit被置1，会<br>更新folio中的状态更新到referenced，此时folio依然在inactive LRU上，注意这个检测<br>referenced的流程以后会把页表项的access bit清理掉，这个是为下次访问时硬件置1做好<br>准备，referenced检测的具体代码在folio_referenced函数里。所有状态的切换逻辑依此类推，<br>可能存在特殊的转换情况，总体上看，内核会double check下物理页的访问情况，再决定在<br>active/inactive LRU链表上做移动。</p>
+<p>我们从上层看下触发状态切换的入口点在哪里。首先，内核在分配物理页面的时候(alloc_pages)，<br>如果伙伴系统的内存不足，就会触发内存回收；内核线程kswapd会检测系统中的物理内存是否<br>低于给定的水线，并在低于水线的时候启动内存回收；damon子系统新家的kdamond内核线程，<br>会根据sysfs中的配置进行相关的检测或内存回收。</p>
+<p>显然，调整folio在LRU上的相关状态和做物理页面回收是两个正交的逻辑，状态调整需要<br>具有一定的实时性，页面回收可以在可用内存少的时候再进行。</p>
+<p>状态调整需要不断的清理PTE上的access bit，然后观察物理页的访问情况，相关逻辑的开销<br>还不能大。如上分析的，对于kswapd和alloc_pages慢速路径中的页面回收，是在内存使用<br>低于一定水线进行的，实际上是把冷热内存检测调整和物理内存回收这两个相对正交的逻辑<br>放到了一起，冷热内存的检测看起来会不准。</p>
+<p>damon子系统可以根据用户配置主动进行冷热页检测，这个似乎作用要好点。</p>
+<p>对于通用物理页面的回收逻辑，我们放到下面的代码分析中。根据页面具体回收方式，<br>不同情况有不同的处理: 1. 不需要保存直接回收(缓存/没有用的内存/OOM)；2. 需要保存<br>(保存回backend文件/匿名页swap到swap分区/shrink)。</p>
+<h2 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h2><p>分配物理页面时，在慢速路径里触发内存回收的逻辑如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">alloc_pages</span><br><span class="line">  ...</span><br><span class="line">  +-&gt; __alloc_pages_slowpath</span><br><span class="line">    +-&gt; __alloc_pages_direct_reclaim</span><br><span class="line">      +-&gt; __perform_reclaim</span><br><span class="line">        +-&gt; try_to_free_pages</span><br><span class="line">          +-&gt; do_try_to_free_pages</span><br><span class="line">            +-&gt; shrink_zones</span><br><span class="line">              +-&gt; shrink_zone</span><br><span class="line">                +-&gt; shrink_zone_memcgs // 牵扯memory cgroup的逻辑</span><br><span class="line">                  +-&gt; shrink_lruvec </span><br><span class="line">                    +-&gt; shrink_list</span><br></pre></td></tr></table></figure>
+<p>shrink_list里先做shrink_active_list再做shrink_inactive_list，前者把active LRU中<br>的冷页移动到inactive LRU，后者对inactive LRU里的冷页做回收操作。</p>
+<p>kswapd的内核线程做内存回收的逻辑如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">/* 入口在mm/vmscan.c的kswapd_init函数，一个NUMA node会对应一个kswapd线程 */</span><br><span class="line">kswapd</span><br><span class="line">      /* todo: 分析这里水线相关的逻辑 */</span><br><span class="line">  +-&gt; balance_pgdat</span><br><span class="line">    +-&gt; kswapd_shrink_node</span><br><span class="line">      +-&gt; shrink_node</span><br></pre></td></tr></table></figure>
+
+<p>damon内核线程(kdamoned)做内核回收的逻辑需要在单独文档里展开。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">damon/paddr.c -&gt; reclaim_pages -&gt; reclaim_folio_list -&gt; shrink_folio_list</span><br></pre></td></tr></table></figure>
+
+<p>各种page fault中也会把对应的页加入LRU，这里只关注和LRU相关的逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">handle_pte_fault</span><br><span class="line"></span><br><span class="line">  +-&gt; do_pte_missing</span><br><span class="line">        /* 看起来只会加到本cpu的LRU缓存里，什么时候加入全局LRU链表? 加入什么LRU */</span><br><span class="line">    +-&gt; folio_add_lru_vma</span><br><span class="line">      +-&gt; folio_add_lru</span><br><span class="line"></span><br><span class="line">      /* 没有看明白swap的具体逻辑 */</span><br><span class="line">  +-&gt; do_swap_page</span><br><span class="line">      </span><br><span class="line">      /* numa balance里用的page fault，没有看到和LRU有关系的地方 */</span><br><span class="line">  +-&gt; do_numa_page</span><br><span class="line"></span><br><span class="line">      /* wp是write protect的意思，这个处理COW的情况，逻辑更复杂 */</span><br><span class="line">  +-&gt; do_wp_page </span><br><span class="line">    +-&gt; wp_page_copy</span><br><span class="line">      +-&gt; folio_add_lru_vma</span><br><span class="line">        +-&gt; folio_add_lru</span><br></pre></td></tr></table></figure>
+
+<p>shrink_active_list以及shrink_inactive_list基本逻辑分析如下:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * 入参有：这一次扫描的页数(nr_to_scan), lruvec, 针对一个page做rmap_walk的控制</span><br><span class="line"> * 参数(struct scan_control)。</span><br><span class="line"> */</span><br><span class="line">shrink_active_list</span><br><span class="line">      /* 每次都是从active LRU的尾部开始，最大摘出nr_to_scan个folio */</span><br><span class="line">  +-&gt; isolate_lru_folios</span><br><span class="line">    +-&gt; trace_mm_vmscan_lru_isolate</span><br><span class="line">      /*</span><br><span class="line">       * 对于隔离出来的folio，一般都做如下处理。folio_referenced得到folio被引</span><br><span class="line">       * 用的次数，对于引用非0，并且是代码段的folio，把它重新加回active LRU，</span><br><span class="line">       * 其它的情况加到inactive LRU里。这里引用的含义有点模糊，从代码上看，含义</span><br><span class="line">       * 是folio-&gt;mapcount，但是在contend时，返回rmap_walk时计算得到的referenced。</span><br><span class="line">       * 不理解这里的意思？</span><br><span class="line">       */</span><br><span class="line">  +-&gt; folio_referenced</span><br><span class="line">        /* 反向映射的API，找到一个folio对应的vma，并调用sc传入的回调函数 */</span><br><span class="line">    +-&gt; rmap_walk</span><br><span class="line">          /* 针对每个反向映射中找见的vma，都用folio_referenced_one处理下 */</span><br><span class="line">      +-&gt; folio_referenced_one</span><br><span class="line">        +-&gt; page_vma_mapped_walk</span><br><span class="line">          +-&gt; ptep_clear_flush_young_notify</span><br><span class="line">                /* 体系结构相关的代码在这里清掉页表项上的access bit */</span><br><span class="line">            +-&gt; ptep_clear_flush_young</span><br></pre></td></tr></table></figure>
+<p>inactive LRU处理的逻辑和如上active LRU的类似，不过增加了很多页表回收的逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">shrink_inactive_list</span><br><span class="line">  +-&gt; isolate_lru_folios</span><br><span class="line">      /*</span><br><span class="line">       * 这个函数是inactive LRU上页做回收的核心函数, alloc_pages/alloc_contig_pages/</span><br><span class="line">       * damon中都有调用。</span><br><span class="line">       *</span><br><span class="line">       * TODO: 内容太多了...</span><br><span class="line">       * </span><br><span class="line">       * 注意: folio_test_xxx/folio_set_xxx/folio_get_xxx等，以及PG_xxx比如</span><br><span class="line">       *       PG_active/PG_young之类均定义在include/linux/page-flags.h。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; shrink_folio_list</span><br><span class="line">    +-&gt; folio_check_referenced </span><br><span class="line">      +-&gt; folio_referenced</span><br></pre></td></tr></table></figure>
+
+<p>madvise系统调用也可以触发内存回收:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">do_madvise</span><br><span class="line">  +-&gt; madvise_vma_behavior</span><br><span class="line">    +-&gt; madvise_cold/madvise_pageout</span><br><span class="line">      +-&gt; madvise_cold_or_pageout_pte_range</span><br><span class="line">        +-&gt; reclaim_pages</span><br></pre></td></tr></table></figure>
+
+<p>分配连续物理内存的alloc_contig_pages里也会尝试做内存回收:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">/* page_alloc.c */</span><br><span class="line">alloc_contig_pages</span><br><span class="line">  +-&gt; reclaim_clean_pages_from_list</span><br><span class="line">    + -&gt; shrink_folio_list</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" rel="tag"><i class="fa fa-tag"></i> 内存管理</a>
+              <a href="/tags/Linux/" rel="tag"><i class="fa fa-tag"></i> Linux</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ARM64%E4%B8%ADcache%E7%9A%84%E5%90%8C%E5%90%8D%E9%87%8D%E5%90%8D%E9%97%AE%E9%A2%98/" rel="prev" title="ARM64中cache的同名重名问题">
+      <i class="fa fa-chevron-left"></i> ARM64中cache的同名重名问题
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/ARM64-FEAT-TIDCAP1%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="next" title="ARM64 FEAT_TIDCAP1基本逻辑">
+      ARM64 FEAT_TIDCAP1基本逻辑 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">代码分析</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">255</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">94</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
