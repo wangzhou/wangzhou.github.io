@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文总结Linux内核里负载均衡的基本逻辑，分析使用的内核版本是6.8-rc5。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux内核中负载均衡的基本逻辑">
+<meta property="og:url" content="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文总结Linux内核里负载均衡的基本逻辑，分析使用的内核版本是6.8-rc5。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-03-11T12:37:13.000Z">
+<meta property="article:modified_time" content="2024-03-15T11:06:27.561Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta property="article:tag" content="调度">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux内核中负载均衡的基本逻辑 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">95</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">262</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux内核中负载均衡的基本逻辑
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-03-11 20:37:13" itemprop="dateCreated datePublished" datetime="2024-03-11T20:37:13+08:00">2024-03-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-03-15 19:06:27" itemprop="dateModified" datetime="2024-03-15T19:06:27+08:00">2024-03-15</time>
+              </span>
+
+          
+            <div class="post-description">本文总结Linux内核里负载均衡的基本逻辑，分析使用的内核版本是6.8-rc5。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>现代处理器系统一般是一个多核系统，每个核上运行的线程数量是不同的，对应每个核上的<br>工作负载也是不一样。Linux内核的调度子系统可以动态的检测这种不均衡的负载，并动态<br>的进行负载均衡，所谓负载均衡，就是把高负载的CPU核上的线程迁移到低负载的CPU核上。</p>
+<p>Linux内核把整个系统中的CPU核按层级的调度域/调度组做划分，负载均衡逻辑基于调度域/<br>调度组的划分，调度域/调度组的分析可以参考<a href="https://wangzhou.github.io/Linux%E4%B8%AD%E7%9A%84%E8%B0%83%E5%BA%A6%E5%9F%9F%E5%92%8C%E8%B0%83%E5%BA%A6%E7%BB%84/">这里</a>。</p>
+<p>负载均衡逻辑还基于系统对task/CPU核/调度域/调度组的负载的定义，以及各种负载度量指<br>标的定义。负载均衡的触发逻辑是在time tick中的，时钟中断处理中会进行对应CPU核上的<br>负载均衡逻辑。负载均衡逻辑从CPU核上的最底层sched_domain起，在该核的各个sched_domain<br>中做负载均衡，在一个sched_domain里，找见最繁忙的sched_group，然后找见最繁忙sched_group<br>中最繁忙的CPU核，迁移一定的线程到当前核上。负载均衡逻辑依次在更高层级的sched_domain<br>做均衡，但是是否进行更高级sched_domain中的负载均衡是看对应的均衡时间是否到来，因<br>为越高层级的调度域中做负载均衡的开销越大，系统把高层级调度域中的均衡间隔时间配置<br>的逐渐增大。</p>
+<p>可以看到内核里采用一种分布式的方式逐步调整各个核上的负载，目的是使得任务尽可能的<br>被分配到有余力的CPU核上执行。</p>
+<p>我们用如下的示意图说明问题的基本逻辑，其中图中的一个“｜”表示一个线程。假设一开始<br>core1的就绪队列(rq)上有四个线程需要执行，core0的最底层domain进行负载均衡的时候，<br>发现本domain里的core1上有排队的线程，这时就把core1上多余的线程迁移到core0上，对应<br>的状体就是time1到time2的变化。假设core0/core1在一个domain，core2/core3在一个domain，<br>那么core2的最底层domain进行负载均衡的时候，对于同一个domain里的core2/core3，没有<br>负载需要均衡，当core2(或core3)的上一级domain进行负载均衡的时候，core0/core1上的<br>线程被逐渐迁移到core2/core3，这样整个系统集中在core1上的线程被逐渐均衡到core1-core3<br>上。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">time1:</span><br><span class="line">                    ||||</span><br><span class="line">           core0   core1   core2   core3</span><br><span class="line"></span><br><span class="line">time2:</span><br><span class="line">            ||      ||</span><br><span class="line">           core0   core1   core2   core3</span><br><span class="line"></span><br><span class="line">time3:</span><br><span class="line">             |      ||       |</span><br><span class="line">           core0   core1   core2   core3</span><br><span class="line"></span><br><span class="line">time4:       |       |       |       |</span><br><span class="line">           core0   core1   core2   core3</span><br></pre></td></tr></table></figure>
+
+<p>如上只是一个示意，实际上的负载均衡逻辑由各种各样的情况组成。负载均衡发生在两个<br>sched_group之间，总是先确定迁移的目标CPU核(所在的sched_group是local group)，然后<br>找见domain里最繁忙的sched_group，尝试从最繁忙的group上迁移负载到目标核。在这个大<br>逻辑下，我们可以细化出很多迁移负载的条件，这里面有很多时候是没有必要进行负载迁移<br>的，其中又有一些和硬件特性相关的边角的迁移逻辑。</p>
+<p>当目标CPU核负载相对高的时候，没有必要进行迁移，一般是选local group中的第一个CPU<br>核或者local group中的idle CPU核作为目标core的。当最繁忙group里还有较多的idle CPU<br>核的时候，没有必要迁移，因为当均衡发生在繁忙group的idle CPU核上时，group里的负载<br>自然会在group内部进行迁移。当最繁忙的group的源CPU核上只有一个线程时，也没有必要<br>迁移，反正迁移也不会带来什么好处。可以想象，还有各种个样的场景需要定义，比如，当<br>local group和最繁忙group的都超过负载时，如果最繁忙group的负载相对高，就进行负载<br>均衡，这些具体的场景都不断的加到内核的负载均衡逻辑里，导致现在的负载均衡逻辑代码<br>相当碎裂…</p>
+<p>CPU本身的计算能力也影响负载均衡的策略，比如一个大小核混杂的系统中，就要把重负载<br>的任务调度到大核上执行。</p>
+<p>硬件的SMT特性也会影响负载均衡策略，一个物理核上的多个逻辑核共享一部分硬件资源，<br>所以相同物理核对应的逻辑核同时执行代码的性能比不同物理核对应的逻辑核同时执行代码<br>的性能要低，所以，调度的时候需要先把线程安排到空物理核对应的逻辑核上，再把线程安<br>排到剩余的逻辑核上。例如，把线程分配到core的次序应该是：core0 -&gt; core2 -&gt; core4<br>-&gt; core1 -&gt; core3。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">+------------------------------+  +------------------------------+  +-----------------+</span><br><span class="line">| physical core_x              |  | physical core_y              |  | physical core_z |</span><br><span class="line">|                              |  |                              |  |                 |</span><br><span class="line">| logical core0  logical core1 |  | logical core2  logical core3 |  | logical core4   |</span><br><span class="line">+------------------------------+  +------------------------------+  +-----------------+</span><br></pre></td></tr></table></figure>
+
+<p>负载均衡还要处理人为线程邦核的情况，邦核的线程显然是不能动了，负载均衡的逻辑就要<br>绕开被绑的线程，针对其它线程进行调整。</p>
+<p>除了时钟中断定时触发负载均衡，系统中的线程在需要调度的时候(fork/wakeup)都会看看<br>哪个CPU核上更合适执行任务，进而触发线程迁移。当core进入没有任务运行进入idle时，<br>也会尝试进行需在均衡，把其它core上的负载拉到idle的自己上运行，这种负载均衡的触发<br>方式叫new idle load balance。当core进入idle，又没有周期性的时钟中断时(内核打开<br>noHZ的配置)，如果又有其它core上负载过重，这时没有时钟中断触发的负载均衡逻辑从重<br>负载core上拉负载，如果又没有new idle load balance，那么重负载core上的负载将得不<br>到均衡，对于这种情况，重负载core上的负载均衡逻辑会给其它的idle core发IPI触发idle<br>core进行负载均衡，这种负载均衡的触发方式叫noHz idle load balance。</p>
+<p>系统中可能出现处于不同NUMA的线程共用相同内存的情况，这样不管怎么做NUMA balancing，<br>始终有垮NUMA使用内存的情况存在，所以NUMAbalancing的逻辑里会检测这种情况，并相应<br>的做线程迁移，把不同NUMA上的线程迁移到相同NUMA节点上。</p>
+<p>我们下面先分析调度子系统中各种负载定义，然后分析负载均核的具体逻辑。</p>
+<h2 id="各种负载的计算"><a href="#各种负载的计算" class="headerlink" title="各种负载的计算"></a>各种负载的计算</h2><p>把调度子系统里各种负载的计算逻辑放到一篇独立的文章中，具体可以参考<a href="https://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E5%BA%A6%E4%B8%AD%E8%B4%9F%E8%BD%BD%E7%9A%84%E8%AE%A1%E7%AE%97">这里</a>。</p>
+<h2 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h2><p>在调度子系统基本逻辑分析中，已经知道负载均衡的主要入口点是run_rebalance_domains，<br>具体逻辑可以参考<a href="https://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E5%BA%A6%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">这里</a>。</p>
+<p>负载均衡基本逻辑的代码分析如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line">run_rebalance_domains</span><br><span class="line">  +-&gt; nohz_idle_balance</span><br><span class="line">  +-&gt; update_blocked_averages</span><br><span class="line">  +-&gt; rebalance_domains</span><br><span class="line">    /* 遍历每个CPU的各个sched_domain */</span><br><span class="line">    for_each_domain(cpu, sd) &#123;</span><br><span class="line">          /*</span><br><span class="line">           * 得到这一级domain的扫描间隔时间，这个时间可以通过sysfs的接口手动调整，</span><br><span class="line">           * /sys/kernel/debug/sched/domains/domainN/max(min)_interval。可以看到</span><br><span class="line">           * domain从低到高，max_interval的值是4ms/8ms/16ms/32ms。</span><br><span class="line">           *</span><br><span class="line">           * 如果当前core是busy的，就是正在跑task，interval会再乘上busy_factor，</span><br><span class="line">           * 这个系数可以通过sysfs接口调整，使得有task运行的core不急于做均衡:</span><br><span class="line">           * /sys/kernel/debug/sched/domains/domainN/busy_factor，目前默认是16。</span><br><span class="line">           */</span><br><span class="line">      +-&gt; interval = get_sd_balance_interval(sd, busy)</span><br><span class="line">          /* 到了时间才进行均衡的逻辑 */</span><br><span class="line">      +-&gt; if (time_after_eq(jiffies, sd-&gt;last_balance + interval)) &#123;</span><br><span class="line">            +-&gt; load_balance(cpu, rq, sd, idle, &amp;continue_balancing)</span><br><span class="line">            ^     /*</span><br><span class="line">            |      * 当前core是local group的第一个core，或者local group里有</span><br><span class="line">            |      * idle的core。</span><br><span class="line">            |      */</span><br><span class="line">            | +-&gt; should_we_balance</span><br><span class="line">            |     /*</span><br><span class="line">            |      * 其中的逻辑不只是“找见最繁忙的group”，当检测到没有必要作</span><br><span class="line">            |      * 均衡时，这个函数直接退出，并返回NULL。</span><br><span class="line">            |      */</span><br><span class="line">            | +-&gt; find_busiest_group</span><br><span class="line">            |       /*</span><br><span class="line">            |        * 遍历domain里各个group，找到最繁忙的那个group，各种</span><br><span class="line">            |        * corner的情况也在这里处理。下面把find_busiest_group的</span><br><span class="line">            |        * 逻辑展开分析。</span><br><span class="line">            |        */</span><br><span class="line">            |   +-&gt; update_sd_lb_stats</span><br><span class="line">            |     /* 找到最繁忙group里的最繁忙rq */</span><br><span class="line">            | +-&gt; find_busiest_queue</span><br><span class="line">            | +-&gt; detach_tasks</span><br><span class="line">            v +-&gt; attach_tasks</span><br><span class="line">          &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里展开下find_busiest_group的逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br></pre></td><td class="code"><pre><span class="line">find_busiest_group</span><br><span class="line">  +-&gt; init_sd_lb_stats(&amp;sds)</span><br><span class="line">  +-&gt; update_sd_lb_stats(env, &amp;sds)</span><br><span class="line">        /* 遍历domain里的每个group，在非local_group中找最繁忙group */</span><br><span class="line">    +-&gt; do &#123;</span><br><span class="line">              /* 对于每个group(包括local)，更新其负载信息 */</span><br><span class="line">          +-&gt; update_sg_lb_stats(env, sds, sg, sgs, &amp;sg_status)</span><br><span class="line">          ^ for_each_cpu_and(i, sched_group_span(group), env-&gt;cpus) &#123;</span><br><span class="line">          |       /*</span><br><span class="line">          |        * 每个group的一些统计信息是group中各个core的rq的信息之和：</span><br><span class="line">          |        *</span><br><span class="line">          |        * group_load是group的负载，每个rq平均负载(load_avg)之和，rq的</span><br><span class="line">          |        * load_avg是rq上每个调度实体的load_avg之和，每个调度实体的load_avg</span><br><span class="line">          |        * 是: 实际运行时间/在rq里的总时间在各个时间段上的衰减累加值。</span><br><span class="line">          |        *</span><br><span class="line">          |        * group_util？</span><br><span class="line">          |        *</span><br><span class="line">          |        * group_runnable是每个rq的runnable_avg之和，runnable_avg是rq</span><br><span class="line">          |        * 中各个调度实体的runnable_avg之和，调度实体中的runnable_avg</span><br><span class="line">          |        * 是平均实际运行时间。</span><br><span class="line">          |        *</span><br><span class="line">          |        * sum_nr_running是每个rq h_nr_running之和，rq的h_nr_running是</span><br><span class="line">          |        * rq中task的个数。</span><br><span class="line">          |        *</span><br><span class="line">          |        * nr_running和h_nr_running的区别？</span><br><span class="line">          |        *</span><br><span class="line">          |        * nr_numa_running/nr_preferred_running?</span><br><span class="line">          |        */</span><br><span class="line">          |   +-&gt; 更新group_load/group_util/group_runnable/sum_nr_running/nr_running等。</span><br><span class="line">          |       /*</span><br><span class="line">          |        * 这个domain里的core有没有能力不等的，比如大小核，sd flags里</span><br><span class="line">          |        * 的SD_ASYM_CPUCAPACITY这个标记在sd初始化的时候根据固件传入的</span><br><span class="line">          |        * 的信息进行初始化。</span><br><span class="line">          |        */</span><br><span class="line">          |   +-&gt; if (env-&gt;sd-&gt;flags &amp; SD_ASYM_CPUCAPACITY) &#123;</span><br><span class="line">          |         /*</span><br><span class="line">          |          * 只要有rq里misfit_task_load大于group的group_misfit_task_load，</span><br><span class="line">          |          * 就认为group的计算能力满足不了线程的需要。</span><br><span class="line">          |          *</span><br><span class="line">          |          * misfit_task_load? group_misfit_task_load?</span><br><span class="line">          |          */</span><br><span class="line">          |         if (sgs-&gt;group_misfit_task_load &lt; rq-&gt;misfit_task_load) &#123;</span><br><span class="line">          |           sgs-&gt;group_misfit_task_load = rq-&gt;misfit_task_load;</span><br><span class="line">          |           *sg_status |= SG_OVERLOAD;</span><br><span class="line">          |         &#125; if ((env-&gt;idle != CPU_NOT_IDLE) &amp;&amp; ... ) &#123;</span><br><span class="line">          |           /* todo：不理解这里的逻辑？*/</span><br><span class="line">          |         &#125;</span><br><span class="line">          | &#125;</span><br><span class="line">          |</span><br><span class="line">          |     /* 检测group_asym_packing的场景？*/</span><br><span class="line">          | +-&gt; if (!local_group &amp;&amp; env-&gt;sd-&gt;flags &amp; SD_ASYM_PACKING &amp;&amp; ...) &#123;</span><br><span class="line">          |       sgs-&gt;group_asym_packing = 1</span><br><span class="line">          |     &#125;</span><br><span class="line">          |</span><br><span class="line">          |     /* 检测group_smt_balance的场景？*/</span><br><span class="line">          | +-&gt; if (!local_group &amp;&amp; smt_balance(env, sgs, group))</span><br><span class="line">          |       sgs-&gt;group_smt_balance = 1</span><br><span class="line">          |</span><br><span class="line">          |     /*</span><br><span class="line">          |      * 负载均衡逻辑定义了group的负载类型，根据负载类型进行均衡逻辑，</span><br><span class="line">          |      * 如下group包括local_group。</span><br><span class="line">          |      *</span><br><span class="line">          |      * imbalance_pct是一个可以通过sysfs配置的系数，具体路径为：</span><br><span class="line">          |      * /sys/kernel/debug/sched/domains/domainN/imbalance_pct，默认值</span><br><span class="line">          |      * 是110等。</span><br><span class="line">          |      */</span><br><span class="line">          | +-&gt; sgs-&gt;group_type = group_classify(env-&gt;sd-&gt;imbalance_pct, group, sgs)</span><br><span class="line">          |           /*</span><br><span class="line">          |            * overloaded指group的算力不满足需求了。具体看，running线程</span><br><span class="line">          |            * 数量小于核数，不是overloaded；本组CPU的能力小于group_util</span><br><span class="line">          |            * (group_capacity * 100 &lt; group_util * imbalance_pct)；本</span><br><span class="line">          |            * 组CPU的能力小于group_runnable(group_capacity * imbalance_pct &lt;</span><br><span class="line">          |            * group_runnable * 100)</span><br><span class="line">          |            */</span><br><span class="line">          |       +-&gt; group_is_overloaded(imbalance_pct, sgs)</span><br><span class="line">          |           /* group里有用户配置的affinity? */</span><br><span class="line">          |       +-&gt; sg_imbalanced(group)</span><br><span class="line">          |           /* 其它地方配置进来 */</span><br><span class="line">          |       +-&gt; sgs-&gt;group_asym_packing/sgs-&gt;group_smt_balance/sgs-&gt;group_misfit_task_load</span><br><span class="line">          |           /* group_fully_busy指group算力可以满足负载需求 */</span><br><span class="line">          |       +-&gt; group_has_capacity(imbalance_pct, sgs)</span><br><span class="line">          |           /* 剩下情况就是group里的算力有空余了 */</span><br><span class="line">          |</span><br><span class="line">          |     /* 对于overloaded的场景，更新group avg_load */</span><br><span class="line">          | +-&gt; sgs-&gt;avg_load = (sgs-&gt;group_load * SCHED_CAPACITY_SCALE) /</span><br><span class="line">          |                     sgs-&gt;group_capacity;</span><br><span class="line">          |</span><br><span class="line">          v   /* 如果传入的sg比sds中记录的busier，就更新记录的值*/</span><br><span class="line">          +-&gt; update_sd_pick_busiest(env, sds, sg, sgs)</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">      /*</span><br><span class="line">       * 如下是根据上面得到local/busiest group所做出是否要做负载均衡的判断。不要</span><br><span class="line">       * 需要负载均衡时，直接返回NULL。需要作负载均衡，跳到calculate_imbalance。</span><br><span class="line">       * 我们逐个看看这些判断的规则。</span><br><span class="line">       */</span><br><span class="line"></span><br><span class="line">      /*</span><br><span class="line">       * 对于最繁忙group是misfit_task情况直接做balance，asym_packing/imbalanced</span><br><span class="line">       * 的情况也是一样的。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; if (busiest-&gt;group_type == group_misfit_task)</span><br><span class="line">        goto force_balance;</span><br><span class="line"></span><br><span class="line">      /*</span><br><span class="line">       * local group比最繁忙group group_type更大，因为上面已经对最繁忙group检测</span><br><span class="line">       * 了imbalanced/asym_packing/misfit_task，这里最繁忙group只能是has_spare/</span><br><span class="line">       * fully_busy/smt_balance/overloaded，在最繁忙group这样取值时，local group</span><br><span class="line">       * 大于最繁忙的group，则不做balance。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; if (local-&gt;group_type &gt; busiest-&gt;group_type)</span><br><span class="line">        goto out_balanced;</span><br><span class="line"></span><br><span class="line">      /*</span><br><span class="line">       * local group是overloaded，busiest group比overloaded小的情况，上面已经过</span><br><span class="line">       * 滤了，所以这里busiest group也是overloaded。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; if (local-&gt;group_type == group_overloaded) &#123;</span><br><span class="line"></span><br><span class="line">        /* local的平均负载比busiest大，则不做负载均衡 */</span><br><span class="line">        if (local-&gt;avg_load &gt;= busiest-&gt;avg_load)</span><br><span class="line">                goto out_balanced;</span><br><span class="line"></span><br><span class="line">        /* local的平均负载比domain的负载大，也不做负载均衡 */</span><br><span class="line">        sds.avg_load = (sds.total_load * SCHED_CAPACITY_SCALE) /</span><br><span class="line">                        sds.total_capacity;</span><br><span class="line">        if (local-&gt;avg_load &gt;= sds.avg_load)</span><br><span class="line">                goto out_balanced;</span><br><span class="line"></span><br><span class="line">        /*</span><br><span class="line">         * 这里看是给local load再加上一个系数，搞的迁移更加保守，imbalance_pct</span><br><span class="line">         * 越大，迁移越难。imbalance_pct默认值是110。</span><br><span class="line">         */</span><br><span class="line">        if (100 * busiest-&gt;avg_load &lt;= env-&gt;sd-&gt;imbalance_pct * local-&gt;avg_load)</span><br><span class="line">                goto out_balanced;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      /* 没有看懂这里？ */</span><br><span class="line">  +-&gt; if (sds.prefer_sibling &amp;&amp; local-&gt;group_type == group_has_spare &amp;&amp;</span><br><span class="line">          sibling_imbalance(env, &amp;sds, busiest, local) &gt; 1)</span><br><span class="line">              goto force_balance;</span><br><span class="line"></span><br><span class="line">      /*</span><br><span class="line">       * busiest group不是overloaded，再排除imbalanced/asym_packing/misfit_task，</span><br><span class="line">       * busiest group只能是has_spare/fully_busy/smt_balance，上面local group大于</span><br><span class="line">       * busiest group已经处理，这里为local_group小于等于busiest group。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; if (busiest-&gt;group_type != group_overloaded) &#123;</span><br><span class="line">        /* local_group虽然负载比busiest小，但是有task运行时，也不做均衡 */</span><br><span class="line">        if (env-&gt;idle == CPU_NOT_IDLE)</span><br><span class="line">                goto out_balanced;</span><br><span class="line"></span><br><span class="line">        /*</span><br><span class="line">         * 如果busiest group里有多个SMT core，但是local group没有，从busiest</span><br><span class="line">         * group上拉task到local group。</span><br><span class="line">         */</span><br><span class="line">        if (busiest-&gt;group_type == group_smt_balance &amp;&amp;</span><br><span class="line">            smt_vs_nonsmt_groups(sds.local, sds.busiest))</span><br><span class="line">                goto force_balance;</span><br><span class="line"></span><br><span class="line">        /* busiest group中的idle_cpus越多越不应该做均衡 */</span><br><span class="line">        if (busiest-&gt;group_weight &gt; 1 &amp;&amp; local-&gt;idle_cpus &lt;= (busiest-&gt;idle_cpus + 1))</span><br><span class="line">                goto out_balanced;</span><br><span class="line"></span><br><span class="line">        /* busiest group里其实没有有用的task在跑，不需要做均衡 */</span><br><span class="line">        if (busiest-&gt;sum_h_nr_running == 1)</span><br><span class="line">                goto out_balanced;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      /*</span><br><span class="line">       * 对于需要作负载均衡的情况，跳到这里定量计算不均衡负载的值，同时把group</span><br><span class="line">       * type转化成migration_type。后续find_busiest_queue根据migration_type作线</span><br><span class="line">       * 程迁移之前的准备。</span><br><span class="line">       *</span><br><span class="line">       * migration_type有：load/util/task/misfit，migration_type的不同对应的不均</span><br><span class="line">       * 衡值imbalance的含义不同，misfit/task时，imbalance是task的个数，load时，</span><br><span class="line">       * imbalance是不平衡的负载值，util时，imbalance是CPU的util值？</span><br><span class="line">       */</span><br><span class="line">  +-&gt; calculate_imbalance(env, &amp;sds)</span><br><span class="line"></span><br><span class="line">        /* 最繁忙group是特殊情况的 */</span><br><span class="line">    +-&gt; busiest-&gt;group_type == group_misfit_task/group_asym_packing/</span><br><span class="line">                               group_smt_balance/group_imbalanced</span><br><span class="line"></span><br><span class="line">        /* 目的group有负载空余的情况 */</span><br><span class="line">    +-&gt; local-&gt;group_type == group_has_spare</span><br><span class="line"></span><br><span class="line">        /* 目的group是fully busy或特殊情况的 */</span><br><span class="line">    +-&gt; local-&gt;group_type &lt; group_overloaded</span><br><span class="line"></span><br><span class="line">        /* 目的group和最繁忙group都是overloaded */</span><br></pre></td></tr></table></figure>
+
+<p>这里展开下find_busiest_queue的逻辑：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">find_busiest_queue</span><br><span class="line">  +-&gt; ...</span><br></pre></td></tr></table></figure>
+
+<h2 id="调试"><a href="#调试" class="headerlink" title="调试"></a>调试</h2><p>/sys/kernel/debug/sched/debug会输出大量调度相关的信息：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br></pre></td><td class="code"><pre><span class="line"># cat debug</span><br><span class="line">Sched Debug Version: v0.11, 6.8.0-rc5-00029-g39133352cbed-dirty #35</span><br><span class="line">ktime                                   : 77971.241760</span><br><span class="line">sched_clk                               : 78217.145648</span><br><span class="line">cpu_clk                                 : 78217.151952</span><br><span class="line">jiffies                                 : 4294911788</span><br><span class="line"></span><br><span class="line">sysctl_sched</span><br><span class="line">  .sysctl_sched_base_slice                 : 3.000000</span><br><span class="line">  .sysctl_sched_features                   : 6237751</span><br><span class="line">  .sysctl_sched_tunable_scaling            : 1 (logarithmic)</span><br><span class="line"></span><br><span class="line">cpu#0</span><br><span class="line">  .nr_running                    : 1</span><br><span class="line">  .nr_switches                   : 1391</span><br><span class="line">  .nr_uninterruptible            : 1</span><br><span class="line">  .next_balance                  : 4294.911795</span><br><span class="line">  .curr-&gt;pid                     : 217</span><br><span class="line">  .clock                         : 78226.130128</span><br><span class="line">  .clock_task                    : 77891.460592</span><br><span class="line">  .avg_idle                      : 1000000</span><br><span class="line">  .max_idle_balance_cost         : 500000</span><br><span class="line"></span><br><span class="line">cfs_rq[0]:/autogroup-17</span><br><span class="line">  .exec_clock                    : 0.000000</span><br><span class="line">  .left_deadline                 : 0.000001</span><br><span class="line">  .left_vruntime                 : 0.000001</span><br><span class="line">  .min_vruntime                  : 48.829024</span><br><span class="line">  .avg_vruntime                  : 48.829024</span><br><span class="line">  .right_vruntime                : 0.000001</span><br><span class="line">  .spread                        : 0.000000</span><br><span class="line">  .nr_spread_over                : 0</span><br><span class="line">  .nr_running                    : 1</span><br><span class="line">  .h_nr_running                  : 1</span><br><span class="line">  .idle_nr_running               : 0</span><br><span class="line">  .idle_h_nr_running             : 0</span><br><span class="line">  .load                          : 1048576</span><br><span class="line">  .load_avg                      : 1023</span><br><span class="line">  .runnable_avg                  : 757</span><br><span class="line">  .util_avg                      : 757</span><br><span class="line">  .util_est                      : 0</span><br><span class="line">  .removed.load_avg              : 0</span><br><span class="line">  .removed.util_avg              : 0</span><br><span class="line">  .removed.runnable_avg          : 0</span><br><span class="line">  .tg_load_avg_contrib           : 1024</span><br><span class="line">  .tg_load_avg                   : 1218</span><br><span class="line">  .se-&gt;exec_start                : 77891.460592</span><br><span class="line">  .se-&gt;vruntime                  : 757.395153</span><br><span class="line">  .se-&gt;sum_exec_runtime          : 49.877600</span><br><span class="line">  .se-&gt;load.weight               : 881561</span><br><span class="line">  .se-&gt;avg.load_avg              : 859</span><br><span class="line">  .se-&gt;avg.util_avg              : 757</span><br><span class="line">  .se-&gt;avg.runnable_avg          : 757</span><br><span class="line"></span><br><span class="line">cfs_rq[0]:/</span><br><span class="line">  .exec_clock                    : 0.000000</span><br><span class="line">  .left_deadline                 : 0.000001</span><br><span class="line">  .left_vruntime                 : 0.000001</span><br><span class="line">  .min_vruntime                  : 757.395153</span><br><span class="line">  .avg_vruntime                  : 757.395153</span><br><span class="line">  .right_vruntime                : 0.000001</span><br><span class="line">  .spread                        : 0.000000</span><br><span class="line">  .nr_spread_over                : 0</span><br><span class="line">  .nr_running                    : 1</span><br><span class="line">  .h_nr_running                  : 1</span><br><span class="line">  .idle_nr_running               : 0</span><br><span class="line">  .idle_h_nr_running             : 0</span><br><span class="line">  .load                          : 881561      &lt;--- cfs_rq-&gt;load.weight</span><br><span class="line">  .load_avg                      : 862</span><br><span class="line">  .runnable_avg                  : 759</span><br><span class="line">  .util_avg                      : 759</span><br><span class="line">  .util_est                      : 0</span><br><span class="line">  .removed.load_avg              : 0</span><br><span class="line">  .removed.util_avg              : 0</span><br><span class="line">  .removed.runnable_avg          : 0</span><br><span class="line">  .tg_load_avg_contrib           : 0</span><br><span class="line">  .tg_load_avg                   : 0</span><br><span class="line"></span><br><span class="line">rt_rq[0]:</span><br><span class="line">  .rt_nr_running                 : 0</span><br><span class="line">  .rt_throttled                  : 0</span><br><span class="line">  .rt_time                       : 0.000000</span><br><span class="line">  .rt_runtime                    : 950.000000</span><br><span class="line"></span><br><span class="line">dl_rq[0]:</span><br><span class="line">  .dl_nr_running                 : 0</span><br><span class="line">  .dl_bw-&gt;bw                     : 996147</span><br><span class="line">  .dl_bw-&gt;total_bw               : 0</span><br><span class="line">[...]</span><br></pre></td></tr></table></figure>
+
+<p>/sys/kernel/debug/sched/domains有调度域的debug信息，目前似乎没有调度组的debug信息。</p>
+<p>proc文件系统中的debug选项有：/proc/loadavg, /proc/stat。调度实体的debug信息可以<br>参考/proc/<pid>/schedstat。</pid></p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"><i class="fa fa-tag"></i> Linux内核</a>
+              <a href="/tags/%E8%B0%83%E5%BA%A6/" rel="tag"><i class="fa fa-tag"></i> 调度</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/Linux%E4%B8%AD%E7%9A%84%E8%B0%83%E5%BA%A6%E5%9F%9F%E5%92%8C%E8%B0%83%E5%BA%A6%E7%BB%84/" rel="prev" title="Linux中的调度域和调度组">
+      <i class="fa fa-chevron-left"></i> Linux中的调度域和调度组
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E5%BA%A6%E4%B8%AD%E8%B4%9F%E8%BD%BD%E7%9A%84%E8%AE%A1%E7%AE%97/" rel="next" title="Linux内核调度中负载的计算">
+      Linux内核调度中负载的计算 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%84%E7%A7%8D%E8%B4%9F%E8%BD%BD%E7%9A%84%E8%AE%A1%E7%AE%97"><span class="nav-number">2.</span> <span class="nav-text">各种负载的计算</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">代码分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%B0%83%E8%AF%95"><span class="nav-number">4.</span> <span class="nav-text">调试</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">262</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">95</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3NjYXJlY3Jvd19ieXI=" title="我的csdn → https:&#x2F;&#x2F;blog.csdn.net&#x2F;scarecrow_byr"><i class="fab fa-csdn fa-fw"></i>我的csdn</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

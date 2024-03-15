@@ -128,12 +128,12 @@
   </li>
         <li class="menu-item menu-item-tags">
 
-    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">94</span></a>
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">95</span></a>
 
   </li>
         <li class="menu-item menu-item-archives">
 
-    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">258</span></a>
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">262</span></a>
 
   </li>
         <li class="menu-item menu-item-reprint">
@@ -200,6 +200,288 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E7%B3%BB%E7%BB%9FCPU%E5%B8%A6%E5%AE%BD%E6%8E%A7%E5%88%B6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/Linux%E7%B3%BB%E7%BB%9FCPU%E5%B8%A6%E5%AE%BD%E6%8E%A7%E5%88%B6/" class="post-title-link" itemprop="url">Linux系统CPU带宽控制</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2024-03-15 19:12:02 / 修改时间：19:13:42" itemprop="dateCreated datePublished" datetime="2024-03-15T19:12:02+08:00">2024-03-15</time>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>本文总结Linux内核里关于CPU使用带宽控制的基本逻辑。Linux是一个多用户的操作 系统，管理员可以通过一定的手段控制用户(线程)对CPU资源的使用，本文分析内核 对这个特性的支持逻辑。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/Linux%E7%B3%BB%E7%BB%9FCPU%E5%B8%A6%E5%AE%BD%E6%8E%A7%E5%88%B6/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E5%BA%A6%E4%B8%AD%E8%B4%9F%E8%BD%BD%E7%9A%84%E8%AE%A1%E7%AE%97/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E5%BA%A6%E4%B8%AD%E8%B4%9F%E8%BD%BD%E7%9A%84%E8%AE%A1%E7%AE%97/" class="post-title-link" itemprop="url">Linux内核调度中负载的计算</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-03-14 14:35:07" itemprop="dateCreated datePublished" datetime="2024-03-14T14:35:07+08:00">2024-03-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-03-15 19:07:51" itemprop="dateModified" datetime="2024-03-15T19:07:51+08:00">2024-03-15</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>本文总结Linux内核中调度子系统内负载计算的基本逻辑。分析依赖的内核版本是v6.8-rc5。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/Linux%E5%86%85%E6%A0%B8%E8%B0%83%E5%BA%A6%E4%B8%AD%E8%B4%9F%E8%BD%BD%E7%9A%84%E8%AE%A1%E7%AE%97/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" class="post-title-link" itemprop="url">Linux内核中负载均衡的基本逻辑</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-03-11 20:37:13" itemprop="dateCreated datePublished" datetime="2024-03-11T20:37:13+08:00">2024-03-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-03-15 19:06:27" itemprop="dateModified" datetime="2024-03-15T19:06:27+08:00">2024-03-15</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>本文总结Linux内核里负载均衡的基本逻辑，分析使用的内核版本是6.8-rc5。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/Linux%E5%86%85%E6%A0%B8%E4%B8%AD%E8%B4%9F%E8%BD%BD%E5%9D%87%E8%A1%A1%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E4%B8%AD%E7%9A%84%E8%B0%83%E5%BA%A6%E5%9F%9F%E5%92%8C%E8%B0%83%E5%BA%A6%E7%BB%84/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h2 class="post-title" itemprop="name headline">
+          
+            <a href="/Linux%E4%B8%AD%E7%9A%84%E8%B0%83%E5%BA%A6%E5%9F%9F%E5%92%8C%E8%B0%83%E5%BA%A6%E7%BB%84/" class="post-title-link" itemprop="url">Linux中的调度域和调度组</a>
+        </h2>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2024-03-09 17:45:19" itemprop="dateCreated datePublished" datetime="2024-03-09T17:45:19+08:00">2024-03-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-03-11 20:35:38" itemprop="dateModified" datetime="2024-03-11T20:35:38+08:00">2024-03-11</time>
+              </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+          <p>本文总结Linux内核里调度域和调度组的逻辑关系，Linux的调度子系统基于调度域和 调度组的概念进行负载均衡，本文是后续分析具体负载均衡逻辑的基础。分析使用的 内核版本是6.8-rc5，使用qemu的版本是v8.2.50的ARM64构架版本。</p>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/Linux%E4%B8%AD%E7%9A%84%E8%B0%83%E5%BA%A6%E5%9F%9F%E5%92%8C%E8%B0%83%E5%BA%A6%E7%BB%84/">
+                阅读全文 &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
+      
+    </div>
+
+    
+    
+    
+      <footer class="post-footer">
+        <div class="post-eof"></div>
+      </footer>
+  </article>
+  
+  
+  
+
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
     <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-NUMA-balance%E4%B8%AD%E7%9A%84%E5%86%85%E5%AD%98%E8%BF%81%E7%A7%BB/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
@@ -223,10 +505,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2024-03-03 20:51:55 / 修改时间：20:55:32" itemprop="dateCreated datePublished" datetime="2024-03-03T20:51:55+08:00">2024-03-03</time>
+              <time title="创建时间：2024-03-03 20:51:55" itemprop="dateCreated datePublished" datetime="2024-03-03T20:51:55+08:00">2024-03-03</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-03-11 20:42:14" itemprop="dateModified" datetime="2024-03-11T20:42:14+08:00">2024-03-11</time>
+              </span>
 
           
 
@@ -289,10 +577,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">发表于</span>
-              
 
-              <time title="创建时间：2024-03-03 20:50:37 / 修改时间：21:00:10" itemprop="dateCreated datePublished" datetime="2024-03-03T20:50:37+08:00">2024-03-03</time>
+              <time title="创建时间：2024-03-03 20:50:37" itemprop="dateCreated datePublished" datetime="2024-03-03T20:50:37+08:00">2024-03-03</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2024-03-11 11:15:31" itemprop="dateModified" datetime="2024-03-11T11:15:31+08:00">2024-03-11</time>
+              </span>
 
           
 
@@ -604,289 +898,10 @@
   
   
 
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/ARM64%E5%90%91%E9%87%8F%E6%8C%87%E4%BB%A4%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E6%95%B4%E7%90%86/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/ARM64%E5%90%91%E9%87%8F%E6%8C%87%E4%BB%A4%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E6%95%B4%E7%90%86/" class="post-title-link" itemprop="url">ARM64向量指令基本逻辑整理</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2024-01-03 18:55:50 / 修改时间：19:03:03" itemprop="dateCreated datePublished" datetime="2024-01-03T18:55:50+08:00">2024-01-03</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>本文整理ARM64体系中向量指令的基本逻辑。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/ARM64%E5%90%91%E9%87%8F%E6%8C%87%E4%BB%A4%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E6%95%B4%E7%90%86/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux-perf%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/Linux-perf%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Linux perf构架分析</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-
-              <time title="创建时间：2023-12-28 19:47:28" itemprop="dateCreated datePublished" datetime="2023-12-28T19:47:28+08:00">2023-12-28</time>
-            </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="far fa-calendar-check"></i>
-                </span>
-                <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2024-01-03 19:04:13" itemprop="dateModified" datetime="2024-01-03T19:04:13+08:00">2024-01-03</time>
-              </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>本文分析Linux上perf子系统的基本逻辑，分析基于的内核版本是v6.7-rc6，分析基于 ARM64架构和RISCV构架。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/Linux-perf%E6%9E%84%E6%9E%B6%E5%88%86%E6%9E%90/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/%E7%8E%B0%E4%BB%A3CPU%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E4%B8%8E%E4%BC%98%E5%8C%96-%E7%AC%94%E8%AE%B0/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/%E7%8E%B0%E4%BB%A3CPU%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E4%B8%8E%E4%BC%98%E5%8C%96-%E7%AC%94%E8%AE%B0/" class="post-title-link" itemprop="url">现代CPU性能分析与优化-笔记</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2023-12-28 19:38:12 / 修改时间：19:41:49" itemprop="dateCreated datePublished" datetime="2023-12-28T19:38:12+08:00">2023-12-28</time>
-            </span>
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-folder"></i>
-              </span>
-              <span class="post-meta-item-text">分类于</span>
-                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/read/" itemprop="url" rel="index"><span itemprop="name">read</span></a>
-                </span>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>本文是performance analysis and tuning on modern CPUs的读书笔记，原文的位置 在https://book.easyperf.net/perf_book。这本书已经有了中文翻译的版本，总的 看来翻译的指令还好，这本书基于CPU微架构讲了用perf调优的基本方法，perf也主要 是使用了Intel CPU PMU的相关event。总体上看，这本书虽然写的比较科普，但是对 调优时可能遇到的微架构概念都有清晰的介绍，值得一读。 这本书没有长逻辑链， 所以我们就只是分章节单点记录下要点。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/%E7%8E%B0%E4%BB%A3CPU%E6%80%A7%E8%83%BD%E5%88%86%E6%9E%90%E4%B8%8E%E4%BC%98%E5%8C%96-%E7%AC%94%E8%AE%B0/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
-      
-  
-  
-  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
-    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F%E5%88%86%E6%9E%90/">
-
-    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
-      <meta itemprop="image" content="/images/yase.svg">
-      <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
-    </span>
-
-    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
-      <meta itemprop="name" content="Sherlock's blog">
-    </span>
-      <header class="post-header">
-        <h2 class="post-title" itemprop="name headline">
-          
-            <a href="/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F%E5%88%86%E6%9E%90/" class="post-title-link" itemprop="url">Linux内存管理-伙伴系统分析</a>
-        </h2>
-
-        <div class="post-meta">
-            <span class="post-meta-item">
-              <span class="post-meta-item-icon">
-                <i class="far fa-calendar"></i>
-              </span>
-              <span class="post-meta-item-text">发表于</span>
-              
-
-              <time title="创建时间：2023-11-20 18:50:43 / 修改时间：18:53:29" itemprop="dateCreated datePublished" datetime="2023-11-20T18:50:43+08:00">2023-11-20</time>
-            </span>
-
-          
-
-        </div>
-      </header>
-
-    
-    
-    
-    <div class="post-body" itemprop="articleBody">
-
-      
-          <p>文本分析Linux内核内存管理中伙伴系统的基本逻辑。代码分析基于v6.5-rc3。</p>
-          <!--noindex-->
-            <div class="post-button">
-              <a class="btn" href="/Linux%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86-%E4%BC%99%E4%BC%B4%E7%B3%BB%E7%BB%9F%E5%88%86%E6%9E%90/">
-                阅读全文 &raquo;
-              </a>
-            </div>
-          <!--/noindex-->
-        
-      
-    </div>
-
-    
-    
-    
-      <footer class="post-footer">
-        <div class="post-eof"></div>
-      </footer>
-  </article>
-  
-  
-  
-
 
   
   <nav class="pagination">
-    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><span class="space">&hellip;</span><a class="page-number" href="/page/26/">26</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
+    <span class="page-number current">1</span><a class="page-number" href="/page/2/">2</a><span class="space">&hellip;</span><a class="page-number" href="/page/27/">27</a><a class="extend next" rel="next" href="/page/2/"><i class="fa fa-angle-right" aria-label="下一页"></i></a>
   </nav>
 
 
@@ -954,7 +969,7 @@
       <div class="site-state-item site-state-posts">
           <a href="/archives">
         
-          <span class="site-state-item-count">258</span>
+          <span class="site-state-item-count">262</span>
           <span class="site-state-item-name">日志</span>
         </a>
       </div>
@@ -965,7 +980,7 @@
       <div class="site-state-item site-state-tags">
             <a href="/tags">
           
-        <span class="site-state-item-count">94</span>
+        <span class="site-state-item-count">95</span>
         <span class="site-state-item-name">标签</span></a>
       </div>
   </nav>
