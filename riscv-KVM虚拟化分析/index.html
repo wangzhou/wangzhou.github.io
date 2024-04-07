@@ -31,7 +31,7 @@
 <meta property="og:description" content="本文分析Linux内核里KVM相关的逻辑，体系架构基于riscv。具体调试的时候，我们 使用了两层的qemu模型，第一层qemu使能了riscv的h扩展，第二层qemu使用kvm启动。 全文使用从上到下的思路分析，如果需要了解相关的硬件特性可以直接跳到最后。 使用v5.19-rc8内核代码、6.2.0 qemu代码作为分析代码。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2022-09-01T13:25:16.000Z">
-<meta property="article:modified_time" content="2022-12-06T01:09:40.720Z">
+<meta property="article:modified_time" content="2024-04-02T06:18:57.271Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="QEMU">
 <meta property="article:tag" content="虚拟化">
@@ -106,7 +106,6 @@
       <h1 class="site-title">Sherlock's blog</h1>
       <span class="logo-line-after"><i></i></span>
     </a>
-      <p class="site-subtitle" itemprop="description">宗教般的信仰，初恋般的热情</p>
   </div>
 
   <div class="site-nav-right">
@@ -211,7 +210,7 @@
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/yase.svg">
       <meta itemprop="name" content="Sherlock Wang">
-      <meta itemprop="description" content="Linux, kernel, 计算机体系结构">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
     </span>
 
     <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
@@ -236,7 +235,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2022-12-06 09:09:40" itemprop="dateModified" datetime="2022-12-06T09:09:40+08:00">2022-12-06</time>
+                <time title="修改时间：2024-04-02 14:18:57" itemprop="dateModified" datetime="2024-04-02T14:18:57+08:00">2024-04-02</time>
               </span>
 
           
@@ -275,7 +274,7 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">/* accel/kvm/kvm-all.c */</span><br><span class="line">kvm_init</span><br><span class="line">  +-&gt; qemu_open_old(&quot;/dev/kvm&quot;, O_RDWR)</span><br><span class="line">      /* 创建虚拟机 */</span><br><span class="line">  +-&gt; kvm_ioctl(s, KVM_CREATE_VM, type);</span><br><span class="line">      /* 虚拟机内存配置入口 */</span><br><span class="line">  +-&gt; kvm_memory_listener_register</span><br><span class="line">    +-&gt; kvm_region_add</span><br><span class="line">      +-&gt; kvm_set_phys_mem</span><br><span class="line">        +-&gt; kvm_set_user_memory_region</span><br><span class="line">          +-&gt; kvm_vm_ioctl(s, KVM_SET_USER_MEMORY_REGION, &amp;mem)</span><br></pre></td></tr></table></figure>
 <p> kvm vcpu线程启动的逻辑：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">riscv_cpu_realize</span><br><span class="line">  +-&gt; qemu_init_vcpu(cs)</span><br><span class="line">        /* kvm对应的回调函数在：accel/kvm/kvm-accel-ops.c: kvm_vcpu_thread_fn */</span><br><span class="line">    +-&gt; cpus_accel-&gt;create_vcpu_thread(cpu)</span><br><span class="line">        (kvm_vcpu_thread_fn)</span><br><span class="line">      +-&gt; kvm_init_vcpu</span><br><span class="line">        +-&gt; kvm_get_vcpu</span><br><span class="line">              /* 创建vcpu */</span><br><span class="line">          +-&gt; kvm_vm_ioctl(s, KVM_CREATE_VCPU, (void *)vcpu_id)</span><br><span class="line">      +-&gt; kvm_cpu_exec(cpu)</span><br><span class="line">            /* 运行vcpu */</span><br><span class="line">        +-&gt; kvm_vcpu_ioctl(cpu, KVM_RUN, 0)</span><br></pre></td></tr></table></figure>
-<h2 id="riscv-H扩展spec分析"><a href="#riscv-H扩展spec分析" class="headerlink" title="riscv H扩展spec分析"></a>riscv H扩展spec分析</h2><p> riscv H扩展的目的是在硬件层面创建出一个虚拟的机器出来，基于此可以支持各种类型的<br> 虚拟化，比如，可以在linux上支持KVM。先不考虑中断和外设，我们看看要创建一个虚拟机<br> 我们需要些什么，我们需要GPR寄存器、系统寄存器以及一个“物理”地址空间，在这个虚拟机<br> 里运行的程序认为这就是他们的全部世界。我们可以把host的GPR和host的系统寄存器给虚拟<br> 机里的程序用，对于每个虚拟机和host，当他们需要运行的时候，由一个更底层的程序把他们<br> 的GRP值和系统寄存器值换到物理GPR和系统寄存器上，这样每次虚拟机和虚拟机切换、虚拟机<br> 和host切换都要切全部寄存器。不同虚拟机不能直接使用host物理地址作为他们的“物理”地址<br> 空间，如果这样，就好小心划分host物理地址，避免虚拟机物理地址之间相互影响，我们会<br> 再加一个层翻译，这层翻译把虚拟机物理地址翻异成host物理地址，虚拟机自身看不到这层<br> 翻译，虚拟机正常做load/store访问(先假设load/store访问的是虚拟机物理地址)，load/store<br> 执行的时候会查tlb，可能做page walk，还可能报缺页异常，这些在虚拟机的世界里都不感知，<br> 查tlb和做page talk是硬件自己搞定的，处理缺页是更加底层的程序搞定的(hypvisor)。<br> 为了支持这层翻译以及相关的异常，就需要在给硬件加相关的寄存器，可以想象，我们要增加<br> 这层翻译对应的页表的基地址寄存器，还要增加对应的异常上下文寄存器，这些寄存器在虚拟<br> 机切换的时候都要切换成对应虚拟机的。</p>
+<h2 id="riscv-H扩展spec分析"><a href="#riscv-H扩展spec分析" class="headerlink" title="riscv H扩展spec分析"></a>riscv H扩展spec分析</h2><p> riscv H扩展的目的是在硬件层面创建出一个虚拟的机器出来，基于此可以支持各种类型的<br> 虚拟化，比如，可以在linux上支持KVM。先不考虑中断和外设，我们看看要创建一个虚拟机<br> 我们需要些什么，我们需要GPR寄存器、系统寄存器以及一个“物理”地址空间，在这个虚拟机<br> 里运行的程序认为这就是他们的全部世界。我们可以把host的GPR和host的系统寄存器给虚拟<br> 机里的程序用，对于每个虚拟机和host，当他们需要运行的时候，由一个更底层的程序把他们<br> 的GRP值和系统寄存器值换到物理GPR和系统寄存器上，这样每次虚拟机和虚拟机切换、虚拟机<br> 和host切换都要切全部寄存器。不同虚拟机不能直接使用host物理地址作为他们的“物理”地址<br> 空间，如果这样，就要小心划分host物理地址，避免虚拟机物理地址之间相互影响，我们会<br> 再加一个层翻译，这层翻译把虚拟机物理地址翻异成host物理地址，虚拟机自身看不到这层<br> 翻译，虚拟机正常做load/store访问(先假设load/store访问的是虚拟机物理地址)，load/store<br> 执行的时候会查tlb，可能做page walk，还可能报缺页异常，这些在虚拟机的世界里都不感知，<br> 查tlb和做page talk是硬件自己搞定的，处理缺页是更加底层的程序搞定的(hypvisor)。<br> 为了支持这层翻译以及相关的异常，就需要在给硬件加相关的寄存器，可以想象，我们要增加<br> 这层翻译对应的页表的基地址寄存器，还要增加对应的异常上下文寄存器，这些寄存器在虚拟<br> 机切换的时候都要切换成对应虚拟机的。</p>
 <p> 只有host的时候，只要一层翻译就好，但是如果是运行在虚拟机里的系统，就需要两级翻译，<br> 运行在虚拟机里的系统自己不感知是运行在虚拟机上的，但是，硬件需要知道某个时刻是运行<br> 的是guest还是host的系统，这样硬件需要有一个状态表示，当前运行的是guest还是host的<br> 系统。</p>
 <p> riscv的H扩展增加了CPU的状态，增加了一个隐式的V状态，当V=0的时候，CPU的U/M状态还和<br> 之前是一样的，S状态处在HS状态，当V=1的时候，CPU原来的U/S状态变成了VU/VS状态。<br> V状态在中断或异常时由硬件改变，还有一个改变的地方是sret/mret指令。具体的变化逻辑<br> 是: 1. 当在V状态trap进HS时，硬件会把V配置成0; 2. CPU trap进入M状态，硬件会把V配置成0;<br> 3. sret返回时, 恢复到之前的V状态；4. mret返回时, 恢复到之前的V状态。这里说的之前<br> 的V状态，riscv的hstatus寄存器上的SPV(Supervisor Previous Virtualization mode)表示<br> “之前的V状态”，上述的sret和mret从这个寄存器中得到之前的V状态。如前所述，kvm在启动<br> 虚拟机之前会配置hstatus的SPV为1，这样使用sret启动虚拟机后，V状体被置为1。</p>
 <p> 增加了hypervisor和guest对应的两组寄存器，其中hypervisor对应的寄存器有: hstatus, hedeleg,<br> hideleg, hvip, hip, hie, hgeip, hgeie, henvcfg, henvcfgh, hounteren, htimedelta, htimedeltah,<br> htval, htinst, hgatp, guest对应的寄存器有：vsstatus, vsip, vsie, vstvec, vsscratch, vsepc,<br> vscause, vstval, vsatp。</p>
@@ -431,7 +430,7 @@
     <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
       src="/images/yase.svg">
   <p class="site-author-name" itemprop="name">Sherlock Wang</p>
-  <div class="site-description" itemprop="description">Linux, kernel, 计算机体系结构</div>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
 </div>
 <div class="site-state-wrap motion-element">
   <nav class="site-state">
