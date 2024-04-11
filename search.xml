@@ -2006,6 +2006,7 @@ crypto_comp_compress的时候都是关闭抢占的(是否要关闭调度), 这�
 </ul>
 ]]></content>
       <tags>
+        <tag>PCIe</tag>
         <tag>UEFI</tag>
         <tag>ACPI</tag>
       </tags>
