@@ -1798,7 +1798,7 @@ crypto_comp_compress的时候都是关闭抢占的(是否要关闭调度), 这�
 <p> 从内核视角上看各种不同的ID会比较清楚。之前的<a href="https://wangzhou.github.io/APUE%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B0-%E7%AC%AC%E4%B9%9D%E7%AB%A0/">这篇文章</a>对进程ID, 线程ID，进程组，<br> 线程组，会话已经有了简单描述。</p>
 <p> 在一个进程的多个线程里调用getpid，这个是一个c库对getpid系统调用的封装，所以这<br> 个函数返回调用线程的进程ID, 这个ID其实就是这个线程组的线程组ID，也是这个线程组<br> 的主线程的内核pid，这个从kernel代码kernel/sys.c getpid的系统调用可以看的很清楚。<br> 使用gettid系统调用可以得到一个线程的对应内核pid。</p>
 <p> 而所谓pthread库的pthread_self()得到的只是pthread库自定义的线程ID，这个东西和上<br> 面内核里真正的各种ID是完全不同的。</p>
-<p> 线程的创建用pthread_create, 用的系统调用是clone。我们考虑线程结束的方法，线程执<br> 行完线程函数后自己会退出，这其中也包括线程函数自己调用pthread_exit把自己结束。<br> 线程也可以被进程中的其他线程取消，取消一个线程使用的函数是：pthread_cancel(pthread_t tid)。<br> 用strace跟踪下，可以发现pthread_cancel中的系统调用是tgkill(tgid, tid, SIGRTMIN),<br> 这个系统调用向线程组tgid里的tid线程发送SIGRTMIN信号。</p>
+<p> 线程的创建用pthread_create, 用的系统调用是clone。我们考虑线程结束的方法，线程执<br> 行完线程函数后自己会退出，这其中也包括线程函数自己调用pthread_exit把自己结束。<br> 线程也可以被进程中的其他线程取消，取消一个线程使用的函数是：pthread_cancel(pthread_t tid)。<br> 用strace跟踪下，可以发现pthread_cancel中的系统调用是tgkill(tgid, tid, SIGRTMIN),<br> 这个系统调用向线程组tgid里的tid线程发送SIGRTMIN信号。需要注意的是，pthread_cancel<br> 并不是同步的终止线程，而是给线程发送一个终止信号就返回，线程的终止行为还取决于<br> 线程自身的配置，首先线程自己可以配置是否响应pthread_cancel，默认情况下是可以响应<br> 的，可以通过pthread_setcancelstate配置这个状态。在这个基础上，线程需要在执行到<br> 一些特定的函数才能停下来，这些函数叫做取消点，通过pthread_setcanceltype可以配置<br> 对应的行为，PTHREAD_CANCEL_DEFERRED是在取消点cancel掉线程，默认是这样的配置，<br> PTHREAD_CANCEL_ASYNCHRONOUS是立即cancel掉线程。</p>
 <p> 线程可以用pthread_jorn在阻塞等待相关线程结束，并且得到线程结束所带的返回值。</p>
 <p> 线程可以注册退出的时候要调用的函数。使用pthread_cleanup_push, pthread_cleanup_pop。<br> 注册的函数在线程调用pthread_exit或者是线程被pthread_cancel的时候执行，线程正常<br> 执行结束时不执行。用strace -f跟踪进程中所有线程的系统调用可以发现，对应的系统调用<br> 是set_robust_list。</p>
 <h2 id="线程同步的锁"><a href="#线程同步的锁" class="headerlink" title="线程同步的锁"></a>线程同步的锁</h2><p> 线程之间共享变量的时候需要加锁，以pthread库为例，我们有pthread_mutex, pthead_spinlock,<br> pthread读写锁。此外我们还可以自己实现锁，这个的好处是不受具体线程库的限制，<br> 不好的地方是，我们自己实现的锁一定没有pthread库实现的性能高。如下的测试代码中<br> 比较了pthread mutex/spinlock，以及自己实现的spinlock的性能:<br> <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91L3Rlc3RzL2Jsb2IvbWFzdGVyL2xvY2tfdGVzdC90ZXN0LmM=">https://github.com/wangzhou/tests/blob/master/lock_test/test.c<i class="fa fa-external-link-alt"></i></span></p>
@@ -9345,6 +9345,27 @@ comment: 这个点有点莫名其妙？
         <tag>Linux内核</tag>
         <tag>调度</tag>
         <tag>cgroup</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>qemu_tcg中WFE指令的模拟</title>
+    <url>/qemu-tcg%E4%B8%ADWFE%E6%8C%87%E4%BB%A4%E7%9A%84%E6%A8%A1%E6%8B%9F/</url>
+    <content><![CDATA[<h2 id="WFE指令的基本逻辑"><a href="#WFE指令的基本逻辑" class="headerlink" title="WFE指令的基本逻辑"></a>WFE指令的基本逻辑</h2><p>ARM64中的WFE指令的基本描述可以参考<a href="https://wangzhou.github.io/ARM%E6%9E%84%E6%9E%B6%E4%B8%8B%E5%8E%9F%E5%AD%90%E6%93%8D%E4%BD%9C%E7%9B%B8%E5%85%B3%E6%8C%87%E4%BB%A4%E6%80%BB%E7%BB%93/">这里</a>。</p>
+<h2 id="模拟逻辑"><a href="#模拟逻辑" class="headerlink" title="模拟逻辑"></a>模拟逻辑</h2><p>可以看到WFE指令的基本逻辑是要触发CPU进入低功耗模式挂起执行，然后还需要模拟各种<br>触发CPU继续执行的激励。</p>
+<p>在我们当前分析的qemu版本中，user mode和system mode对WFE的模拟是不一样的，不过两<br>者都没有完整模拟出WFE的相关功能。</p>
+<p>首先，qemu翻译执行的主循环在遇到WFE指令时，断开tb，配置EXCP_YIELD异常，使用长跳转<br>跳出翻译执行主循环。</p>
+<p>对于user mode，针对EXCP_YIELD异常没有做处理，模拟执行又继续到WFE指令，于是模拟程<br>序就一直在这里循环了?</p>
+<p>对于system mode，跳出翻译执行主循环后，会在qemu_wait_io_event里把vCPU线程挂起等待。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">qemu_wait_io_event</span><br><span class="line">  +-&gt; qemu_cond_wait(cpu-&gt;halt_cond, &amp;bql)</span><br></pre></td></tr></table></figure>
+
+<p>ARM spec里描述了多种触发CPU执行的激励，但是，当前的qemu里只实现了中断触发CPU继续<br>执行的逻辑。qemu tcg里模拟中断的基本逻辑可以参考<a href="https://wangzhou.github.io/qemu-tcg%E4%B8%AD%E6%96%AD%E6%A8%A1%E6%8B%9F/">这里</a>。在整个中断模拟的逻辑里，会调用<br>到cpu_interrupt这个函数，对WFE的唤醒逻辑就在其中。</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">/* system/cpus.c */</span><br><span class="line">cpu_interrupt</span><br><span class="line">     /* accel/tcg/tcg-accel-ops.c */</span><br><span class="line">  +-&gt; cpus_accel-&gt;handle_interrupt(cpu, mask) // tcg_handle_interrupt</span><br><span class="line">        /* </span><br><span class="line">         * 代码位置在system/cpus.c，可以看到对于不是当前CPU，走qemu_cpu_kick的</span><br><span class="line">         * 分支，如果中断就是发给当前CPU的走下面的qatomic_set分支。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; qemu_cpu_kick</span><br><span class="line">      +-&gt; qemu_cond_broadcast(cpu-&gt;halt_cond)</span><br><span class="line">      +-&gt; cpus_accel-&gt;kick_vcpu_thread(cpu) // mttcg_kick_vcpu_thread</span><br><span class="line">        +-&gt; cpu_exit</span><br><span class="line">          +-&gt; qatomic_set(&amp;cpu-&gt;exit_request, 1)</span><br><span class="line">          +-&gt; smp_wmb() </span><br><span class="line">          +-&gt; qatomic_set(&amp;cpu-&gt;neg.icount_decr.u16.high, -1)</span><br><span class="line"></span><br><span class="line">    +-&gt; qatomic_set(&amp;cpu-&gt;neg.icount_decr.u16.high, -1)</span><br></pre></td></tr></table></figure>
+<p>如上可以看到，对于发给其它CPU的中断，首先触发对应的CPU从挂起的状态继续运行，然后<br>使对应的CPU退出翻译执行主流程，进而可以去处理中断。如果这里的唤醒在对应CPU睡眠之<br>前，本次中断中的唤醒是无效的，那么对应CPU的睡眠就只能等后续的中断去唤醒。</p>
+<p>这里为什么还要调用cpu_exit一下？cpu_exit中，先配置exit_request为1，再配置icount_decr.<br>u16.high为-1，在翻译执行的主流程里会检测后者，-1会触发vCPU跳出翻译执行的主逻辑，<br>进入中断异常处理逻辑，在cpu_handle_interrupt里会检测exit_request，exit_request<br>为1会触发vCPU彻底跳出翻译执行主逻辑(包括中断异常处理)。所以，cpu_exit的语意是明确<br>的，就是使vCPU退出运行。这里kick_vcpu_thread是要使vCPU继续运行，不清楚为什么还要<br>调用下cpu_exit。</p>
+]]></content>
+      <tags>
+        <tag>QEMU</tag>
+        <tag>ARM64</tag>
       </tags>
   </entry>
 </search>
