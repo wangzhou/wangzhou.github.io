@@ -1747,44 +1747,23 @@ crypto_comp_compress的时候都是关闭抢占的(是否要关闭调度), 这�
   <entry>
     <title>Linux设备驱动中DMA接口的使用</title>
     <url>/Linux%E8%AE%BE%E5%A4%87%E9%A9%B1%E5%8A%A8%E4%B8%ADDMA%E6%8E%A5%E5%8F%A3%E7%9A%84%E4%BD%BF%E7%94%A8/</url>
-    <content><![CDATA[<h2 id="Linux设备驱动中DMA接口的使用"><a href="#Linux设备驱动中DMA接口的使用" class="headerlink" title="Linux设备驱动中DMA接口的使用"></a>Linux设备驱动中DMA接口的使用</h2><p>-v0.1 2018.3.13 Sherlock init Westford</p>
-<ol start="0">
-<li><p>DMA的概念</p>
-<p>DMA就是说设备可以直接进行内存的读写，不需要CPU的参与。当然，在设备启动DMA<br>进行读写之前，你需要通过CPU把读写的地址，大小等一些信息配置给设备。设备完成<br>数据读写后可以发一个中断告诉CPU，之后CPU就可以做相关的操作。但是，CPU要把<br>什么地址告诉设备呢？</p>
-</li>
-</ol>
-<ol>
-<li><p>几个地址的概念</p>
-<p>在kernel/Documentation/DMA-API-HOWTO.txt里讲的比较清楚，它里面有一副图是<br>这样的：</p>
+    <content><![CDATA[<h2 id="DMA的概念"><a href="#DMA的概念" class="headerlink" title="DMA的概念"></a>DMA的概念</h2><p>DMA就是说设备可以直接进行内存的读写，不需要CPU的参与。当然，在设备启动DMA进行读写<br>之前，你需要通过CPU把读写的地址，大小等一些信息配置给设备。设备完成数据读写后可以<br>发一个中断告诉CPU，之后CPU就可以做相关的操作。但是，CPU要把什么地址告诉设备呢？</p>
+<h2 id="几个地址的概念"><a href="#几个地址的概念" class="headerlink" title="几个地址的概念"></a>几个地址的概念</h2><p>在kernel/Documentation/DMA-API-HOWTO.txt里讲的比较清楚，它里面有一副图是这样的：</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">             CPU                  CPU                  Bus</span><br><span class="line">           Virtual              Physical             Address</span><br><span class="line">           Address              Address               Space</span><br><span class="line">            Space                Space</span><br><span class="line"></span><br><span class="line">          +-------+             +------+             +------+</span><br><span class="line">          |       |             |MMIO  |   Offset    |      |</span><br><span class="line">          |       |  Virtual    |Space |   applied   |      |</span><br><span class="line">        C +-------+ --------&gt; B +------+ ----------&gt; +------+ A</span><br><span class="line">          |       |  mapping    |      |   by host   |      |</span><br><span class="line">+-----+   |       |             |      |   bridge    |      |   +--------+</span><br><span class="line">|     |   |       |             +------+             |      |   |        |</span><br><span class="line">| CPU |   |       |             | RAM  |             |      |   | Device |</span><br><span class="line">|     |   |       |             |      |             |      |   |        |</span><br><span class="line">+-----+   +-------+             +------+             +------+   +--------+</span><br><span class="line">          |       |  Virtual    |Buffer|   Mapping   |      |</span><br><span class="line">        X +-------+ --------&gt; Y +------+ &lt;---------- +------+ Z</span><br><span class="line">          |       |  mapping    | RAM  |   by IOMMU</span><br><span class="line">          |       |             |      |</span><br><span class="line">          |       |             |      |</span><br><span class="line">          +-------+             +------+</span><br></pre></td></tr></table></figure>
-<p>这里有一堆地址概念，不同地址有不用的作用。硬件可以把物理的内存和设备的寄存器<br>空间映射(MMIO)到CPU物理地址空间, 这里的映射和kernel没有关系，我们可以认为固件<br>已经为我们做好了，代码里里直接访问对应的物理地址就可以了。CPU通过CPU虚拟地址<br>访问物理内存和设备的MMIO, CPU虚拟地址到实际地址的映射是MMU做的，当然如果在内核<br>的线性映射区，这个映射只是加上一个偏移。</p>
-<p>从概念上说，设备看到的地址叫总线地址。一般，总线地址比较难以理解，这需要一点<br>体系结构的知识。一般，一个计算机系统类似这样的结构。</p>
+<p>这里有一堆地址概念，不同地址有不用的作用。硬件可以把物理的内存和设备的寄存器空间<br>映射(MMIO)到CPU物理地址空间, 这里的映射和kernel没有关系，我们可以认为固件已经为<br>我们做好了，代码里里直接访问对应的物理地址就可以了。CPU通过CPU虚拟地址访问物理内<br>存和设备的MMIO, CPU虚拟地址到实际地址的映射是MMU做的，当然如果在内核的线性映射区，<br>这个映射只是加上一个偏移。</p>
+<p>从概念上说，设备看到的地址叫总线地址。一般，总线地址比较难以理解，这需要一点体系<br>结构的知识。一般，一个计算机系统类似这样的结构。</p>
 <figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">    +-----+   +------+</span><br><span class="line">    | CPU |   | CPU  |  ...</span><br><span class="line">    +--+--+   +--+---+</span><br><span class="line">       |         |          +-----+</span><br><span class="line">-------+---+-----+----------+ DDR |</span><br><span class="line">           |                +-----+</span><br><span class="line">   +-------+--------+</span><br><span class="line">   | Bus controller |</span><br><span class="line">   +----+-----------+</span><br><span class="line">        |</span><br><span class="line">   +----+----+</span><br><span class="line">   | Devices |</span><br><span class="line">   +---------+</span><br></pre></td></tr></table></figure>
-<p>CPU, DDR，总线控制器连接的是系统总线，外设是连接到外部总线里的。两个总线域里<br>的物理信号，总线报文等都不一样。两个总线域是靠总线控制器联通的。所以，比较<br>容易理解，实际上CPU和外设是处在两个不同的地址空间里的。设备看到的地址，是外部<br>总线域里的地址，我们叫总线地址。其实CPU要访问外设，最终也是通过总线控制器，把<br>CPU地址翻译成总线地址，才能访问到，只不过是硬件把设备地址映射到了系统总线，<br>软件访问直接访问系统总线地址，如果落在映射的区域，总线控制器帮你翻译下，发给<br>设备。</p>
-<p>同样的道理，设备做DMA访问，设备一开始发出的地址是总线地址，当这个访问到了总线<br>控制器，总线控制器帮忙翻译成为系统总线地址。(这里，我们可以认为IOMMU(ARM上<br>叫SMMU)也是总线控制器的一部分)</p>
+<p>CPU, DDR，总线控制器连接的是系统总线，外设是连接到外部总线里的。两个总线域里的物<br>理信号，总线报文等都不一样。两个总线域是靠总线控制器联通的。所以，比较容易理解，<br>实际上CPU和外设是处在两个不同的地址空间里的。设备看到的地址，是外部总线域里的地址，<br>我们叫总线地址。其实CPU要访问外设，最终也是通过总线控制器，把CPU地址翻译成总线地<br>址，才能访问到，只不过是硬件把设备地址映射到了系统总线，软件访问直接访问系统总线<br>地址，如果落在映射的区域，总线控制器帮你翻译下，发给设备。</p>
+<p>同样的道理，设备做DMA访问，设备一开始发出的地址是总线地址，当这个访问到了总线控制<br>器，总线控制器帮忙翻译成为系统总线地址。(这里，我们可以认为IOMMU(ARM上叫SMMU)也是<br>总线控制器的一部分)</p>
 <p>有了这样的认识，下面就好理解了。</p>
-</li>
-</ol>
-<ol start="2">
-<li><p>流式DMA和一致性DMA</p>
-<p>所以，一个DMA操作，至少要有两个地址，一个CPU可以访问CPU虚拟地址，一个是设备<br>可以访问的设备总线地址(dma_addr_t)，他们其实对应的是一个物理地址。<br>(有回弹缓冲区的不是一个)</p>
-<p>dma_alloc_coherent可以分配一段物理地址, 函数的返回是指向这段物理地址的CPU<br>虚拟地址和这段物理地址对应的总线地址。然后你就可以把这个总线地址配置给硬件。</p>
-<p>dma_map_single和上面的一致性DMA分配不一样，假设我们已经分配好了一段物理地址，<br>要算出来这段地址对应的总线地址，我们就可以用dma_map_single这个函数。这种DMA<br>的使用方式，叫流式DMA。</p>
-</li>
-</ol>
-<ol start="3">
-<li><p>将DMA内存映射到用户态</p>
-<p>可以注意到，你用一致性DMA分配”一段”物理内存。是根本不保证分配的物理内存在<br>内核的线性地址空间，而且不保证分配的物理内存是连续的。</p>
+<h2 id="流式DMA和一致性DMA"><a href="#流式DMA和一致性DMA" class="headerlink" title="流式DMA和一致性DMA"></a>流式DMA和一致性DMA</h2><p>所以，一个DMA操作，至少要有两个地址，一个CPU可以访问CPU虚拟地址，一个是设备可以<br>访问的设备总线地址(dma_addr_t)，他们其实对应的是一个物理地址。(有回弹缓冲区的不是<br>一个)</p>
+<p>dma_alloc_coherent可以分配一段物理地址, 函数的返回是指向这段物理地址的CPU虚拟地址<br>和这段物理地址对应的总线地址。然后你就可以把这个总线地址配置给硬件。</p>
+<p>dma_map_single和上面的一致性DMA分配不一样，假设我们已经分配好了一段物理地址，要算<br>出来这段地址对应的总线地址，我们就可以用dma_map_single这个函数。这种DMA<br>的使用方式，叫流式DMA。</p>
+<h2 id="将DMA内存映射到用户态"><a href="#将DMA内存映射到用户态" class="headerlink" title="将DMA内存映射到用户态"></a>将DMA内存映射到用户态</h2><p>可以注意到，你用一致性DMA分配”一段”物理内存。是根本不保证分配的物理内存在内核的<br>线性地址空间，而且不保证分配的物理内存是连续的。</p>
 <p>那你想把这些物理内存映射到用户态，叫用户直接访问怎么才能做到？</p>
-<p>dma_mmap_coherent这个API就做的是这个事情, 在驱动的mmap接口里调用这个函数就<br>可以了。这个函数把DMA物理区域映射到用户态的连续的虚拟地址上。</p>
-</li>
-</ol>
-<ol start="4">
-<li><p>聚散表DMA</p>
-<p>有的时候，做DMA的数据在内存里是不连续存放的，而且设备也支持这种不连续内存的<br>DMA。这里的不连续，是指设备的DMA地址的描述就是一个聚散表类似的结构。</p>
-<p>这时我们可以用内核数据结构struct scatterlist来描述数据的初始内存结构，随后用<br>dma_map_sg的到每一块的总线地址。然后再把这些总线地址配置到设备对应的数据结构<br>里。</p>
-</li>
-</ol>
+<p>dma_mmap_coherent这个API就做的是这个事情, 在驱动的mmap接口里调用这个函数就可以了。<br>这个函数把DMA物理区域映射到用户态的连续的虚拟地址上。</p>
+<h2 id="聚散表DMA"><a href="#聚散表DMA" class="headerlink" title="聚散表DMA"></a>聚散表DMA</h2><p>有的时候，做DMA的数据在内存里是不连续存放的，而且设备也支持这种不连续内存的DMA。<br>这里的不连续，是指设备的DMA地址的描述就是一个聚散表类似的结构。</p>
+<p>这时我们可以用内核数据结构struct scatterlist来描述数据的初始内存结构，随后用<br>dma_map_sg的到每一块的总线地址。然后再把这些总线地址配置到设备对应的数据结构里。</p>
 <p>知道这些概念对我们编程有什么作用? 首先编程应该是基于正确语义的。你用get_free_page<br>或者是kmalloc分配一段地址给DMA，在特性的条件下或许没有问题。但是，语义完全是错的,<br>这些得到的地址都是CPU虚拟地址，CPU可以用这些地址访问数据。但是设备用这些地址发起<br>DMA操作，是很可能有问题的。</p>
 ]]></content>
       <tags>
@@ -9367,6 +9346,37 @@ comment: 这个点有点莫名其妙？
       <tags>
         <tag>QEMU</tag>
         <tag>ARM64</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>hns3各个模块的关系</title>
+    <url>/hns3%E5%90%84%E4%B8%AA%E6%A8%A1%E5%9D%97%E7%9A%84%E5%85%B3%E7%B3%BB/</url>
+    <content><![CDATA[<h2 id="模块"><a href="#模块" class="headerlink" title="模块"></a>模块</h2><p>HNS3是海思Hipxxx系列Soc的网络加速器驱动，编译成模块后有hclge，hclgevf，hnae3，<br>hns3这几个内核模块组成。</p>
+<h2 id="hnae"><a href="#hnae" class="headerlink" title="hnae"></a>hnae</h2><p>hnae模块只是提供了一组注册接口出来，其它的模块可以利用这组注册接口注册ae_dev/ae_algo/<br>client进来，hnae模块里分别用hnae_ae_dev_list/hnae_ae_algo_list/hnae_client_list<br>做对应对象的管理。</p>
+<p>ae_dev代表一个具有某种网络功能的设备，client表示一个ae_dev上的一组功能，比如，对<br>于一个网口(ae_dev)，以太网口(NIC)和RoCE就是其上的两个client，NIC和RoCE复用这个ae_dev<br>的底层硬件资源，但是从业务层面看又是相互独立的。</p>
+<p>hnae3_register_ae_dev把一个ae_dev向hnae注册，并检测是否有ae_algo与之匹配，若匹配<br>则调用算法中对应的init_ae_dev函数初始化ae_dev，同时检测是否有client和ae_dev匹配，<br>若匹配则调用ae_algo中的init_client_instance函数初始化client。</p>
+<p>hnae3_register_ae_algo和如上设备注册的接口一样，也有一样的和设备以及client匹配检测、<br>以及对应的初始化流程。</p>
+<p>hnae3_register_client也和设备注册的接口一样，也有ae_dev&lt;-&gt;client匹配检测以及对应<br>client的实例初始化流程。注意，client和client的实例是不同的。</p>
+<p>总的来看，hnae是一个核心的库，是模块依赖的最底层，其它模块不remove，hnae不会被<br>remove掉。</p>
+<h2 id="hclgevf-hclge"><a href="#hclgevf-hclge" class="headerlink" title="hclgevf/hclge"></a>hclgevf/hclge</h2><p>hclgevf/hclge的初始化接口只做了一件事，就是把这个模块中定义的ae_algo注册到hnae。</p>
+<p>hclgevf/hclge通过hnae的注册接口把一堆回调函数提供给了ae_dev和client，而hclgevf/<br>hclge是可以随时卸载的，如果ae_dev或者client还在使用这些回调函数，hclgevf/hclge又<br>被卸载掉，这里就会出问题。hnae_unregister_ae_algo里做了针对ae_dev和client的uninit<br>操作，在hclgevf/hclge离开的时候做对应的清理，就不会有问题。</p>
+<p>总的来看，hclgevf/hclge就是一堆傻傻的回调，它们只是被驱使，自己并不能决定自己的<br>命运，只能在hclgevf/hclge的register/unregister里做对应的处理。</p>
+<h2 id="hns3"><a href="#hns3" class="headerlink" title="hns3"></a>hns3</h2><p>hns3整体上是一个标准的PCIe设备驱动。在hns3模块的init里使用hnae3_register_client<br>注册client，注意这个发生在pci_register_driver之前，因为pci_register_driver之后，<br>触发的probe才注册ae_dev设备，所以init里client注册逻辑只把client注册到hnae里的链表，<br>并不会触发ae_dev和client的匹配。</p>
+<p>注意，这里的client并没有实例的概念，只是一种网络服务的描述，比如NIC client结构里<br>描述的都是以太网口相关的操作函数。所以，放在hns3驱动init里注册是合理的。</p>
+<p>这个PCIe驱动的probe函数里使用hnae3_register_ae_dev注册ae_dev。由如上可知，这个过<br>程会初始化ae_dev，以及创建client的实例。</p>
+<p>深入client实例创建过程看下：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">hnae3_init_client_instance</span><br><span class="line">  +-&gt; ae_dev-&gt;ops-&gt;init_client_instance // 注意，这个在hclge里定义。</span><br><span class="line">    +-&gt; hclge_init_nic_client_instance  // switch区分NIC和ROCE。</span><br><span class="line">      +-&gt; client-&gt;ops-&gt;init_instance    // 又调会client里的回调。</span><br></pre></td></tr></table></figure>
+<p>初始化一个client的实例，client难道提供不了足量的信息？没有理解为什么要走到hclge。</p>
+<p>基本的数据结构是：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">pci_dev-&gt;priv(ae_dev)-&gt;priv(hclge_dev)-&gt;vport  </span><br><span class="line">                                          |</span><br><span class="line">                                          +-- nic(struct hnae3_handle)</span><br><span class="line">                                          |</span><br><span class="line">                                          +-- roce(struct hnae3_handle)</span><br></pre></td></tr></table></figure>
+
+<p>总结下hns3的逻辑。hns3是一个PCIe设备驱动，所谓ae_dev是为了抽象而多加的一层，client<br>实例是hns3和NIC业务相关的封装，ae_algo是PCIe设备驱动本来就有的业务相关的代码，只<br>不过为了抽象，把它们放到ae_algo，然后独立成模块。</p>
+<p>hns3和hclge独立成模块后，hns3可以独立hclge做remove，有可能出现hns3已经remove，<br>但是hclge中的回调还在运行。但是hclge中的回调只是被动的调用，控制逻辑应该在hns3中，<br>也就是说hns3在remove的时候(ae_dev/client remove)，应该保证：1. 拒绝外部流量，2.<br>排空内部流量，3. 停住对应硬件。这样，应该不会出现hns3 remove掉，hclge中的回调还<br>在运行的情况。</p>
+<h2 id="RoCE"><a href="#RoCE" class="headerlink" title="RoCE"></a>RoCE</h2><p>RoCE对应的模块是hns_roce_hw_v2，在这个模块的init通过hnae3_register_client对hnae<br>注册一个client，注册过程触发对应client实例的初始化。</p>
+]]></content>
+      <tags>
+        <tag>Linux内核</tag>
+        <tag>软件构架</tag>
       </tags>
   </entry>
 </search>
