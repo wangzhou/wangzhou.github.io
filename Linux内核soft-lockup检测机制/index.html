@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文梳理Linux内核soft lockup检测机制的基本逻辑。分析依赖的Linux内核版本是v6.8-rc5">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux内核soft-lockup检测机制">
+<meta property="og:url" content="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8soft-lockup%E6%A3%80%E6%B5%8B%E6%9C%BA%E5%88%B6/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文梳理Linux内核soft lockup检测机制的基本逻辑。分析依赖的Linux内核版本是v6.8-rc5">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-04-28T11:35:51.000Z">
+<meta property="article:modified_time" content="2024-04-28T11:41:19.668Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="软件调试">
+<meta property="article:tag" content="Linux内核">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8soft-lockup%E6%A3%80%E6%B5%8B%E6%9C%BA%E5%88%B6/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux内核soft-lockup检测机制 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">有容乃大，无欲则刚</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">95</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">266</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8soft-lockup%E6%A3%80%E6%B5%8B%E6%9C%BA%E5%88%B6/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux内核soft-lockup检测机制
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2024-04-28 19:35:51 / 修改时间：19:41:19" itemprop="dateCreated datePublished" datetime="2024-04-28T19:35:51+08:00">2024-04-28</time>
+            </span>
+
+          
+            <div class="post-description">本文梳理Linux内核soft lockup检测机制的基本逻辑。分析依赖的Linux内核版本是v6.8-rc5</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>Linux内核调度各个不同的用户以及内核线程交替在CPU上运行，内核中的一段执行流长时间<br>的占用CPU时，会触发内核的soft lockup报错。</p>
+<p>这里所谓的一段执行流是指用户线程的内核部分或者是内核线程。最常见的触发情况是，对<br>于不支持内核抢占的内核，内核中的一段执行流持续执行，没有主动让出CPU的情况。对于<br>非抢占内核，没有主动让出CPU，内核中的执行流总是持续执行。</p>
+<p>注意，对于非抢占内核，中断打断一段内核执行流，中断执行后，将继续返回被打断的内核<br>执行流程，如果中断打断的是一段用户态执行流，中断执行完后，返回用户态被打断点前内<br>核会执行下调度，结果完全有可能是调度一个新的用户线程进来执行。</p>
+<p>同样的道理，对于支持抢占的内核，在禁止抢占的内核执行流上，依然有上面的逻辑成立。</p>
+<p>Linux提供用户态接口配置多长时间触发soft lockup报错，以及soft lockup后是否panic内<br>核。具体的接口是，/proc/sys/kernel/watchdog_thresh的值的2倍是触发soft lockup的秒<br>数，/proc/sys/kernel/softlockup_panic配置soft lockup后是否panic。</p>
+<p>我们简单构造一个触发soft lockup的场景出来。首先，编译一个非抢占的内核出来，确认<br>CONFIG_PREEMPT_NONE=Y，确认打开soft lock的内核配置：CONFIG_SOFTLOCKUP_DETECTOR=y，<br>再写一个内核模块，在init里做死循环。使用qemu启动这个系统，配置/proc/sys/kernel/watchdog_thresh<br>为2，然后insmod如上的内核模块，我们会得到如下的日志：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line">[ ... ]</span><br><span class="line"># echo 2 &gt; /proc/sys/kernel/watchdog_thresh</span><br><span class="line"># insmod busyloop.ko </span><br><span class="line">[   81.186060] busyloop: loading out-of-tree module taints kernel.</span><br><span class="line">[   87.420704] watchdog: BUG: soft lockup - CPU#1 stuck for 6s! [insmod:137]</span><br><span class="line">[   87.421300] Modules linked in: busyloop(O+)</span><br><span class="line">[   87.422007] CPU: 1 PID: 137 Comm: insmod Tainted: G O 6.8.0-rc5-00035-gdb6db2d782b8 #38</span><br><span class="line">[   87.422240] Hardware name: linux,dummy-virt (DT)</span><br><span class="line">[   87.424730] pstate: 40000005 (nZcv daif -PAN -UAO -TCO -DIT -SSBS BTYPE=--)</span><br><span class="line">[   87.424917] pc : busyloop_init+0x0/0x1000 [busyloop]</span><br><span class="line">[   87.425420] lr : do_one_initcall+0x70/0x1b8</span><br><span class="line">[   87.425721] sp : ffff80008050ba60</span><br><span class="line">[   87.425794] x29: ffff80008050ba60 x28: ffff80008050bcd8 x27: ffffcd4b689ca040</span><br><span class="line">[   87.425991] x26: 0000000000000000 x25: ffffcd4b689ca058 x24: ffffcd4be3ff5480</span><br><span class="line">[   87.426148] x23: 0000000000000000 x22: ffff25fbc0bbc300 x21: ffff25fbc0bbc300</span><br><span class="line">[   87.426294] x20: ffffcd4b689ce000 x19: ffffcd4be3fc9000 x18: 0000000000000002</span><br><span class="line">[   87.426446] x17: ffff800080505000 x16: ffff25fbc015eef9 x15: 0000ae0f476185e6</span><br><span class="line">[   87.426596] x14: 000000000000037d x13: 000000000000037d x12: 0000000000000000</span><br><span class="line">[   87.426730] x11: 0000000000000000 x10: 0000000000000000 x9 : 00000000000007e0</span><br><span class="line">[   87.426886] x8 : ffff25fbc1a3b200 x7 : ffff25fbc0bbc738 x6 : 0000000000000742</span><br><span class="line">[   87.427079] x5 : ffff25fbc1822c80 x4 : fffffc97ef0608a0 x3 : 0000000080800080</span><br><span class="line">[   87.427275] x2 : 0000000000000000 x1 : 0000000000000000 x0 : 0000000000000000</span><br><span class="line">[   87.427524] Call trace:</span><br><span class="line">[   87.427707]  busyloop_init+0x0/0x1000 [busyloop]</span><br><span class="line">[   87.427889]  do_init_module+0x58/0x1e4</span><br><span class="line">[   87.427989]  load_module+0x19bc/0x1a8c</span><br><span class="line">[   87.428073]  init_module_from_file+0x88/0xc8</span><br><span class="line">[   87.428164]  __arm64_sys_finit_module+0x1ec/0x320</span><br><span class="line">[   87.428262]  invoke_syscall+0x44/0x104</span><br><span class="line">[   87.428342]  el0_svc_common.constprop.0+0x40/0xe0</span><br><span class="line">[   87.428436]  do_el0_svc+0x1c/0x28</span><br><span class="line">[   87.428497]  el0_svc+0x34/0xb8</span><br><span class="line">[   87.428562]  el0t_64_sync_handler+0xc0/0xc4</span><br><span class="line">[   87.428628]  el0t_64_sync+0x190/0x194</span><br><span class="line">[ ... ]</span><br></pre></td></tr></table></figure>
+
+<h2 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h2><p>Linux内核在每个core上启动一个高精度定时器(hrtimer)支持soft lockup，hrtimer定时到<br>期的处理函数的主要工作有：1. 更新hrtimer；2. 触发migration线程更新soft lockup的<br>时间戳；3. 通过时间戳检查是否出现soft lockup。</p>
+<p>如果一个core长时间被一段执行流占据，虽然hrtimer总可以触发migration线程，叫它更新<br>soft lockup的时间戳，但是migration得不到运行，总是无法完成具体的更新动作，超过一<br>定的时间，hrtimer的处理函数就可以检测到一段流程长时间独占CPU。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line">/* init/main.c */</span><br><span class="line">kernel_init_freeable</span><br><span class="line">      /* kernel/watchdog.c */</span><br><span class="line">  +-&gt; lockup_detector_init</span><br><span class="line">        /* 注意有CONFIG_SOFTLOCKUP_DETECTOR开启和关闭的版本 */</span><br><span class="line">    +-&gt; lockup_detector_setup</span><br><span class="line">      +-&gt; __lockup_detector_reconfigure</span><br><span class="line">        +-&gt; softlockup_start_all</span><br><span class="line">              /*</span><br><span class="line">               * 在每个core上调用softlockup_start_fn，这里delay到了对应的work </span><br><span class="line">               * queue里执行。</span><br><span class="line">               */</span><br><span class="line">          +-&gt; for_each_cpu(cpu, &amp;watchdog_allowed_mask)</span><br><span class="line">                smp_call_on_cpu(cpu, softlockup_start_fn, ...)</span><br><span class="line"></span><br><span class="line">/* 在每个cores上初始化和启动hrtimer */</span><br><span class="line">softlockup_start_fn</span><br><span class="line">  +-&gt; watchdog_enable</span><br><span class="line">        /* 回调函数是watchdog_timer_fn */</span><br><span class="line">    +-&gt; hrtimer_init/hrtimer_start</span><br><span class="line"></span><br><span class="line">/*</span><br><span class="line"> * 每个core对应两个时间戳变量，hrtimer每次都触发migration线程更新watchdog_touch_ts</span><br><span class="line"> * 和watchdog_report_ts。hrtimer处理函数读出当前的时间戳和watchdog_report_ts比较，</span><br><span class="line"> * 如果超过watchdog_thresh的2倍则触发soft lockup。这里为什么要两个时间戳变量？</span><br><span class="line"> */</span><br><span class="line">watchdog_timer_fn</span><br><span class="line">      /* 触发migration线程更新时间戳 */</span><br><span class="line">  +-&gt; stop_one_cpu_nowait(smp_processor_id(), softlockup_fn, NULL, this_cpu_ptr(&amp;softlockup_stop_work))</span><br></pre></td></tr></table></figure>
+
+<p>migration线程在kernel/stop_machine.c里创建，每个core上创建一个migration内核线程。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">cpu_stop_init</span><br><span class="line">  +-&gt; smpboot_register_percpu_thread(&amp;cpu_stop_threads)</span><br></pre></td></tr></table></figure>
+<p>当前内核里只有soft lockup和线程迁移用到这个stop_machine的特性，stop_machine想要<br>支持的语意还不清楚？</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%BD%AF%E4%BB%B6%E8%B0%83%E8%AF%95/" rel="tag"><i class="fa fa-tag"></i> 软件调试</a>
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"><i class="fa fa-tag"></i> Linux内核</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/hns3%E5%90%84%E4%B8%AA%E6%A8%A1%E5%9D%97%E7%9A%84%E5%85%B3%E7%B3%BB/" rel="prev" title="hns3各个模块的关系">
+      <i class="fa fa-chevron-left"></i> hns3各个模块的关系
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/Linux%E5%86%85%E6%A0%B8NMI-watchdog%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="next" title="Linux内核NMI-watchdog基本逻辑">
+      Linux内核NMI-watchdog基本逻辑 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">代码分析</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">266</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">95</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
