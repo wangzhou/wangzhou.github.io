@@ -9429,4 +9429,24 @@ comment: 这个点有点莫名其妙？
         <tag>QEMU</tag>
       </tags>
   </entry>
+  <entry>
+    <title>ARM64 NMI中断的基本逻辑</title>
+    <url>/ARM64-NMI%E4%B8%AD%E6%96%AD%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/</url>
+    <content><![CDATA[<h2 id="硬件基本逻辑"><a href="#硬件基本逻辑" class="headerlink" title="硬件基本逻辑"></a>硬件基本逻辑</h2><p>ARM新增加了NMI中断，GIC和CPU的逻辑做了相应的调整。ARM网站的<span class="exturl" data-url="aHR0cHM6Ly9jb21tdW5pdHkuYXJtLmNvbS9hcm0tY29tbXVuaXR5LWJsb2dzL2IvYXJjaGl0ZWN0dXJlcy1hbmQtcHJvY2Vzc29ycy1ibG9nL3Bvc3RzL2EtcHJvZmlsZS1ub24tbWFza2FibGUtaW50ZXJydXB0cw==">这篇<i class="fa fa-external-link-alt"></i></span>文档对此做了介绍。</p>
+<p>对于GIC，增加一种优先级更高的中断，对应的中断发给CPU时，应该要携带相关信号，这个<br>信号告诉CPU，当前是一个NMI。</p>
+<p>NMI并不是完全不能被mask的，所以在CPU一层，ARM定义了两种针对NMI做mask的方法。</p>
+<p>一种是在PSTATE寄存器里新加了AllInt的bit，这个bit可以控制所有中断，包括NMI中断的<br>mask。这个bit和PSTATE.I的逻辑是基本一致的，只不过把控制范围增加上NMI。这种mask的<br>逻辑和如下第二种逻辑是正交的。</p>
+<p>另一种和ELx_SP的寄存器使用有关系(todo: 还不明白为什么ARM在不同EL要使用不同的SP,<br>RV应该是只有一个SP？)。ARM的ELx_SP特性的逻辑是，当PSTATE.SP为0时，各个EL都是用<br>SP_EL0，当PSTATE.SP为1时，各个EL使用SP_ELx。</p>
+<p>基于如上的逻辑，如果当前是使用各个EL自己的SP_ELx(dedicated SP_ELx)，NMI就是mask<br>的，当切到SP_EL0做栈指针时，NMI没有被mask。</p>
+<p>对于如上两种NMI mask的逻辑，中断或异常进入和退出时，各种中断被mask的逻辑依然存在。<br>中断或异常进入和退出时，为了防止新的中断进来破坏之前要保存的上下文，硬件是自动关<br>中断的。</p>
+<h2 id="NMI相关系统寄存器"><a href="#NMI相关系统寄存器" class="headerlink" title="NMI相关系统寄存器"></a>NMI相关系统寄存器</h2><p>ID_AA64PFR1_EL1.NMI   表示系统是否支持NMI。<br>SCTLR_ELx.NMI         表示系统是否enable NMI。<br>SCTLR_ELx.SPINTMASK   表示是否使用如上的第二种mask NMI的方式。</p>
+<h2 id="NMI虚拟化相关的逻辑"><a href="#NMI虚拟化相关的逻辑" class="headerlink" title="NMI虚拟化相关的逻辑"></a>NMI虚拟化相关的逻辑</h2><p>(todo)</p>
+<h2 id="NMI使用注意事项"><a href="#NMI使用注意事项" class="headerlink" title="NMI使用注意事项"></a>NMI使用注意事项</h2><p>从如上的分析中可见，CPU并不是任何时候都可以响应NMI中断，除了程序员主动控制mask掉<br>NMI，在中断或异常进入和退出时，任何中断包括NMI中断都是被mask的。</p>
+<p>CPU mask掉普通中断的时候(配置PSTATE.I)，CPU是可以响应NMI的，这就需要系统程序员小<br>心编程，避免因使用NMI而带来问题。</p>
+]]></content>
+      <tags>
+        <tag>ARM64</tag>
+        <tag>中断</tag>
+      </tags>
+  </entry>
 </search>
