@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文总结ARM64系统寄存器的基本逻辑，我们从基本的CPU配置、中断异常逻辑、地址 翻译、时钟、GIC、SMMU以及虚拟化的逻辑出发，看看对应功能的基本系统寄存器。 本文重点看基础且重要的寄存器，重点是给一个整体的描述，具体功能需要在独立的 文档中总结。参考的ARM spec的版本是J.a。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ARM64系统寄存器总结">
+<meta property="og:url" content="http://wangzhou.github.io/ARM64%E7%B3%BB%E7%BB%9F%E5%AF%84%E5%AD%98%E5%99%A8%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文总结ARM64系统寄存器的基本逻辑，我们从基本的CPU配置、中断异常逻辑、地址 翻译、时钟、GIC、SMMU以及虚拟化的逻辑出发，看看对应功能的基本系统寄存器。 本文重点看基础且重要的寄存器，重点是给一个整体的描述，具体功能需要在独立的 文档中总结。参考的ARM spec的版本是J.a。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-05-08T00:52:25.000Z">
+<meta property="article:modified_time" content="2024-05-08T00:54:05.515Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="ARM64">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/ARM64%E7%B3%BB%E7%BB%9F%E5%AF%84%E5%AD%98%E5%99%A8%E6%80%BB%E7%BB%93/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ARM64系统寄存器总结 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">有容乃大，无欲则刚</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">95</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">270</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/ARM64%E7%B3%BB%E7%BB%9F%E5%AF%84%E5%AD%98%E5%99%A8%E6%80%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ARM64系统寄存器总结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2024-05-08 08:52:25 / 修改时间：08:54:05" itemprop="dateCreated datePublished" datetime="2024-05-08T08:52:25+08:00">2024-05-08</time>
+            </span>
+
+          
+            <div class="post-description">本文总结ARM64系统寄存器的基本逻辑，我们从基本的CPU配置、中断异常逻辑、地址 翻译、时钟、GIC、SMMU以及虚拟化的逻辑出发，看看对应功能的基本系统寄存器。 本文重点看基础且重要的寄存器，重点是给一个整体的描述，具体功能需要在独立的 文档中总结。参考的ARM spec的版本是J.a。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="CPU基础配置-CPU特性位-CPU特性开关寄存器"><a href="#CPU基础配置-CPU特性位-CPU特性开关寄存器" class="headerlink" title="CPU基础配置/CPU特性位/CPU特性开关寄存器"></a>CPU基础配置/CPU特性位/CPU特性开关寄存器</h2><p>一个CPU需要有对应的生产厂家、构架版本、支持特性、支持特性开关等的寄存器。</p>
+<h2 id="GPR-中断异常-VMMA寄存器"><a href="#GPR-中断异常-VMMA寄存器" class="headerlink" title="GPR/中断异常/VMMA寄存器"></a>GPR/中断异常/VMMA寄存器</h2><p>ARM64下有31个64bit通用寄存器(GPR)，其中x0-x29用作通用数据，x30时link register(lr)，<br>5bit编码都是1时，表示0值。独立的SP寄存器，SP_ELx。独立的PC寄存器。</p>
+<p>中断和异常的时候需要各种系统寄存器支持。CPU状态寄存器PSTATE, 各个特权级就这一个<br>统一的状态寄存器。</p>
+<p>中断异常时系统状态，SPSR_ELx。(save program status register)</p>
+<p>中断异常向量基地址，VBAR_ELx。(vector base address)</p>
+<p>中断异常原因，ESR_ELx。(exception syndrome register)</p>
+<p>中断异常PC，FAR_ELx。(fault address)</p>
+<p>中断异常返回地址，ELR_ELx。(exception link register)</p>
+<p>中断异常的路由控制，没有类似riscv上的逐个中断异常委托的机制，ARM上是整体定义和补<br>充定义相结合的方式。</p>
+<p>各种中断的pending/enable控制，核一侧的控制只有FIQ/IRQ的统一开关，riscv上和这个不<br>一样，核一侧分了外部中断/时钟中断/软件中断等的pending/enable控制寄存器。ARM上的<br>SGI(软件中断)/PPI(主要给时钟用)/SPI、LPI(主要给外设用)相关寄存器定义到了GIC上，<br>核一侧的系统寄存器在下面总结。</p>
+<p>页表基地址，TTBR0_ELx/TTBR0_Elx。(translation table base register)</p>
+<p>地址翻译控制，TCR_ELx。(translation control register)</p>
+<h2 id="Timer相关寄存器"><a href="#Timer相关寄存器" class="headerlink" title="Timer相关寄存器"></a>Timer相关寄存器</h2><p>ARM spec的D11章节定义了generic timer，其定义主要分两个概念：system counter和timer。<br>system counter是以一定频率增加的计数器，频率和计数器的数值分别记录在对应的寄存器<br>里。在每个core上有timer相关的寄存器，分别有：1. CompareValue寄存器，当counter的<br>值和CompareValue的值相等时触发timer中断(PPI)；2. 相关timer中断的控制寄存器；3.<br>TimerValue寄存器，这个寄存器的值从大到小递减，减到0时触发timer中断。</p>
+<p>下面以EL1 physical counter-timer寄存器为例，罗列出相关的寄存器。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">CNTFRQ_EL0，counter-timer frequency register。</span><br><span class="line">CNTPCT_EL0，counter-timer physical counter register。</span><br><span class="line"></span><br><span class="line">CNTP_CTL_EL0，counter-timer physical timer control register。</span><br><span class="line">CNTP_TVAL_EL0，counter-timer physical timer TimerValue register。</span><br><span class="line">CNTP_CVAL_EL0，counter-timer physical timer CompareValue register。</span><br></pre></td></tr></table></figure>
+
+<h2 id="虚拟化相关寄存器"><a href="#虚拟化相关寄存器" class="headerlink" title="虚拟化相关寄存器"></a>虚拟化相关寄存器</h2><p>我们分析支持VHE时，需要增加的系统寄存器。从软件的角度看，host/guest上的软件(包括<br>内核)并不清楚它们是在host还是在guest，硬件的所有设计逻辑，需要在这个前提下都是成立<br>的。</p>
+<p>在VHE打开时，guest用户态运行在EL0，guest内核态运行在EL1，host用户态运行在EL0，<br>host内核态运行在EL2，hypervisor运行在EL2。和riscv虚拟化下各个软件的运行状态基本<br>是一样的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">+-----+          +-----+         +----+           +-----+</span><br><span class="line">| EL0 |          | EL0 |         | VU |           |  U  |</span><br><span class="line">+-----+          +-----+         +----+           +-----+</span><br><span class="line">   |                |               |                |   </span><br><span class="line">+-----+             |            +----+              |   </span><br><span class="line">| EL1 |             |            | VS |              |   </span><br><span class="line">+-----+             |            +----+              |   </span><br><span class="line">   |                |               |                |   </span><br><span class="line">   |     +-----+    |               |     +----+     |   </span><br><span class="line">   +-----| EL2 |----+               +-----| HS |-----+   </span><br><span class="line">         +-----+                          +----+         </span><br><span class="line">            |                               |</span><br><span class="line">         +-----+                          +----+          </span><br><span class="line">         | EL3 |                          | M  |          </span><br><span class="line">         +-----+                          +----+          </span><br></pre></td></tr></table></figure>
+
+<p>需要在EL2增加拟化综合控制的寄存器，HCR_EL2(hypervisor configure register)。其中，<br>HCR_EL2.E2H表示打开VHE，即host跑在EL2。以下讨论的都是HCR_EL2.E2H为1的情况。HCR_EL2.TGE<br>为1表示当前在虚拟机里，为0表示当前在host里，这个和riscv上的V状态的逻辑是一致的，<br>不知道为什么起一个trap general exceptions from EL0这样的名字。</p>
+<p>在VHE使能的时候，当CPU运行在EL2，寄存器有如下的映射，也就是软件访问或者硬件使用<br>的寄存器实际上是右边的寄存器。CPU运行在EL2，系统状态可能在hypervisor也可能在host<br>内核。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">SCTLR_EL1      ---&gt;    SCTLR_EL2</span><br><span class="line">TTBR0_EL1      ---&gt;    TTBR0_EL2</span><br><span class="line">TTBR1_EL1      ---&gt;    TTBR1_EL2</span><br><span class="line">TCR_EL1        ---&gt;    TCR_EL2</span><br><span class="line">ESR_EL1        ---&gt;    ESR_EL2</span><br><span class="line">FAR_EL1        ---&gt;    FAR_EL2</span><br><span class="line">MAIR_EL1       ---&gt;    MAIR_EL2</span><br><span class="line">VBAR_EL1       ---&gt;    VBAR_EL2</span><br><span class="line">SPSR_EL1       ---&gt;    SPSR_EL2</span><br><span class="line">ELR_EL1        ---&gt;    ELR_EL2</span><br><span class="line">CPACR_EL1      ---&gt;    CPTR_EL2</span><br><span class="line">TRFCR_EL1      ---&gt;    TRFCR_EL2</span><br><span class="line">AFSR0_EL1      ---&gt;    AFSR0_EL2</span><br><span class="line">AFSR1_EL1      ---&gt;    AFSR1_EL2</span><br><span class="line">AMAIR_EL1      ---&gt;    AMAIR_EL2</span><br><span class="line">CONTEXTIDR_EL1 ---&gt;    CONTEXTIDR_EL2</span><br><span class="line">CNTKCTL_EL1    ---&gt;    CNTHCTL_EL2</span><br><span class="line"></span><br><span class="line">CNTP_TVAL_EL0  ---&gt;    CNTHP_TVAL_EL2</span><br><span class="line">CNTP_CTL_EL0   ---&gt;    CNTHP_CTL_EL2</span><br><span class="line">CNTP_CVAL_EL0  ---&gt;    CNTHP_CVAL_EL2</span><br><span class="line"></span><br><span class="line">CNTV_TVAL_EL0  ---&gt;    CNTHV_TVAL_EL2</span><br><span class="line">CNTV_CTL_EL0   ---&gt;    CNTHV_CTL_EL2</span><br><span class="line">CNTV_CVAL_EL0  ---&gt;    CNTHV_CVAL_EL2</span><br></pre></td></tr></table></figure>
+
+<p>如上的这些寄存器映射要和异常处理的逻辑结合起来理解。当CPU处在host用户态，发生trap<br>到EL1的中断或异常时，CPU应该trap到EL2，并使用EL1的中断异常相关寄存器，按照如上的<br>定义，这个时候实际使用的是EL2对应的寄存器。这里是通过HCR_EL2.TGE=1控制从原本的trap<br>到EL1改成trap到EL2。</p>
+<p>注意，其中的一些寄存器，比如TTBR0_EL1/TTBR1_EL1，当CPU处于host用户态做地址翻译的<br>时候也是会使用到的。(EL0/EL2地址翻译使用TTBR0_EL2/TTBR1_EL2)</p>
+<p>可以看到，ARM VHE的一部分寄存器逻辑和riscv的逻辑正好是反过来的。ARM是host的寄存器<br>映射到XXX_EL2，riscv是guest的寄存器映射到V前缀的同名寄存器上。从host角度看，虚拟<br>机是host上的一个线程，所以虚拟机线程具有host线程的上下文，从虚拟机自己的角度看，<br>整个虚拟机实例又有自己的上下文，这个上下文包括GPR和虚拟机EL1的系统寄存器，这个上<br>下文是对虚拟机这个机器的描述。</p>
+<p>ARM64还定义了一堆别名系统寄存器，当CPU运行在EL2/EL3时，如果要访问EL0/EL1的寄存器，<br>需要使用这些寄存器，这些寄存器的名字是XXX_EL12，对应的EL0/EL1寄存器是XXX_EL0/XXX_EL1。<br>之所以要使用别名寄存器访问EL1的寄存器，是因为VHE打开时，在EL2直接使用XXX_EL0/XXX_EL1<br>访问寄存器，实际访问到的是映射到的XXX_EL2寄存器。</p>
+<p>看下地址翻译相关的东西。ARM spec在描述地址翻译时引入了Translation regimes的概念，<br>ARM spec D8.1.2定义了一堆Translation regime。我们先不看安全(secure)和realm相关的<br>东西，目前只要关注Non-secure EL1&amp;EL0 translation regime和Non-secure EL2&amp;EL0 translation<br>regime的情况，对于Non-secure EL1&amp;EL0 translation regime，当存在Non-secure EL2时，<br>描述的是虚拟机的情况，需要做stage1和stage2翻译，对于Non-secure EL2&amp;EL0 translation<br>regime，描述的是host的情况，只需要做stage1的翻译。</p>
+<p>可以看到，只有EL1&amp;EL0 translation regime会使用到stage2翻译，就是只有虚拟机会使用<br>到stage2翻译，host(包括hypervisor)自己只会使用stage1翻译。</p>
+<p>Stage1翻译相关的寄存器是TTBR_EL1/TCR_EL1，只不过在host上实际使用的就是它们本身，<br>guest的stage1翻译实际使用的是TTBR_EL2/TCR_EL2。Stage2翻译相关的寄存器是VTTBR_EL2/<br>VTCR_EL2。</p>
+<p>todo: vtimer。</p>
+<p>todo: 普通外部中断虚拟化。</p>
+<p>todo: vLPI/vSGI/vNMI各自直接注入的逻辑。</p>
+<h2 id="PMU相关寄存器"><a href="#PMU相关寄存器" class="headerlink" title="PMU相关寄存器"></a>PMU相关寄存器</h2><p>PMU基本逻辑和寄存器定义在独立的文档中描述。</p>
+<h2 id="GIC"><a href="#GIC" class="headerlink" title="GIC"></a>GIC</h2><p>GIC有设备一侧的MMIO寄存器以及核一层的系统寄存器，这里只描述核一侧的系统寄存器。<br>GIC核一侧的系统寄存器主要有：ICC_XXX_ELn/ICV_XXX_ELn/ICH_XXX_ELn。</p>
+<p>ICC_SRE_ELn, system register enable。<br>ICC_PMR_ELn, priority mask register。<br>ICC_CTRL_ELn, control completion of interrupt。<br>ICC_IGRPEN1_ELn，interrupt group enable。</p>
+<p>需要在独立的文档中展开逻辑，再说吧。</p>
+<h2 id="SMMU"><a href="#SMMU" class="headerlink" title="SMMU"></a>SMMU</h2><p>在CPU侧没有寄存器。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/ARM64/" rel="tag"><i class="fa fa-tag"></i> ARM64</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/%E8%BD%AC%E8%BD%BD-ARM-Virtualization-Performance-and-Architecture-Implications/" rel="prev" title="转载-ARM Virtualization: Performance and Architecture Implications">
+      <i class="fa fa-chevron-left"></i> 转载-ARM Virtualization: Performance and Architecture Implications
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#CPU%E5%9F%BA%E7%A1%80%E9%85%8D%E7%BD%AE-CPU%E7%89%B9%E6%80%A7%E4%BD%8D-CPU%E7%89%B9%E6%80%A7%E5%BC%80%E5%85%B3%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">1.</span> <span class="nav-text">CPU基础配置&#x2F;CPU特性位&#x2F;CPU特性开关寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#GPR-%E4%B8%AD%E6%96%AD%E5%BC%82%E5%B8%B8-VMMA%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">2.</span> <span class="nav-text">GPR&#x2F;中断异常&#x2F;VMMA寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Timer%E7%9B%B8%E5%85%B3%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">3.</span> <span class="nav-text">Timer相关寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%99%9A%E6%8B%9F%E5%8C%96%E7%9B%B8%E5%85%B3%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">4.</span> <span class="nav-text">虚拟化相关寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PMU%E7%9B%B8%E5%85%B3%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">5.</span> <span class="nav-text">PMU相关寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#GIC"><span class="nav-number">6.</span> <span class="nav-text">GIC</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SMMU"><span class="nav-number">7.</span> <span class="nav-text">SMMU</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">270</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">95</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
