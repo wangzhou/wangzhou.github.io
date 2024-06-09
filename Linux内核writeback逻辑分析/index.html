@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文分析Linux内核的writeback的基本逻辑，分析依赖的内核版本是v6.8-rc5。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux内核writeback逻辑分析">
+<meta property="og:url" content="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8writeback%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文分析Linux内核的writeback的基本逻辑，分析依赖的内核版本是v6.8-rc5。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-06-09T09:33:40.000Z">
+<meta property="article:modified_time" content="2024-06-09T09:45:07.482Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta property="article:tag" content="文件系统">
+<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="Block子系统">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8writeback%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux内核writeback逻辑分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">有容乃大，无欲则刚</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">96</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">271</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8writeback%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux内核writeback逻辑分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2024-06-09 17:33:40 / 修改时间：17:45:07" itemprop="dateCreated datePublished" datetime="2024-06-09T17:33:40+08:00">2024-06-09</time>
+            </span>
+
+          
+            <div class="post-description">本文分析Linux内核的writeback的基本逻辑，分析依赖的内核版本是v6.8-rc5。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>一般情况下Linux的write系统调用是把数据写到page cache，随后会有专门的内核线程把<br>page cache里的脏数据写回到持久存储设备上。当脏数据超过一定的比例时，write系统调<br>用会同步等待一定的脏数据回写完成。</p>
+<p>Linux也提供了强制回刷脏数据的系统调用(它们的代码在kernel/fs/sync.c)，比如，sync()<br>把系统上所有分区上的脏数据写回硬盘(后面我们不区分ssd/hhd/nvme等不同的存储介质，<br>统一都称硬盘)，syncfs(fd)同步回刷fd所在的分区上的文件系统上的脏数据。</p>
+<p>Linux通过proc文件系统提供了writeback相关的配置接口，proc/sysfs提供了对应的统计参<br>数对外展示接口。</p>
+<h2 id="数据结构"><a href="#数据结构" class="headerlink" title="数据结构"></a>数据结构</h2><p>struct super_block *sb: 表示一个文件系统的实例。<br>struct backing_dev_info *bdi: 表示一个文件系统实例对应的回写设备, sb-&gt;s_bdi是其引用。<br>struct bdi_writeback *wb: 表示bdi上和writeback相关的数据，bdi上的wb_list收集所有<br>                          bdi_writeback。为啥bdi上会有多个bdi_writeback?<br>struct wb_writeback_work *work: 表示一个回写任务，挂在bdi_writeback的work_list。</p>
+<p>这里bdi/wb等都和block设备有关系，实际上bdi/wb的每个实例的初始化也和block设备有关<br>系，其初始化的调用路径是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">/* linux/block/genhd.c */</span><br><span class="line">__alloc_disk_node</span><br><span class="line">      /* linux/mm/backing-dev.c */</span><br><span class="line">  +-&gt; bdi_alloc</span><br><span class="line">    +-&gt; bdi_init</span><br><span class="line">          /* 根据是否支持cgroup writeback与否，有两个不同的版本 */</span><br><span class="line">      +-&gt; cgwb_bdi_init</span><br><span class="line">            /*</span><br><span class="line">             * 初始化bdi里的wb，回写相关的数据结构，参数配置，回写线程函数在这里</span><br><span class="line">             * 初始化。其中就包括：wb-&gt;b_dirty/b_io/b_more_io等，wb-&gt;dwork的wb_workfn,</span><br><span class="line">             * wb_workfn为回写workqueue上执行的函数。</span><br><span class="line">             */</span><br><span class="line">        +-&gt; wb_init</span><br></pre></td></tr></table></figure>
+
+<p>文件的inode会和page cache的描述address_space联系到一起，也会和文件的回写设备wb联<br>系到一起。这个联系是在fs/fs-writeback.c的__inode_attach_wb中建立的。</p>
+<h2 id="代码分析"><a href="#代码分析" class="headerlink" title="代码分析"></a>代码分析</h2><h3 id="write系统调用"><a href="#write系统调用" class="headerlink" title="write系统调用"></a>write系统调用</h3><p>先看write系统调用的基本逻辑，基本的调用逻辑如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">/* kernel/fs/read_write.c */</span><br><span class="line">ksys_write-&gt;vfs_write-&gt;new_sync_write-&gt;call_write_iter-&gt;ext4_file_write_iter</span><br><span class="line">-&gt;ext4_buffered_write_iter</span><br></pre></td></tr></table></figure>
+
+<p>如上逻辑，在ext4_buffered_write_iter中的generic_perform_write写page cache，并且<br>标记脏数据。其中的逻辑有：(以ext4为例说明)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">generic_perform_write</span><br><span class="line">  +-&gt; ext4_write_begin</span><br><span class="line">  +-&gt; 更新数据</span><br><span class="line">  +-&gt; ext4_write_end</span><br><span class="line">    +-&gt; block_write_end</span><br><span class="line">      +-&gt; __block_commit_write</span><br><span class="line">        +-&gt; -&gt; mark_buffer_dirty</span><br><span class="line">          +-&gt; __mark_inode_dirty</span><br><span class="line">            +-&gt; sb-&gt;s_op-&gt;dirty_inode /* 挂到哪个链表上了? */</span><br><span class="line">  +-&gt; balance_dirty_pages_ratelimited</span><br></pre></td></tr></table></figure>
+<p>标记脏页的逻辑在ext4_write_end里，其中会标记inode、对应页面为脏页、相关脏页相关<br>的统计数据等等。</p>
+<p>ext4_write_end之后有balance_dirty_pages_ratelimited，这个函数里会检测脏页的比例<br>是否超过一定比例，如果超过一定的比例，启动触发会写，并同步等待。(注意这里怎么同步<br>等待?)</p>
+<h3 id="syncfs等系统调用"><a href="#syncfs等系统调用" class="headerlink" title="syncfs等系统调用"></a>syncfs等系统调用</h3><p>syncfs的基本逻辑如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">/* kernel/sync.c */</span><br><span class="line">syncfs</span><br><span class="line">  +-&gt; sync_filesystem</span><br><span class="line">    +-&gt; sync_inodes_sb</span><br><span class="line">      +-&gt; bdi_split_work_to_wbs</span><br><span class="line">        +-&gt; wb_queue_work(wb, work)</span><br></pre></td></tr></table></figure>
+<p>syncfs(fd)把fd所在分区上的文件系统上的脏页写回硬盘，syncfs所在的线程把回写任务交<br>给内核writeback线程，然后同步等待，直到脏页回写完成解开syncfs的等待。</p>
+<h3 id="writeback内核线程"><a href="#writeback内核线程" class="headerlink" title="writeback内核线程"></a>writeback内核线程</h3><p>writeback线程的名字就是writeback，相关的代码路径在mm/backing-dev.c，内核初始化的<br>时候创建一个名字为writeback的unbound workqueue, default_bdi_init-&gt;alloc_workqueue。<br>创建的workqueue为bdi_wq，所以，系统里其它地方的回写任务会都发到bdi_wq。</p>
+<p>syncfs的分析中可以看出，回写任务最后通过wb_queue_work放到writeback的workqueue上<br>运行，workqueue执行的函数是wb_workfn。其中的具体逻辑是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">/* fs/fs-writeback.c */</span><br><span class="line">wb_workfn</span><br><span class="line">  +-&gt;wb_do_writeback</span><br><span class="line">    +-&gt; wb_writeback</span><br><span class="line">      +-&gt; writeback_sb_inodes。</span><br><span class="line">        +-&gt; __writeback_single_inode</span><br><span class="line">          +-&gt; do_writepages</span><br><span class="line">            +-&gt; mapping-&gt;a_ops-&gt;writepages(ext4_writepages)</span><br></pre></td></tr></table></figure>
+
+<p>对于syncfs，这里调用的是writeback_sb_inodes。注意，writeback_sb_inodes里，从<br>bdi_writeback-&gt;b_io里取出每个要会写的脏inode，依次执行__writeback_single_inode。<br>所以，这里要看write什么时候把脏页加到这个b_io上。</p>
+<p>另外，__writeback_single_inode会更新inode和实际的脏。do_writepages还在vfs的writeback<br>逻辑里，writepages已经到对应的文件系统回调函数里。注意这里ext4在处理了自己的逻辑后，<br>把请求转成bio，下发block层。</p>
+<p>具体文件系统中的处理逻辑，这里以ext4为例。这里的submit_bio已经进入block层。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ext4_writepages</span><br><span class="line">  +-&gt;ext4_do_writepages</span><br><span class="line">    +-&gt;ext4_io_submi</span><br><span class="line">         /* linux/block/blk-core.c */</span><br><span class="line">      +-&gt;submit_bio。</span><br></pre></td></tr></table></figure>
+
+<p>除了像sync这样由用户直接触发page cache回写，内核还有定时的回写任务。内核在wb_workfn<br>以及inode标脏(__mark_inode_dirty)的时候，通过一个delay workqueue任务，唤醒writeback<br>线程工作，其中delay时间是可以配置的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">wb_workfn/__mark_inode_dirty</span><br><span class="line">  +-&gt;wb_wakeup_delayed</span><br><span class="line">        /*</span><br><span class="line">         * timeout为dirty_writeback_internal通过一定的单位变化得到，这个值对应的</span><br><span class="line">         * 的接口是/proc/sys/vm/dirty_writeback_centisecs，单位是10ms，也就是proc</span><br><span class="line">         * 文件系统中的值除以100的秒数值，默认为5s。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; queue_delay_work(bdi_wq, &amp;wb-&gt;dwork, timeout)</span><br></pre></td></tr></table></figure>
+
+<h3 id="block层"><a href="#block层" class="headerlink" title="block层"></a>block层</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">submit_bio</span><br><span class="line">  +-&gt;submit_bio_noacct</span><br><span class="line">    +-&gt;submit_bio_noacct_nocheck</span><br><span class="line">      +-&gt;__submit_bio_noacct_mq</span><br><span class="line">        +-&gt;__submit_bio</span><br><span class="line">             /* 这里进入block层的多队列处理 */</span><br><span class="line">          +-&gt;blk_mq_submit_bio</span><br></pre></td></tr></table></figure>
+<p>注意，这里要搞清楚bio进来的请求是怎么缓存的？看起来是有个current-&gt;bio_list。如果<br>有current-&gt;bio_list，那么把请求挂在bio_list就返回了。</p>
+<h2 id="writeback相关的观测和控制手段"><a href="#writeback相关的观测和控制手段" class="headerlink" title="writeback相关的观测和控制手段"></a>writeback相关的观测和控制手段</h2><p>/proc/sys/vm目录有和writeback相关的配置，除了如上的dirty_writeback_centisecs还有：<br>dirty_backgroud_bytes表示周期性的回写线程在脏页超过对应的bytes时启动回写，默认是0，<br>dirty_backgroud_ratio表示周期性的回写线程在脏页超过对应的比例时启动回写，默认是<br>10%，dirty_bytes/dirty_ratio表示write系统调用在脏页超过一定的bytes或者比例时启动<br>回写，向drop_caches写1，释放相应的page cache。</p>
+<p>Linux内核在文件系统、writeback逻辑、block层里添加了大量的tracepoint，可以根据这些<br>tracepoint点观测系统的运行情况。基于tracepoint封装的block层观测工具有blktrace系列<br>(blktrace/blkparse/btt)工具等。</p>
+<p>对于blktrace，我们可以把trace点和btt输出中的各个点对应起来，其中trace_block_getrq<br>btt统计数据中G那个点，submit_bio_noacct_nocheck中的trace_block_bio_queue是Q点。<br>所以，Q2G的延时比较大，就是bio在bio_list堵了很久。</p>
+<p>writeback:global_dirty_state可以得到和脏页相关的统计数据。可以使用如下命令得到相<br>关统计log：perf trace -a -e writeback:global_dirty_state -o log –time</p>
+<p>内核在运行时，打点记录了相关writeback统计信息，并通过proc和sysfs导出了这些信息。<br>相关的接口有/proc/vmstat、/proc/meminfo、/sys/kernel/debug/bdi/x:x/stats。Linux<br>的一些工具基于如上接口封装出了使用更加方便的工具，比如sar、vmstat、iostat等。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"><i class="fa fa-tag"></i> Linux内核</a>
+              <a href="/tags/%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/" rel="tag"><i class="fa fa-tag"></i> 文件系统</a>
+              <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" rel="tag"><i class="fa fa-tag"></i> 内存管理</a>
+              <a href="/tags/Block%E5%AD%90%E7%B3%BB%E7%BB%9F/" rel="tag"><i class="fa fa-tag"></i> Block子系统</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ARM64%E7%B3%BB%E7%BB%9F%E5%AF%84%E5%AD%98%E5%99%A8%E6%80%BB%E7%BB%93/" rel="prev" title="ARM64系统寄存器总结">
+      <i class="fa fa-chevron-left"></i> ARM64系统寄存器总结
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-number">2.</span> <span class="nav-text">数据结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">代码分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#write%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-number">3.1.</span> <span class="nav-text">write系统调用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#syncfs%E7%AD%89%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8"><span class="nav-number">3.2.</span> <span class="nav-text">syncfs等系统调用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#writeback%E5%86%85%E6%A0%B8%E7%BA%BF%E7%A8%8B"><span class="nav-number">3.3.</span> <span class="nav-text">writeback内核线程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#block%E5%B1%82"><span class="nav-number">3.4.</span> <span class="nav-text">block层</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#writeback%E7%9B%B8%E5%85%B3%E7%9A%84%E8%A7%82%E6%B5%8B%E5%92%8C%E6%8E%A7%E5%88%B6%E6%89%8B%E6%AE%B5"><span class="nav-number">4.</span> <span class="nav-text">writeback相关的观测和控制手段</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">271</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">96</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
