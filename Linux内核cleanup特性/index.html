@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文梳理Linux内核中的cleanup特性的基本逻辑。梳理基于的内核版本是v6.10-rc4。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Linux内核cleanup特性">
+<meta property="og:url" content="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8cleanup%E7%89%B9%E6%80%A7/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文梳理Linux内核中的cleanup特性的基本逻辑。梳理基于的内核版本是v6.10-rc4。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2024-07-23T15:07:56.000Z">
+<meta property="article:modified_time" content="2024-07-23T15:09:20.681Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux内核">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8cleanup%E7%89%B9%E6%80%A7/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Linux内核cleanup特性 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">有容乃大，无欲则刚</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">96</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">274</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8cleanup%E7%89%B9%E6%80%A7/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Linux内核cleanup特性
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2024-07-23 23:07:56 / 修改时间：23:09:20" itemprop="dateCreated datePublished" datetime="2024-07-23T23:07:56+08:00">2024-07-23</time>
+            </span>
+
+          
+            <div class="post-description">本文梳理Linux内核中的cleanup特性的基本逻辑。梳理基于的内核版本是v6.10-rc4。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本介绍"><a href="#基本介绍" class="headerlink" title="基本介绍"></a>基本介绍</h2><p>Linux内核补丁“[v3,00/57] Scope-based Resource Management”向内核增加了资源自动释放<br>的机制，“小范围”内成对使用的资源可以直接使用这种机制，比如成对使用的内存申请、成对<br>使用的加锁和释放锁操作。</p>
+<p>这个特性的原理其实比较直白，就是使用了GCC里的cleanup属性，在定义变量的时候cleanup<br>属性容许为这个变量添加一个函数，GCC编译的时候在这个变量生命周期结束的地方插入对应<br>的函数调用。</p>
+<p>一个简单的C代码的示例如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;stdio.h&gt;</span><br><span class="line"></span><br><span class="line">void print(int *t)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;cleanup: %d\n&quot;, *t);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">void do_something(void)</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;do something\n&quot;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">int main()</span><br><span class="line">&#123;</span><br><span class="line">	printf(&quot;main function start\n&quot;);</span><br><span class="line">	int a __attribute__((__cleanup__(print))) = 10;</span><br><span class="line"></span><br><span class="line">	for (int i = 0; i &lt; 3;  i++) &#123;</span><br><span class="line">		int b __attribute__((__cleanup__(print))) = i;</span><br><span class="line">		do_something();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>编译运行的输出是：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">sherlock@m1:~/tests/cleanup$ ./a.out </span><br><span class="line">main function start</span><br><span class="line">do something</span><br><span class="line">cleanup: 0</span><br><span class="line">do something</span><br><span class="line">cleanup: 1</span><br><span class="line">do something</span><br><span class="line">cleanup: 2</span><br><span class="line">cleanup: 10</span><br></pre></td></tr></table></figure>
+<p>可以看出，a的生命周期是整个main函数，所以在最后调用print，b的生命周期是一次for循<br>环，所以for循环里，每次在do_something之后都会调用print。</p>
+<p>Linux内核用宏封装了如上特性，include cleanup.h后就可以直接使用。比如，我们可以把<br>kernel/sched/core.c的sched_getaffinity中原来保护cpumask_and()的锁的写法改成：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">guard(raw_spinlock_irqsave)(&amp;p-&gt;pi_lock);</span><br><span class="line">cpumask_and(mask, &amp;p-&gt;cpus_mask, cpu_active_mask);</span><br></pre></td></tr></table></figure>
+
+<h2 id="原理分析"><a href="#原理分析" class="headerlink" title="原理分析"></a>原理分析</h2><p>内核在include/linux/cleanup.h定义各种宏来封装cleanup属性，在各个头文件中，比如锁<br>的头文件中，使用cleanup.h中的宏定义class类型。所以，具体使用的时候，只要在文件里<br>include对应资源的头文件和cleanup.h就好。在需要使用cleanup的地方就可以直接用宏静态<br>定义对应class类型的对象变量。</p>
+<p>直接看cleanup.h中的宏会有点不直观。我们可以在编译内核或者驱动的时候加上V=1，这样<br>会打印出详细的编译命令，然后我们把对应的编译命令改成只做预编译，再次单独运行对应<br>的编译命令，得到的预编译后的文件看上去会比较直观。</p>
+<p>我们以一个简单的驱动编译为例看下，这个驱动的具体内容如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">#include &lt;linux/kernel.h&gt;</span><br><span class="line">#include &lt;linux/module.h&gt;</span><br><span class="line">#include &lt;linux/cleanup.h&gt;</span><br><span class="line"></span><br><span class="line">MODULE_LICENSE(&quot;Dual BSD/GPL&quot;);</span><br><span class="line"></span><br><span class="line">static int __init busyloop_init(void)</span><br><span class="line">&#123;</span><br><span class="line">	spinlock_t lock;</span><br><span class="line">	int tmp;</span><br><span class="line"></span><br><span class="line">	spin_lock_init(&amp;lock);</span><br><span class="line"></span><br><span class="line">	guard(spinlock_irq)(&amp;lock);</span><br><span class="line">	while (1) &#123;</span><br><span class="line">		tmp++;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">static void __exit busyloop_exit(void) &#123;&#125;</span><br><span class="line"></span><br><span class="line">module_init(busyloop_init);</span><br><span class="line">module_exit(busyloop_exit);</span><br><span class="line"></span><br><span class="line">MODULE_AUTHOR(&quot;Sherlock&quot;);</span><br><span class="line">MODULE_DESCRIPTION(&quot;The driver is for testing soft lockup&quot;);</span><br></pre></td></tr></table></figure>
+
+<p>加V=1编译的输出如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">sherlock@m1:~/tests/softlockup$ make V=1 -C ~/repos/linux M=`pwd` modules</span><br><span class="line">make: Entering directory &#x27;/home/sherlock/repos/linux&#x27;</span><br><span class="line">make --no-print-directory -C /home/sherlock/repos/linux \</span><br><span class="line">-f /home/sherlock/repos/linux/Makefile modules</span><br><span class="line">make -f ./scripts/Makefile.build obj=/home/sherlock/tests/softlockup need-builtin=1 need-modorder=1 </span><br><span class="line"># CC [M]  /home/sherlock/tests/softlockup/busyloop.o</span><br><span class="line">  gcc -Wp,-MMD,/home/sherlock/tests/softlockup/.busyloop.o.d  -nostdinc -I./arch/arm64/include -I./arch/arm64/include/generated  -I./include -I./arch/arm64/include/uapi -I./arch/arm64/include/generated/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/compiler-version.h -include ./include/linux/kconfig.h -include ./include/linux/compiler_types.h -D__KERNEL__ -mlittle-endian -DKASAN_SHADOW_SCALE_SHIFT= -fmacro-prefix-map=./= -std=gnu11 -fshort-wchar -funsigned-char -fno-common -fno-PIE -fno-strict-aliasing-mgeneral-regs-only -DCONFIG_CC_HAS_K_CONSTRAINT=1 -Wno-psabi -mabi=lp64 -fno-asynchronous-unwind-tables -fno-unwind-tables -mbranch-protection=pac-ret -Wa,-march=armv8.5-a -DARM64_ASM_ARCH=&#x27;&quot;armv8.5-a&quot;&#x27; -DKASAN_SHADOW_SCALE_SHIFT= -fno-delete-null-pointer-checks -O2 --param=allow-store-data-races=0 -fstack-protector-strong -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-stack-clash-protection -falign-functions=4 -fno-strict-overflow -fno-stack-check -fconserve-stack -Wall -Wundef -Werror=implicit-function-declaration -Werror=implicit-int -Werror=return-type -Werror=strict-prototypes -Wno-format-security -Wno-trigraphs -Wno-frame-address -Wno-address-of-packed-member -Wmissing-declarations -Wmissing-prototypes -Wframe-larger-than=2048 -Wno-main -Wvla -Wno-pointer-sign -Wcast-function-type -Wno-stringop-overflow -Wno-array-bounds -Wno-alloc-size-larger-than -Wimplicit-fallthrough=5 -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -Wextra -Wunused -Wno-unused-but-set-variable -Wno-unused-const-variable -Wno-packed-not-aligned -Wno-format-overflow -Wno-format-truncation -Wno-stringop-truncation -Wno-override-init -Wno-missing-field-initializers -Wno-type-limits -Wno-shift-negative-value -Wno-maybe-uninitialized -Wno-sign-compare -Wno-unused-parameter -g -fno-var-tracking -femit-struct-debug-baseonly -mstack-protector-guard=sysreg -mstack-protector-guard-reg=sp_el0 -mstack-protector-guard-offset=1224  -DMODULE  -DKBUILD_BASENAME=&#x27;&quot;busyloop&quot;&#x27; -DKBUILD_MODNAME=&#x27;&quot;busyloop&quot;&#x27; -D__KBUILD_MODNAME=kmod_busyloop -c -o /home/sherlock/tests/softlockup/busyloop.o /home/sherlock/tests/softlockup/busyloop.c  </span><br><span class="line"># cmd_gen_order /home/sherlock/tests/softlockup/modules.order</span><br><span class="line">  &#123;   echo /home/sherlock/tests/softlockup/busyloop.o; :; &#125; &gt; /home/sherlock/tests/softlockup/modules.order</span><br><span class="line">sh ./scripts/modules-check.sh /home/sherlock/tests/softlockup/modules.order</span><br><span class="line">make -f ./scripts/Makefile.modpost</span><br><span class="line"># MODPOST /home/sherlock/tests/softlockup/Module.symvers</span><br><span class="line">   scripts/mod/modpost -M        -o /home/sherlock/tests/softlockup/Module.symvers -T /home/sherlock/tests/softlockup/modules.order -i Module.symvers -e </span><br><span class="line">make -f ./scripts/Makefile.modfinal</span><br><span class="line"># CC [M]  /home/sherlock/tests/softlockup/busyloop.mod.o gcc -Wp,-MMD,/home/sherlock/tests/softlockup/.busyloop.mod.o.d -nostdinc -I./arch/arm64/include -I./arch/arm64/include/generated -I./include -I./arch/arm64/include/uapi -I./arch/arm64/include/generated/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/compiler-version.h -include ./include/linux/kconfig.h -include ./include/linux/compiler_types.h -D__KERNEL__ -mlittle-endian -DKASAN_SHADOW_SCALE_SHIFT= -fmacro-prefix-map=./= -std=gnu11 -fshort-wchar -funsigned-char -fno-common -fno-PIE -fno-strict-aliasing -mgeneral-regs-only -DCONFIG_CC_HAS_K_CONSTRAINT=1 -Wno-psabi -mabi=lp64 -fno-asynchronous-unwind-tables -fno-unwind-tables -mbranch-protection=pac-ret -Wa,-march=armv8.5-a -DARM64_ASM_ARCH=&#x27;&quot;armv8.5-a&quot;&#x27; -DKASAN_SHADOW_SCALE_SHIFT= -fno-delete-null-pointer-checks -O2 --param=allow-store-data-races=0 -fstack-protector-strong -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-stack-clash-protection -falign-functions=4 -fno-strict-overflow -fno-stack-check -fconserve-stack -Wall -Wundef -Werror=implicit-function-declaration -Werror=implicit-int -Werror=return-type -Werror=strict-prototypes -Wno-format-security -Wno-trigraphs -Wno-frame-address -Wno-address-of-packed-member -Wmissing-declarations -Wmissing-prototypes -Wframe-larger-than=2048 -Wno-main -Wvla -Wno-pointer-sign -Wcast-function-type -Wno-stringop-overflow -Wno-array-bounds -Wno-alloc-size-larger-than -Wimplicit-fallthrough=5 -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -Wextra -Wunused -Wno-unused-but-set-variable -Wno-unused-const-variable -Wno-packed-not-aligned -Wno-format-overflow -Wno-format-truncation -Wno-stringop-truncation -Wno-override-init -Wno-missing-field-initializers -Wno-type-limits -Wno-shift-negative-value -Wno-maybe-uninitialized -Wno-sign-compare -Wno-unused-parameter -g -fno-var-tracking -femit-struct-debug-baseonly -mstack-protector-guard=sysreg -mstack-protector-guard-reg=sp_el0 -mstack-protector-guard-offset=1224 -DMODULE -DKBUILD_BASENAME=&#x27;&quot;busyloop.mod&quot;&#x27; -DKBUILD_MODNAME=&#x27;&quot;busyloop&quot;&#x27; -D__KBUILD_MODNAME=kmod_busyloop -c -o /home/sherlock/tests/softlockup/busyloop.mod.o /home/sherlock/tests/softlockup/busyloop.mod.c</span><br><span class="line"># LD [M]  /home/sherlock/tests/softlockup/busyloop.ko</span><br><span class="line">  ld -r  -EL  -maarch64elf -z noexecstack   --build-id=sha1  -T scripts/module.lds -o /home/sherlock/tests/softlockup/busyloop.ko /home/sherlock/tests/softlockup/busyloop.o /home</span><br><span class="line">/sherlock/tests/softlockup/busyloop.mod.o</span><br><span class="line">make: Leaving directory &#x27;/home/sherlock/repos/linux&#x27;</span><br></pre></td></tr></table></figure>
+
+<p>我们进入内核源码路径，GCC的参数加上-E, 重新指定输出文件:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">gcc -E -Wp,-MMD,/home/sherlock/tests/softlockup/.busyloop.o.d  -nostdinc -I./arch/arm64/include -I./arch/arm64/include/generated  -I./include -I./arch/arm64/include/uapi -I./arch/arm64/include/generated/uapi -I./include/uapi -I./include/generated/uapi -include ./include/linux/compiler-version.h -include ./include/linux/kconfig.h -include ./include/linux/compiler_types.h -D__KERNEL__ -mlittle-endian -DKASAN_SHADOW_SCALE_SHIFT= -fmacro-prefix-map=./= -std=gnu11 -fshort-wchar -funsigned-char -fno-common -fno-PIE -fno-strict-aliasing-mgeneral-regs-only -DCONFIG_CC_HAS_K_CONSTRAINT=1 -Wno-psabi -mabi=lp64 -fno-asynchronous-unwind-tables -fno-unwind-tables -mbranch-protection=pac-ret -Wa,-march=armv8.5-a -DARM64_ASM_ARCH=&#x27;&quot;armv8.5-a&quot;&#x27; -DKASAN_SHADOW_SCALE_SHIFT= -fno-delete-null-pointer-checks -O2 --param=allow-store-data-races=0 -fstack-protector-strong -fno-omit-frame-pointer -fno-optimize-sibling-calls -fno-stack-clash-protection -falign-functions=4 -fno-strict-overflow -fno-stack-check -fconserve-stack -Wall -Wundef -Werror=implicit-function-declaration -Werror=implicit-int -Werror=return-type -Werror=strict-prototypes -Wno-format-security -Wno-trigraphs -Wno-frame-address -Wno-address-of-packed-member -Wmissing-declarations -Wmissing-prototypes -Wframe-larger-than=2048 -Wno-main -Wvla -Wno-pointer-sign -Wcast-function-type -Wno-stringop-overflow -Wno-array-bounds -Wno-alloc-size-larger-than -Wimplicit-fallthrough=5 -Werror=date-time -Werror=incompatible-pointer-types -Werror=designated-init -Wextra -Wunused -Wno-unused-but-set-variable -Wno-unused-const-variable -Wno-packed-not-aligned -Wno-format-overflow -Wno-format-truncation -Wno-stringop-truncation -Wno-override-init -Wno-missing-field-initializers -Wno-type-limits -Wno-shift-negative-value -Wno-maybe-uninitialized -Wno-sign-compare -Wno-unused-parameter -g -fno-var-tracking -femit-struct-debug-baseonly -mstack-protector-guard=sysreg -mstack-protector-guard-reg=sp_el0 -mstack-protector-guard-offset=1224  -DMODULE  -DKBUILD_BASENAME=&#x27;&quot;busyloop&quot;&#x27; -DKBUILD_MODNAME=&#x27;&quot;busyloop&quot;&#x27; -D__KBUILD_MODNAME=kmod_busyloop -c -o /home/sherlock/tests/softlockup/busyloop.i /home/sherlock/tests/softlockup/busyloop.c  </span><br></pre></td></tr></table></figure>
+<p>可以看到在busyloop.i中展开guard()的结果:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">[...]</span><br><span class="line"></span><br><span class="line">typedef struct &#123; spinlock_t *lock; ; &#125; class_spinlock_irq_t; static inline __attribute__((__gnu_inline__)) __attribute__((__unused__)) __attribute__((__no_instrument_function__)) void class_spinlock_irq_destructor(class_spinlock_irq_t *_T) &#123; if (_T-&gt;lock) &#123; spin_unlock_irq(_T-&gt;lock); &#125; &#125; static inline __attribute__((__gnu_inline__)) __attribute__((__unused__)) __attribute__((__no_instrument_function__)) void *class_spinlock_irq_lock_ptr(class_spinlock_irq_t *_T) &#123; return _T-&gt;lock; &#125; static inline __attribute__((__gnu_inline__)) __attribute__((__unused__)) __attribute__((__no_instrument_function__)) class_spinlock_irq_t class_spinlock_irq_constructor(spinlock_t *l) &#123; class_spinlock_irq_t _t = &#123; .lock = l &#125;, *_T = &amp;_t; spin_lock_irq(_T-&gt;lock); return _t; &#125;</span><br><span class="line"></span><br><span class="line">[...]</span><br><span class="line"></span><br><span class="line">static int __attribute__((__section__(&quot;.init.text&quot;))) busyloop_init(void)</span><br><span class="line">&#123;</span><br><span class="line"> spinlock_t lock;</span><br><span class="line"> int tmp;</span><br><span class="line"></span><br><span class="line"> do &#123; spinlock_check(&amp;lock); *(&amp;lock) = (spinlock_t) &#123; &#123; .rlock = &#123; .raw_lock = &#123; &#123; .val = &#123; (0) &#125; &#125; &#125;, &#125; &#125; &#125;; &#125; while (0);</span><br><span class="line"></span><br><span class="line"> class_spinlock_irq_t __UNIQUE_ID_guard339 __attribute__((__cleanup__(class_spinlock_irq_destructor))) = class_spinlock_irq_constructor(&amp;lock);</span><br><span class="line"> while (1) &#123;</span><br><span class="line">  tmp++;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">[...]</span><br></pre></td></tr></table></figure>
+<p>从上面的宏展开可以看到，guard静态定义了一个类型为class_spinlock_irq_t的匿名对象，<br>在初始化函数里把锁指针传入对象中，并调用下加锁函数。在cleanup函数中获得锁指针，并<br>在cleanup函数中调用释放锁的函数。因为匿名对象的生命周期是busyloop_init这个函数，<br>所以在这个函数结束的时候会调用cleanup函数。</p>
+<p>如果busyloop_init变成了如下，只想对tmp和tmp1上锁，那么就需要使用scoped_guard宏，<br>所示如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">static int __init busyloop_init(void)</span><br><span class="line">&#123;</span><br><span class="line">	spinlock_t lock;</span><br><span class="line">	spinlock_t s_lock;</span><br><span class="line">	int tmp, tmp1, tmp2;</span><br><span class="line"></span><br><span class="line">	spin_lock_init(&amp;lock);</span><br><span class="line"></span><br><span class="line">	guard(spinlock_irq)(&amp;lock);</span><br><span class="line">	while (1) &#123;</span><br><span class="line">		scoped_guard(spinlock_irq, &amp;s_lock) &#123;</span><br><span class="line">			tmp++;</span><br><span class="line">			tmp1++;</span><br><span class="line">		&#125;</span><br><span class="line">		tmp2++;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>宏展开是这样的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">static int __attribute__((__section__(&quot;.init.text&quot;))) busyloop_init(void)</span><br><span class="line">&#123;</span><br><span class="line"> spinlock_t lock;</span><br><span class="line"> spinlock_t s_lock;</span><br><span class="line"> int tmp, tmp1, tmp2;</span><br><span class="line"></span><br><span class="line"> do &#123; spinlock_check(&amp;lock); *(&amp;lock) = (spinlock_t) &#123; &#123; .rlock = &#123; .raw_lock = &#123; &#123; .val = &#123; (0) &#125; &#125; &#125;, &#125; &#125; &#125;; &#125; while (0);</span><br><span class="line"></span><br><span class="line"> class_spinlock_irq_t __UNIQUE_ID_guard339 __attribute__((__cleanup__(class_spinlock_irq_destructor))) = class_spinlock_irq_constructor(&amp;lock);</span><br><span class="line"> while (1) &#123;</span><br><span class="line">  for (class_spinlock_irq_t scope __attribute__((__cleanup__(class_spinlock_irq_destructor))) = class_spinlock_irq_constructor(&amp;s_lock), *done = ((void *)0); class_spinlock_irq_lock_ptr(&amp;scope) &amp;&amp; !done; done = (void *)1) &#123;</span><br><span class="line">   tmp++;</span><br><span class="line">   tmp1++;</span><br><span class="line">  &#125;</span><br><span class="line">  tmp2++;</span><br><span class="line"> &#125;</span><br><span class="line"></span><br><span class="line">	return 0;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>如果scoped_guard这里换成guard，会变成在每次while循环中对tmp/tmp1/tmp2加锁和释放锁。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/Linux%E5%86%85%E6%A0%B8/" rel="tag"><i class="fa fa-tag"></i> Linux内核</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/Linux%E5%86%85%E6%A0%B8writeback%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/" rel="prev" title="Linux内核writeback逻辑分析">
+      <i class="fa fa-chevron-left"></i> Linux内核writeback逻辑分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/Linux%E5%86%85%E6%A0%B8ARM64-cpufeature%E5%92%8Cerrata%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="next" title="Linux内核ARM64 cpufeature和errata的基本逻辑">
+      Linux内核ARM64 cpufeature和errata的基本逻辑 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E4%BB%8B%E7%BB%8D"><span class="nav-number">1.</span> <span class="nav-text">基本介绍</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8E%9F%E7%90%86%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">原理分析</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">274</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">96</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2024</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
