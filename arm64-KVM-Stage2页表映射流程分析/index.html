@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="分析下ARM64 KVM stage2页表page table walk的逻辑。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ARM64 KVM Stage2页表映射流程分析">
+<meta property="og:url" content="http://wangzhou.github.io/arm64-KVM-Stage2%E9%A1%B5%E8%A1%A8%E6%98%A0%E5%B0%84%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="分析下ARM64 KVM stage2页表page table walk的逻辑。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-08T19:53:46.000Z">
+<meta property="article:modified_time" content="2026-05-19T16:12:24.209Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="ARM64">
+<meta property="article:tag" content="虚拟化">
+<meta property="article:tag" content="KVM">
+<meta property="article:tag" content="内存管理">
+<meta property="article:tag" content="页表">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/arm64-KVM-Stage2%E9%A1%B5%E8%A1%A8%E6%98%A0%E5%B0%84%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ARM64 KVM Stage2页表映射流程分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">应无所住 而生其心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">105</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">295</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/arm64-KVM-Stage2%E9%A1%B5%E8%A1%A8%E6%98%A0%E5%B0%84%E6%B5%81%E7%A8%8B%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ARM64 KVM Stage2页表映射流程分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2026-05-09 03:53:46" itemprop="dateCreated datePublished" datetime="2026-05-09T03:53:46+08:00">2026-05-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-05-20 00:12:24" itemprop="dateModified" datetime="2026-05-20T00:12:24+08:00">2026-05-20</time>
+              </span>
+
+          
+            <div class="post-description">分析下ARM64 KVM stage2页表page table walk的逻辑。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>Stage2页表使用一个通用walker框架+回调机制，通过kvm_pgtable_walk()递归遍历每一级<br>页表，在不同的访问点调用回调函数完成映射。kvm_pgtable_stage2_map是入口，它复用<br>stage2_map_walker作为回调。</p>
+<p>我们这里重点分析页表映射的流程，其中核心就是使用page table walker，一定要注意哪里<br>是框架逻辑，哪里是stage2页表map的具体业务逻辑。ARM KVM里还有很多使用walker的业务<br>逻辑，比如，stage2页表unmap、改页表属性、配置页表young属性、stage2 flush、stage2 split、<br>stage2 destroy range，dump stage页表等，所有这些都是对给定IPA/size操作对应stage2<br>页表的行为。</p>
+<h2 id="关键数据结构"><a href="#关键数据结构" class="headerlink" title="关键数据结构"></a>关键数据结构</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 虚机stage2 page table的全局参数。</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">kvm_pgtable</span> &#123;</span></span><br><span class="line">    u32   ia_bits;       <span class="comment">// IPA地址宽度</span></span><br><span class="line">    s8    start_level;   <span class="comment">// 起始级数</span></span><br><span class="line">    <span class="keyword">kvm_pteref_t</span> pgd;    <span class="comment">// 指向PGD页</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_pgtable_mm_ops</span> *<span class="title">mm_ops</span>;</span>  <span class="comment">// 物理/虚拟地址转换、页表内存分配/释放回调等</span></span><br><span class="line">    <span class="class"><span class="keyword">enum</span> <span class="title">kvm_pgtable_stage2_flags</span> <span class="title">flags</span>;</span></span><br><span class="line">    <span class="keyword">kvm_pgtable_force_pte_cb_t</span> force_pte_cb;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_s2_mmu</span> *<span class="title">mmu</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * walker框架的核心数据结构，注意，cb/arg是针对具体walker业务的回调函数和回调函数参数。</span></span><br><span class="line"><span class="comment"> * 比如，map的walker和split的walker，使用同一个walker框架，但是处理的业务不一样。</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">kvm_pgtable_walker</span> &#123;</span></span><br><span class="line">    <span class="keyword">const</span> <span class="keyword">kvm_pgtable_visitor_fn_t</span> cb;</span><br><span class="line">    <span class="keyword">void</span> * <span class="keyword">const</span>                   arg;</span><br><span class="line">    <span class="keyword">const</span> <span class="class"><span class="keyword">enum</span> <span class="title">kvm_pgtable_walk_flags</span> <span class="title">flags</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// walker框架，visit这一层的核心数据结构。</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">kvm_pgtable_visit_ctx</span> &#123;</span></span><br><span class="line">    <span class="keyword">kvm_pte_t</span> *ptep;   <span class="comment">// 当前PTE指针</span></span><br><span class="line">    <span class="keyword">kvm_pte_t</span> old;     <span class="comment">// 当前PTE旧值</span></span><br><span class="line">    <span class="keyword">void</span>      *arg;    <span class="comment">// walker-&gt;arg</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_pgtable_mm_ops</span> *<span class="title">mm_ops</span>;</span></span><br><span class="line">    u64 start, addr, end;  <span class="comment">// 本次映射的起止地址、当前walk到的地址</span></span><br><span class="line">    s8  level;             <span class="comment">// 当前页表层数</span></span><br><span class="line">    <span class="class"><span class="keyword">enum</span> <span class="title">kvm_pgtable_walk_flags</span> <span class="title">flags</span>;</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 这个是stage2 map walker的私有参数。注意，这个不是框架的一部分。</span></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">stage2_map_data</span> &#123;</span></span><br><span class="line">    <span class="keyword">const</span> u64 phys;     <span class="comment">// 起始物理地址</span></span><br><span class="line">    <span class="keyword">kvm_pte_t</span> attr;     <span class="comment">// 预计算的 PTE 属性</span></span><br><span class="line">    u8  owner_id;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">kvm_s2_mmu</span> *<span class="title">mmu</span>;</span></span><br><span class="line">    <span class="keyword">void</span> *memcache;     <span class="comment">// 页表页分配缓存</span></span><br><span class="line">    <span class="keyword">bool</span> force_pte;     <span class="comment">// 强制页级映射(禁止 block)</span></span><br><span class="line">    <span class="keyword">bool</span> annotation;    <span class="comment">// 仅更新 owner_id</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="页表级数与block支持"><a href="#页表级数与block支持" class="headerlink" title="页表级数与block支持"></a>页表级数与block支持</h3><p>页表的输入决定页表的级数，stage1上是VA，stage2上就是IPA。IPA是虚机的物理地址，所以<br>stage2上就是虚机物理地址位数决定S2页表级数。</p>
+<p>例如，对于一个4KB基础页，48bit的IPA，页表结构大概如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"> 63    48 47    39 38    30 29    21 20    12 11     0</span><br><span class="line">┌────────┬────────┬────────┬────────┬────────┬─────────┐</span><br><span class="line">│ IGNORE │  L0[9] │  L1[9] │  L2[9] │  L3[9] │  OFF[12]│</span><br><span class="line">└────────┴───┬────┴───┬────┴───┬────┴───┬────┴───┬─────┘</span><br><span class="line">             │        │        │        │        │</span><br><span class="line"> TTBR ──►   PGD ───► PUD ───► PMD ───► PTE       │</span><br><span class="line">             │        │        │        │        │</span><br><span class="line">             └────────┴────────┴────────┴────────┘</span><br><span class="line">                                                 │</span><br><span class="line">                                                 ▼</span><br><span class="line">                                              PA[47:0]</span><br></pre></td></tr></table></figure>
+<p>如图，它是一个4级页表，每一级页表项的索引来自对应的VA/IPA域段。ARM spec上对于一个<br>页表项，有三个概念page/block/table，page是指叶子节点，比如这里的PTE就是一个page，<br>block是指中间的页表项，但是block已经没有再下一级，所以block就是我们一般说的传统<br>大页(这里不包括contig hugetlb)，table是中间的页表项，但是它还有下一级页表项。</p>
+<h3 id="PTE属性位-stage-2"><a href="#PTE属性位-stage-2" class="headerlink" title="PTE属性位(stage-2)"></a>PTE属性位(stage-2)</h3><table>
+<thead>
+<tr>
+<th>位域</th>
+<th>宏</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>bit[0]</td>
+<td><code>KVM_PTE_VALID</code></td>
+<td>PTE有效位</td>
+</tr>
+<tr>
+<td>bit[1]</td>
+<td><code>KVM_PTE_TYPE</code></td>
+<td>0=BLOCK, 1=PAGE/TABLE</td>
+</tr>
+<tr>
+<td>bit[5:2]</td>
+<td><code>KVM_PTE_LEAF_ATTR_LO_S2_MEMATTR</code></td>
+<td>内存属性 (Device/NC/Normal)</td>
+</tr>
+<tr>
+<td>bit[6]</td>
+<td><code>KVM_PTE_LEAF_ATTR_LO_S2_S2AP_R</code></td>
+<td>读权限</td>
+</tr>
+<tr>
+<td>bit[7]</td>
+<td><code>KVM_PTE_LEAF_ATTR_LO_S2_S2AP_W</code></td>
+<td>写权限</td>
+</tr>
+<tr>
+<td>bit[9:8]</td>
+<td><code>KVM_PTE_LEAF_ATTR_LO_S2_SH</code></td>
+<td>可共享性</td>
+</tr>
+<tr>
+<td>bit[10]</td>
+<td><code>KVM_PTE_LEAF_ATTR_LO_S2_AF</code></td>
+<td>Access Flag</td>
+</tr>
+<tr>
+<td>bit[52]</td>
+<td><code>KVM_PTE_LEAF_ATTR_CONT</code></td>
+<td>连续 PTE 提示</td>
+</tr>
+<tr>
+<td>bit[54:53]</td>
+<td><code>KVM_PTE_LEAF_ATTR_HI_S2_XN</code></td>
+<td>执行权限</td>
+</tr>
+<tr>
+<td>bit[58:55]</td>
+<td><code>KVM_PTE_LEAF_ATTR_HI_SW</code></td>
+<td>软件位(保存prot信息)</td>
+</tr>
+<tr>
+<td>bit[10]</td>
+<td><code>KVM_INVALID_PTE_LOCKED</code></td>
+<td>BBM 锁标记(仅在valid=0时有效)</td>
+</tr>
+</tbody></table>
+<h2 id="完整调用链分析"><a href="#完整调用链分析" class="headerlink" title="完整调用链分析"></a>完整调用链分析</h2><p>以stage2缺页处理流程分析下stage2 page table walk的逻辑。user_mem_abort的结尾进行<br>stage2 map的建立，这个时候已经有IPA、PA、size，这里的逻辑只是建立对应的页表。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// pgt来自vcpu-&gt;arch.hw_mmu-&gt;pgt，一路传递下去，S2页表相关的内存管理回调函数</span></span><br><span class="line">kvm_pgtable_stage2_map(struct kvm_pgtable *pgt, ...)</span><br><span class="line">        <span class="comment">/*</span></span><br><span class="line"><span class="comment">         * struct kvm_pgtable_walker</span></span><br><span class="line"><span class="comment">         *    +-&gt; cb  = stage2_map_walker  &lt;-- 实际pgtable walk时的回调，不同功能，回调不同</span></span><br><span class="line"><span class="comment">         *    +-&gt; arg = struct stage2_map_data  &lt;-- 物理地址</span></span><br><span class="line"><span class="comment">         *    ...</span></span><br><span class="line"><span class="comment">         */</span></span><br><span class="line">    +-&gt; kvm_pgtable_walk(pgt, addr, size, &amp;walker)</span><br><span class="line">            <span class="comment">/*</span></span><br><span class="line"><span class="comment">             * 转换下数据结构，把walker封装到kvm_pgtable_walk_data里。同时处理L0</span></span><br><span class="line"><span class="comment">             * 页表是多页的情况。一般的，比如4K 48bit IPA，L0一个页，这个逻辑并</span></span><br><span class="line"><span class="comment">             * 没有发生作用。</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">        +-&gt; _kvm_pgtable_walk(pgt, &amp;walk_data)</span><br><span class="line">                <span class="comment">/*</span></span><br><span class="line"><span class="comment">                 * 这里是开始walk的核心入口，语义是从L0页表开始walk，pteref是</span></span><br><span class="line"><span class="comment">                 * PGD页表项所在页的指针, start_level是0。一般，可以认为这里是</span></span><br><span class="line"><span class="comment">                 * walk的起点。</span></span><br><span class="line"><span class="comment">                 */</span></span><br><span class="line">            +-&gt; __kvm_pgtable_walk(data, pgt-&gt;mm_ops, pteref, pgt-&gt;start_level)</span><br></pre></td></tr></table></figure>
+
+<p>分析walk核心函数__kvm_pgtable_walk。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment"> * 这个函数会被递归调用，所以它的语义是，给定IPA/size/当前walk页表所在page的基地址，</span></span><br><span class="line"><span class="comment"> * 创建页表映射。</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line">__kvm_pgtable_walk</span><br><span class="line">        <span class="comment">// 从IPA的L0域段计算出具体PGD页表项的位置</span></span><br><span class="line">    +-&gt; <span class="keyword">for</span> (idx = kvm_pgtable_idx(data, level); idx &lt; PTRS_PER_PTE; ++idx)</span><br><span class="line">            <span class="keyword">kvm_pteref_t</span> pteref = &amp;pgtable[idx];</span><br><span class="line">            <span class="comment">/*</span></span><br><span class="line"><span class="comment">             * 注意，输入的IPA和size，walk中会更新下次map的新IPA，如果size很大，</span></span><br><span class="line"><span class="comment">             * 会在这个循环里多次调用visit函数。</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">            <span class="keyword">if</span> (data-&gt;addr &gt;= data-&gt;end)</span><br><span class="line">                    <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">            <span class="comment">/*</span></span><br><span class="line"><span class="comment">             * 注意，这里给的是一个页表项，已经找到IPA在这一级页表对应的页表项。</span></span><br><span class="line"><span class="comment">             * visit这个函数的核心作用是处理当前这个页表项。</span></span><br><span class="line"><span class="comment">             */</span></span><br><span class="line">            __kvm_pgtable_visit(data, mm_ops, pteref, level);</span><br><span class="line">                    <span class="comment">/*</span></span><br><span class="line"><span class="comment">                     * 这个页表项是table，检测给的参数是否可以在这一级直接按block做map，</span></span><br><span class="line"><span class="comment">                     * 如果可以，就按block做map。</span></span><br><span class="line"><span class="comment">                     *</span></span><br><span class="line"><span class="comment">                     * 不管是否可以按block map，下面都会把这个pte读出来做处理。</span></span><br><span class="line"><span class="comment">                     */</span></span><br><span class="line">                +-&gt; ret = kvm_pgtable_visitor_cb(data, &amp;ctx, KVM_PGTABLE_WALK_TABLE_PRE)</span><br><span class="line">                        ...</span><br><span class="line">                    +-&gt; stage2_map_walk_table_pre</span><br><span class="line">                        +-&gt; stage2_leaf_mapping_allowed</span><br><span class="line">                        +-&gt; stage2_map_walker_try_leaf</span><br><span class="line"></span><br><span class="line">                    <span class="comment">/*</span></span><br><span class="line"><span class="comment">                     * 这个页表项是block、page或者是空的。注意，不管直接page map</span></span><br><span class="line"><span class="comment">                     * 还是创建table，下面都会把这个pte重新load出来做处理。</span></span><br><span class="line"><span class="comment">                     */</span></span><br><span class="line">                +-&gt; ret = kvm_pgtable_visitor_cb(data, &amp;ctx, KVM_PGTABLE_WALK_LEAF)</span><br><span class="line">                        ...</span><br><span class="line">                    +-&gt; stage2_map_walk_leaf</span><br><span class="line">                            <span class="comment">// 如果可以做page映射，就在这里做，做完walk_leaf结束了。</span></span><br><span class="line">                        +-&gt; stage2_map_walker_try_leaf</span><br><span class="line">                            <span class="comment">/* </span></span><br><span class="line"><span class="comment">                             * 如果上面做不了page map，可以走到这里说明也不是table，</span></span><br><span class="line"><span class="comment">                             * 那就是当前这一级页表太大了，需要继续在下一级页表里</span></span><br><span class="line"><span class="comment">                             * 做映射。所以，这里分配下一级页表的内存，更新当前页表项</span></span><br><span class="line"><span class="comment">                             * 指向下一级页表。</span></span><br><span class="line"><span class="comment">                             *</span></span><br><span class="line"><span class="comment">                             * 这里其实是创建一个table。</span></span><br><span class="line"><span class="comment">                             */</span></span><br><span class="line">                        +-&gt; childp = mm_ops-&gt;zalloc_page(data-&gt;memcache)</span><br><span class="line">                            stage2_try_break_pte(ctx, data-&gt;mmu)</span><br><span class="line">                            <span class="keyword">new</span> = kvm_init_table_pte(childp, mm_ops)</span><br><span class="line">                            stage2_make_pte(ctx, <span class="keyword">new</span>)</span><br><span class="line">                            </span><br><span class="line">                +-&gt; ctx.old = READ_ONCE(*ptep)</span><br><span class="line">                    table = kvm_pte_table(ctx.old, level)</span><br><span class="line">                    </span><br><span class="line">                    <span class="comment">// 根据之前的ret值，决定是否需要继续walk。这似乎有点bug。</span></span><br><span class="line">                +-&gt; <span class="keyword">if</span> (!kvm_pgtable_walk_continue(data-&gt;walker, ret))</span><br><span class="line">                        <span class="keyword">goto</span> out;</span><br><span class="line"></span><br><span class="line">                    <span class="comment">/*</span></span><br><span class="line"><span class="comment">                     * 不是table，说明上面做了page或block map。不需要继续walk，</span></span><br><span class="line"><span class="comment">                     * 但是, size可能比较大，可以在同级页表继续visit。</span></span><br><span class="line"><span class="comment">                     */</span></span><br><span class="line">                +-&gt; <span class="keyword">if</span> (!table) &#123;</span><br><span class="line">                             data-&gt;addr = ALIGN_DOWN(data-&gt;addr, kvm_granule_size(level));</span><br><span class="line">                             data-&gt;addr += kvm_granule_size(level);</span><br><span class="line">                             <span class="keyword">goto</span> out;</span><br><span class="line">                     &#125;</span><br><span class="line"></span><br><span class="line">                    <span class="comment">// 得到下一级页表所在页的基地址。</span></span><br><span class="line">                +-&gt; childp = (<span class="keyword">kvm_pteref_t</span>)kvm_pte_follow(ctx.old, mm_ops)</span><br><span class="line"></span><br><span class="line">                    <span class="comment">// 进入下一级页表walk。</span></span><br><span class="line">                +-&gt; ret = __kvm_pgtable_walk(data, mm_ops, childp, level + <span class="number">1</span>)</span><br><span class="line"></span><br><span class="line">                +-&gt; <span class="keyword">if</span> (!kvm_pgtable_walk_continue(data-&gt;walker, ret))</span><br><span class="line">                             <span class="keyword">goto</span> out;</span><br><span class="line"></span><br><span class="line">                +-&gt; kvm_pgtable_visitor_cb(data, &amp;ctx, KVM_PGTABLE_WALK_TABLE_POST)</span><br></pre></td></tr></table></figure>
+
+<h3 id="Break-Before-Make机制"><a href="#Break-Before-Make机制" class="headerlink" title="Break-Before-Make机制"></a>Break-Before-Make机制</h3><p>ARM架构要求修改PTE映射时遵守BBM序列。也就是改pte的顺序应该是：<br>锁页表-&gt; invalid页表 -&gt; TLBI -&gt; 更新页表 -&gt; 解锁页表。上面stage2_map_walker_try_leaf<br>以及stage2_map_walk_leaf涉及PTE修改的地方都需要遵守这个流程，下面具体看下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">// 原子写入KVM_INVALID_PTE_LOCKED(BIT(10)置1)替换旧PTE，实际上是一起做了前两步。</span><br><span class="line">stage2_try_set_pte(ctx, KVM_INVALID_PTE_LOCKED)</span><br><span class="line"></span><br><span class="line">// 有些场景是可以跳过BBM的。</span><br><span class="line">if (!kvm_pgtable_walk_skip_bbm_tlbi(ctx))</span><br><span class="line">    // 如有修改的是一个table，那么这个table覆盖的IPA都要做TLBI。</span><br><span class="line">    if (kvm_pte_table(ctx-&gt;old, ctx-&gt;level))</span><br><span class="line">            kvm_tlb_flush_vmid_range(mmu, addr, size);</span><br><span class="line">    // 如果修改的是page/block，只有对应的page/block做TLBI就好。</span><br><span class="line">    else if (kvm_pte_valid(ctx-&gt;old))</span><br><span class="line">            kvm_call_hyp(__kvm_tlb_flush_vmid_ipa, mmu, ctx-&gt;addr, ctx-&gt;level); </span><br><span class="line"></span><br><span class="line">// 释放page的引用计数。</span><br><span class="line">put_page()</span><br><span class="line"></span><br><span class="line">// 构建新页表项。</span><br><span class="line">new = kvm_init_table_pte(childp, mm_ops)</span><br><span class="line">// 实际上一起做了后面两步。</span><br><span class="line">stage2_make_pte(ctx, new)</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/ARM64/" rel="tag"><i class="fa fa-tag"></i> ARM64</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"><i class="fa fa-tag"></i> 虚拟化</a>
+              <a href="/tags/KVM/" rel="tag"><i class="fa fa-tag"></i> KVM</a>
+              <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" rel="tag"><i class="fa fa-tag"></i> 内存管理</a>
+              <a href="/tags/%E9%A1%B5%E8%A1%A8/" rel="tag"><i class="fa fa-tag"></i> 页表</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ARM64%E5%9B%BA%E4%BB%B6%E4%BC%98%E5%85%88SEA-SEI-RAS%E5%A4%84%E7%90%86%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="prev" title="ARM64固件优先SEA/SEI RAS处理基本逻辑">
+      <i class="fa fa-chevron-left"></i> ARM64固件优先SEA/SEI RAS处理基本逻辑
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/KVM-ARM64-FP-SIMD-Lazy-Switch%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/" rel="next" title="KVM ARM64 FP/SIMD Lazy Switch机制原理">
+      KVM ARM64 FP/SIMD Lazy Switch机制原理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%85%B3%E9%94%AE%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84"><span class="nav-number">2.</span> <span class="nav-text">关键数据结构</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E9%A1%B5%E8%A1%A8%E7%BA%A7%E6%95%B0%E4%B8%8Eblock%E6%94%AF%E6%8C%81"><span class="nav-number">2.1.</span> <span class="nav-text">页表级数与block支持</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#PTE%E5%B1%9E%E6%80%A7%E4%BD%8D-stage-2"><span class="nav-number">2.2.</span> <span class="nav-text">PTE属性位(stage-2)</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AE%8C%E6%95%B4%E8%B0%83%E7%94%A8%E9%93%BE%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">完整调用链分析</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Break-Before-Make%E6%9C%BA%E5%88%B6"><span class="nav-number">3.1.</span> <span class="nav-text">Break-Before-Make机制</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">295</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">105</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

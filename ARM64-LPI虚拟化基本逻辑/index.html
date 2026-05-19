@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文整理ARM KVM中vLPI实现的基本逻辑。代码基于6.14-rc5内核。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ARM64 LPI虚拟化基本逻辑">
+<meta property="og:url" content="http://wangzhou.github.io/ARM64-LPI%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文整理ARM KVM中vLPI实现的基本逻辑。代码基于6.14-rc5内核。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-04-12T11:45:28.000Z">
+<meta property="article:modified_time" content="2026-04-02T19:43:14.180Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="中断">
+<meta property="article:tag" content="虚拟化">
+<meta property="article:tag" content="KVM">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/ARM64-LPI%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ARM64 LPI虚拟化基本逻辑 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">应无所住 而生其心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">105</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">295</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/ARM64-LPI%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ARM64 LPI虚拟化基本逻辑
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-04-12 19:45:28" itemprop="dateCreated datePublished" datetime="2025-04-12T19:45:28+08:00">2025-04-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-03 03:43:14" itemprop="dateModified" datetime="2026-04-03T03:43:14+08:00">2026-04-03</time>
+              </span>
+
+          
+            <div class="post-description">本文整理ARM KVM中vLPI实现的基本逻辑。代码基于6.14-rc5内核。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>LPI/vLPI硬件相关的逻辑可以参考<a href="https://wangzhou.github.io/ARM-GIC%E7%A1%AC%E4%BB%B6%E9%80%BB%E8%BE%91%E6%80%BB%E7%BB%93/">这里</a>。</p>
+<p>host上不同的GIC版本对vGIC LPI的支持方式是不一样的，GICv3时，需要先trap到KVM，在<br>KVM里向虚机注入中断，GICv4.0及后续的GIC版本支持vLPI直接注入虚机。</p>
+<p>虚拟机中的ITS设备是一个模拟出来的设备，对ITS相关资源的访问需要在KVM模拟。首先KVM<br>需要模拟ITS的MMIO寄存器，通过模拟的MMIO寄存器，guest ITS上各种配置要被真实的配置<br>到物理ITS上。</p>
+<p>虚机中的ITS的各种table是放到IPA上的。软件通过ITS command访问device table、ITT以及<br>connection table，向虚机中的ITS发commnand(更新虚拟ITS commnand队列的写入指针)触发<br>KVM trap，KVM中模拟对应的ITS command，这里的模拟就是在host向物理ITS发ITS command，<br>把对应的配置下发到硬件。软件直接可以访问LPI config table，虚机中配置LPI config table<br>后会发INV命令清理硬件中对应的缓存，KVM模拟INV命令时读虚机LPI config table的对应<br>地址拿到对应中断的配置信息，然后更新对应的vLPI config table域段。</p>
+<p>物理上看，完整的vLPI中断上报，需要提前把这个vLPI中断的相关信息配置到物理硬件里，<br>这些信息包括: 这个vLPI发出设备的device id、eventid(一般就是PCIe设备的BDF和MSI/MSI-X<br>cap里的data域段)，vLPI的中断号，vLPI要发送到的vCPU，vCPU在哪个物理CPU上，当vCPU<br>不在位时是否需要触发的doorbell中断。从虚机的视角上看，vLPI的配置信息只有device id、<br>event id、中断号以及vCPU，虚机并不感知物理CPU。</p>
+<p>KVM里模拟虚机ITS command，把vLPI的device id、event id、中断号以及vCPU配置到物理<br>ITS上。KVM在vCPU上下线时，把vCPU和物理CPU的映射关系配置给物理ITS。</p>
+<h2 id="ITS模拟"><a href="#ITS模拟" class="headerlink" title="ITS模拟"></a>ITS模拟</h2><p>ARM KVM虚拟化的整体逻辑可以参考<a href="https://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8ARM64-KVM%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">这里</a>，其中有涉及ITS在KVM里的模拟逻辑。</p>
+<p>因为是模拟ITS，所以并不要需要模拟行为当下生效，只要功能正确就好。比如，KVM模拟虚机<br>的MAPI时没有下ITS command，实际物理配置发生在kvm_vgic_v4_set_forwarding的流程里，<br>这个是在guest访问VF MSI/MSI-X BAR的时候，截获完成host的配置。</p>
+<p>下面展开看下KVM里对ITS的各个命令都是怎么模拟的。KVM里为了模拟ITS，为ITS的device<br>table/ITT/collection table建立了对应的软件数据结构，为创建的每个虚拟中断也建立了<br>数据结构(vgic_irq)。对ITS comand的模拟基本上在改动这些数据结构中的内容，部分comand<br>会涉及到硬件配置的改动。这些数据结构估计大部分是GICv3用的，GICv4.x后vLPI可以直通<br>了，用的会比较少。</p>
+<h2 id="GICv3中断注入"><a href="#GICv3中断注入" class="headerlink" title="GICv3中断注入"></a>GICv3中断注入</h2><p>todo: …</p>
+<h2 id="GICV4-x中断直通"><a href="#GICV4-x中断直通" class="headerlink" title="GICV4.x中断直通"></a>GICV4.x中断直通</h2><p>针对vm fd的操作，本意是通过eventfd，在kvm中把虚机中断注入给虚机。对于支持中断直通<br>的场景，这里会执行如下irq_bypass_register_consumer，注册架构相关的consumer。这里<br>的consumer和如下vfio_pci_core_ioctl一起完成直通中断在物理GIC上的配置。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">/* virt/kvm/kvm_main.c */</span><br><span class="line">kvm_vm_ioctl</span><br><span class="line">      /* KVM_IRQFD */</span><br><span class="line">  +-&gt; kvm_irqfd</span><br><span class="line">    +-&gt; kvm_irqfd_assign</span><br><span class="line">          /*</span><br><span class="line">           * 注册irq_bypass_consumer，其中的回调是：</span><br><span class="line">           * add_producer: kvm_arch_irq_bypass_add_producer </span><br><span class="line">           * del_producer: kvm_arch_irq_bypass_del_producer</span><br><span class="line">           * stop:         kvm_arch_irq_bypass_stop</span><br><span class="line">           * start:        kvm_arch_irq_bypass_start</span><br><span class="line">           *</span><br><span class="line">           * 系统里有producers和consumers对应的链表，注册其实就是加到对应的链表里。</span><br><span class="line">           * 使用__connect函数可以把consumer和producer连接在一起，基本逻辑是consumer</span><br><span class="line">           * 调用add_producer，或者producer调用add_consumer。</span><br><span class="line">           */</span><br><span class="line">      +-&gt; irq_bypass_register_consumer</span><br></pre></td></tr></table></figure>
+
+<p>虚机中访问MSI-X BAR的时候，会导致虚机退出到KVM，KVM进一步退出到qemu的vfio设备的<br>模拟逻辑里，其中会针对vfio设备的fd调用如下ioctl，在host上配置对应中断的支持通路。<br>(todo: MSI cap的逻辑是怎么样的？)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">vfio_pci_core_ioctl</span><br><span class="line">  +-&gt; vfio_pci_ioctl_set_irqs           &lt;--- VFIO_DEVICE_SET_IRQS</span><br><span class="line">    +-&gt; vfio_pci_set_irqs_ioctl</span><br><span class="line">      +-&gt; vfio_pci_set_msi_trigger      &lt;--- VFIO_PCI_MSI_IRQ_INDEX</span><br><span class="line">        |   /*</span><br><span class="line">        |    * ioctl参数VFIO_IRQ_SET_DATA_NONE和count为0，触发vf的MSI被disable。</span><br><span class="line">        |    * 具体行为是：释放该vfio设备对应的每个MSI中断资源，其中包括尝试对</span><br><span class="line">        |    * 之前分配host MSI中断的释放(free_irq)，经过中断子系统，最后调用到</span><br><span class="line">        |    * ITS驱动里的its_irq_domain_deactivate，最后会对host MSI中断发discard</span><br><span class="line">        |    * 命令。需要注意的是，如果这时还是有vf上的中断在上报，vf的全部MSI被</span><br><span class="line">        |    * disable这个行为可能导致对应的中断被discard掉。是否会导致这样的问题，</span><br><span class="line">        |    * 主要控制因素在QEMU里，vfio只是接口提供者。</span><br><span class="line">        |    */</span><br><span class="line">        +-&gt; vfio_msi_disable</span><br><span class="line">        | +-&gt; vfio_msi_set_vector_signal(..., fd = -1, ...)</span><br><span class="line">        |   +-&gt; free_irq</span><br><span class="line">        |     ...</span><br><span class="line">        |       +-&gt; its_irq_domain_deactivate</span><br><span class="line">        |         +-&gt; its_send_discard</span><br><span class="line">        |   /*</span><br><span class="line">        |    * 根据ioctl的输入参数start和count，配置对应的MSI。vfio_msi_enable里</span><br><span class="line">        |    * 会配置irq_type，所以对于配置过irq_type的MSI，其已经运行过vfio_msi_enable，</span><br><span class="line">        |    * 所以直接做vfio_msi_set_block，这里估计是一个小的优化。</span><br><span class="line">        |    */</span><br><span class="line">        +-&gt; vfio_msi_set_block</span><br><span class="line">        |     /* 其中，要配置一个中断时，先把之前的配置去掉 */</span><br><span class="line">        | +-&gt; vfio_msi_set_vector_signal</span><br><span class="line">        |       /* 分配中断 */</span><br><span class="line">        |   +-&gt; vfio_msi_alloc_irq</span><br><span class="line">        |       /* 创建vfio里记录中断的数据结构 */</span><br><span class="line">        |   +-&gt; vfio_irq_ctx_alloc</span><br><span class="line">        |       /* 获取对应的eventfd */</span><br><span class="line">        |   +-&gt; trigger = eventfd_ctx_fdget</span><br><span class="line">        |       /* </span><br><span class="line">        |        * 注册vf设备的中断，如果host是GICv3，那么vf的中断首先就会触发如下</span><br><span class="line">        |        * vfio_msihandler中断处理函数。该函数触发一个eventfd的signal，</span><br><span class="line">        |        * KVM收到这个signal会给vCPU注入中断。</span><br><span class="line">        |        */</span><br><span class="line">        |   +-&gt; request_irq(irq, vfio_msihandler, 0, ctx-&gt;name, trigger)</span><br><span class="line">        |</span><br><span class="line">        |       /* token: trigger, irq: irq, */</span><br><span class="line">        |   +-&gt; irq_bypass_register_producer</span><br><span class="line">        |         /*</span><br><span class="line">        |          * consumer和producer的token一样才执行__connect。这里是调用上面</span><br><span class="line">        |          * 注册的consumer中的add_producer回调函数。add_producer前后会</span><br><span class="line">        |          * 调用consumer stop/start，stop中挂起VM，start中reseume VM。</span><br><span class="line">        |          */</span><br><span class="line">        |     +-&gt; __connect()</span><br><span class="line">        |       +-&gt; cons-&gt;stop -&gt; cons-&gt;add_producer -&gt; cons-&gt;start</span><br><span class="line">        |</span><br><span class="line">        +-&gt;  vfio_msi_enable</span><br><span class="line">        +-&gt;  ...</span><br></pre></td></tr></table></figure>
+
+<p>这里展开分析add_producer函数。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">/* 注意这里的virq是如上request_irq里的irq，是vf在host上的中断 */</span><br><span class="line">kvm_arch_irq_bypass_add_producer(kvm, virq, struct kvm_kernel_irq_routing_entry)</span><br><span class="line">  +-&gt; kvm_vgic_v4_set_forwarding</span><br><span class="line">        /* 拿到虚拟中断对应的vgic_irq，保存在irq里，irq-&gt;host_irq为host irq */</span><br><span class="line">    +-&gt; vgic_its_resolve_lpi(..., &amp;irq)</span><br><span class="line">        /* drivers/irqchip/irq-gic-v4.c */</span><br><span class="line">    +-&gt; its_map_vlpi(virq, map)</span><br><span class="line">      +-&gt; irq_set_vcpu_affinity(irq, xxx)</span><br><span class="line">        ...</span><br><span class="line">        +-&gt; its_irq_set_vcpu_affinity &lt;--- struct irq_chip its_irq_chip</span><br><span class="line">          +-&gt; its_vlpi_map            &lt;--- MAP_VLPI</span><br><span class="line">            |</span><br><span class="line">            +-&gt; its_map_vm            &lt;--- 如何确定物理CPU?</span><br><span class="line">            | +-&gt; its_send_vmapp</span><br><span class="line">            |</span><br><span class="line">            +-&gt; lpi_write_config</span><br><span class="line">            |</span><br><span class="line">            +-&gt; its_send_discard      &lt;--- 去掉如上host irq在ITS里的map，所以这个</span><br><span class="line">            |                              命令的参数是vf的物理dev_id/event_id</span><br><span class="line">            |</span><br><span class="line">            +-&gt; its_send_vmapti</span><br></pre></td></tr></table></figure>
+<p>(todo: vLPI pending配置enable的分析，应该在active domain)<br>(todo: 虚机里的GICv3的table和host上的vtable的对应关系)</p>
+<h2 id="vCPU上下线逻辑"><a href="#vCPU上下线逻辑" class="headerlink" title="vCPU上下线逻辑"></a>vCPU上下线逻辑</h2><p>vCPU上线中关于vLPI的调用流程如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">kvm_sched_out</span><br><span class="line">  +-&gt; kvm_arch_vcpu_put</span><br><span class="line">    ...</span><br><span class="line">    +-&gt; kvm_vgic_put</span><br><span class="line">      +-&gt; vgic_v3_put</span><br><span class="line">        +-&gt; vgic_v4_put                        &lt;-- 没有直通在这里返回</span><br><span class="line">          +-&gt; its_make_vpe_non_resident</span><br><span class="line">            +-&gt; its_send_vpe_cmd               &lt;-- DESCHEDULE_VPE</span><br><span class="line">              +-&gt; irq_set_vcpu_affinity</span><br><span class="line">                +-&gt; its_vpe_set_vcpu_affinity  &lt;-- irq_chip its_vpe_irq_chip</span><br><span class="line">                  +-&gt; its_vpe_deschedule       &lt;-- 配置GICR_VPENDBASER invalid</span><br></pre></td></tr></table></figure>
+<p>如上its_vpe_deschedule具体到硬件，主要配置GICR_VPENDBASER invalid，表示没有上线<br>的vPE，同时还进行一些硬件状态的同步操作。</p>
+<p>vCPU下线中关于vLPI的调用流程如下，核心处理逻辑在vgic_v4_load。<br>kvm_sched_in -&gt; kvm_arch_vcpu_load -&gt; kvm_vgic_load -&gt; vgic_v3_load -&gt; vgic_v4_load</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">vgic_v4_load</span><br><span class="line">  +-&gt; irq_set_affinity</span><br><span class="line">    ...</span><br><span class="line">    +-&gt; its_vpe_set_affinity      &lt;-- chip-&gt;irq_set_affinity, its_vpe_irq_chip</span><br><span class="line">      ...</span><br><span class="line">      +-&gt; its_send_vmovp</span><br><span class="line"></span><br><span class="line">  +-&gt; its_make_vpe_resident</span><br><span class="line">    ...</span><br><span class="line">    +-&gt; its_vpe_set_vcpu_affinity &lt;-- SCHEDULE_VPE</span><br><span class="line">      +-&gt; todo: GICR_VPROPBASER/GICR_VPENDBASER</span><br></pre></td></tr></table></figure>
+<p>vCPU在一个物理CPU上线时，vCPU在线的物理CPU可能发生变化，这时就需要用ITS VMOVP更新<br>硬件中对应的信息。同时更新GICR_VPROPBASER/GICR_VPENDBASER，为后面vLPI直通做准备。</p>
+<h2 id="一个例子"><a href="#一个例子" class="headerlink" title="一个例子"></a>一个例子</h2><p>上帝视角看下当虚机系统里linux内核调用enable_irq时整个调用流程是怎么样的。经过如下<br>调用：enable_irq -&gt; __enable_irq -&gt; irq_startup，irq_startup里两个最主要的操作就<br>是__irq_startup和irq_setup_affinity，前者使能中断，后者配置中断和core的亲和性。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line">/* 配置中断使能 */</span><br><span class="line">__irq_startup</span><br><span class="line">  +-&gt; enable_irq</span><br><span class="line">    +-&gt; unmask_irq</span><br><span class="line">         /* </span><br><span class="line">          * 直接找见最底层的PCIe设备的irq_unmask回调，内核这里有变动，以前的版本</span><br><span class="line">          * 是its_unmask_msi_irq</span><br><span class="line">          */</span><br><span class="line">      +-&gt; pci_irq_unmask_msix</span><br><span class="line">        +-&gt; cond_unmask_parent</span><br><span class="line">              /* irq-gic-v3-its.c: its_irq_chip的its_unmask_irq */</span><br><span class="line">          +-&gt; its_unmask_irq</span><br><span class="line">            +-&gt; lpi_update_config</span><br><span class="line">                  /*</span><br><span class="line">                   * 对于虚机或者只有host的情况，就是直接配置LPI config table的</span><br><span class="line">                   * 对应位置，具体位置是从config table的8192 byte起，以hwirq为</span><br><span class="line">                   * 索引，每个中断占一个byte。</span><br><span class="line">                   */</span><br><span class="line">              +-&gt; lpi_write_config</span><br><span class="line">                  /* </span><br><span class="line">                   * guest上执行这个命令会trap到KVM里面模拟，kvm里的执行流程是:</span><br><span class="line">                   *</span><br><span class="line">                   * vgic_its_cmd_handle_inv</span><br><span class="line">                   *   -&gt; update_lpi_config</span><br><span class="line">                   *     -&gt; its_prop_update_vlpi</span><br><span class="line">                   *       -&gt; irq_set_vcpu_affinity  具体为its_irq_chip里的回调</span><br><span class="line">                   *         -&gt; its_vlpi_prop_update</span><br><span class="line">                   *            ...</span><br><span class="line">                   * kvm直接读guest里的LPI config table对应中断的配置，在host中</span><br><span class="line">                   * 同步到vLPI config table。</span><br><span class="line">                   */</span><br><span class="line">              +-&gt; its_send_inv</span><br><span class="line">            /* guest里访问MSIX BAR触发退出到qemu里处理 */</span><br><span class="line">        +-&gt; pci_msix_unmask</span><br><span class="line"></span><br><span class="line">/* 配置中断和core的关系 */</span><br><span class="line">irq_setup_affinity</span><br><span class="line">  +-&gt; its_set_affinity</span><br><span class="line">        /*</span><br><span class="line">         * guest里movi命令触发kvm里对其的模拟，模拟的逻辑是使用its_map_vlpi建立</span><br><span class="line">         * virq到vCPU的映射关系。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; its_send_movi</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"><i class="fa fa-tag"></i> 中断</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"><i class="fa fa-tag"></i> 虚拟化</a>
+              <a href="/tags/KVM/" rel="tag"><i class="fa fa-tag"></i> KVM</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/KVM%E4%B8%ADWFI-WFE%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="prev" title="KVM中WFI/WFE的基本逻辑">
+      <i class="fa fa-chevron-left"></i> KVM中WFI/WFE的基本逻辑
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/ARM64-SGI%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="next" title="ARM64 SGI虚拟化基本逻辑">
+      ARM64 SGI虚拟化基本逻辑 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ITS%E6%A8%A1%E6%8B%9F"><span class="nav-number">2.</span> <span class="nav-text">ITS模拟</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#GICv3%E4%B8%AD%E6%96%AD%E6%B3%A8%E5%85%A5"><span class="nav-number">3.</span> <span class="nav-text">GICv3中断注入</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#GICV4-x%E4%B8%AD%E6%96%AD%E7%9B%B4%E9%80%9A"><span class="nav-number">4.</span> <span class="nav-text">GICV4.x中断直通</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#vCPU%E4%B8%8A%E4%B8%8B%E7%BA%BF%E9%80%BB%E8%BE%91"><span class="nav-number">5.</span> <span class="nav-text">vCPU上下线逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E4%B8%AA%E4%BE%8B%E5%AD%90"><span class="nav-number">6.</span> <span class="nav-text">一个例子</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">295</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">105</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

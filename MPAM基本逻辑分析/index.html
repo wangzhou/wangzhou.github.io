@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="使用本文持续整理ARM MPAM协议的相关内容，分析依据MPAM spec A.a。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MPAM基本逻辑分析">
+<meta property="og:url" content="http://wangzhou.github.io/MPAM%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="使用本文持续整理ARM MPAM协议的相关内容，分析依据MPAM spec A.a。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-19T08:55:22.000Z">
+<meta property="article:modified_time" content="2026-05-19T09:02:51.924Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="cache">
+<meta property="article:tag" content="ARM">
+<meta property="article:tag" content="MPAM">
+<meta property="article:tag" content="内存带宽">
+<meta property="article:tag" content="resctrl">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/MPAM%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>MPAM基本逻辑分析 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">应无所住 而生其心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">105</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">295</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/MPAM%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91%E5%88%86%E6%9E%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          MPAM基本逻辑分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-05-19 16:55:22 / 修改时间：17:02:51" itemprop="dateCreated datePublished" datetime="2026-05-19T16:55:22+08:00">2026-05-19</time>
+            </span>
+
+          
+            <div class="post-description">使用本文持续整理ARM MPAM协议的相关内容，分析依据MPAM spec A.a。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="需求"><a href="#需求" class="headerlink" title="需求"></a>需求</h2><p>现代服务器上运行多个用户的多个程序，硬件资源是共享的。我们可以通过类似cgroup的技<br>术对共享的硬件资源做调控，比如cgroup可以调控CPU和内存等资源。但是诸如cache使用、<br>内存带宽使用，软件难以直接做调控，这就需要引入新硬件，软件通过新硬件提供的接口做<br>资源调控。ARM上引入MPAM(memory partition and monitor)对内存相关的资源做控制和监<br>测。</p>
+<p>对应的内存相关资源有：1. cache；2. 内部总线；3. 内存。控制的角度有使用大小和优先<br>级等。</p>
+<h2 id="概念和模型"><a href="#概念和模型" class="headerlink" title="概念和模型"></a>概念和模型</h2><p>MPAM使用一个全局唯一的三元组标记每个内存访问的源头，对于PE，这些信息需要配置到<br>MPAMx_ELn相关系统寄存器里，可以看到如果partition ID的语意就是PE本身，配置一次就<br>好，如果partition ID表示线程，就需要在线程切换的时候更新这个配置。在cache/内存控制器/<br>SMMU上增加MPAM控制节点(MSC(memory system compoment))，节点提供MMIO寄存器接口，这<br>些接口接受三元组的资源控制和监控的配置。相关配置提前配置好，系统运行的时候，访问<br>cache或者内存的请求根据提前配置的信息进行资源控制和监控。</p>
+<p>三元组的三个元素是：partition ID space，partition ID，PMG(performance monitor group)。<br>partition ID space是安全态，主要用partition ID区分资源类型，PMG用来聚集一组监测<br>资源。MSC集成在各个内存相关的部件里，由专门的ACPI或者DTS MPAM表格报给OS。(todo)</p>
+<p>MPAM协议里还定义了一些MPAM内部传递控制信息的概念(第四章)，感觉这些概念以及相关的<br>部件是软件较少感知的。</p>
+<p>MPAM协议里简单描述了下硬件内部partitioning control的逻辑，简单讲就是当前使用的资<br>源和提前配置好的资源不断的做比较，如果还有余量就给分资源，反之就不给分资源。更近<br>一步看，capacity-based partitioning才需要这种动态调整，portion-based partitioning<br>(比如，直接配置可以用哪几个cache way的情况)的调整逻辑就可以比较简单。可以看到硬件<br>内部会用表格记录各种资源配置，如果这个表格在硬件内部，那么这个部件在使用中有低功<br>耗的上下电动作时，这些内容都要做保存和恢复。</p>
+<p>MPAM只有两种类型中断：1. 报告错误的中断；2. monitor计数溢出中断。</p>
+<p>MPAM的软硬件接口寄存器大致分为四类：ID寄存器，系统寄存器，control相关寄存器和monitor<br>相关的寄存器。ID寄存器配置MPAM MSC的各种规格，系统寄存器配置从流量源头带上的partition<br>ID和PMG。</p>
+<p>注意，现代处理器实现都采用流水线技术，在单点控制相当于控制流水线中的一个点，容易<br>引发系统问题。另外，一旦系统里有共享部件，硬件逻辑综合起来就容易冲突，也可能引发<br>问题。</p>
+<h2 id="ID和系统寄存器"><a href="#ID和系统寄存器" class="headerlink" title="ID和系统寄存器"></a>ID和系统寄存器</h2><p>系统寄存器就是如上提到的：MPAMx_ELn</p>
+<p>ID寄存器整理如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">MPAMF_AIDR                    版本信息</span><br><span class="line">MPAMF_IIDR                    厂商信息</span><br><span class="line">MPAMF_IMPL_IDR                自定义特性信息</span><br><span class="line">MPAMF_SIDR                    安全相关特性支持情况</span><br><span class="line"></span><br><span class="line">MPAMF_IDR                     特性总体支持信息</span><br><span class="line">MPAMF_CCAP/CPOR/CSUMON_IDR    cache相关信息</span><br><span class="line">MPAMF_MBW/MBWUMON_IDR         memory相关信息</span><br><span class="line">MPAMF_PRI_IDR                 优先级相关信息</span><br><span class="line">MPAMF_PARTID_NRW_IDR          partition ID narrow相关信息</span><br></pre></td></tr></table></figure>
+
+<h2 id="resource-partitioning-control"><a href="#resource-partitioning-control" class="headerlink" title="resource partitioning control"></a>resource partitioning control</h2><p>软件需要配置MSC上各种资源的配置，这些配置用partition ID和RIS做标记。一个MSC上可能<br>同时支持多种不同类型的控制和监控，比如，同时支持memory和cache，RIS(resource instance<br>selection)就是对支持类型的标记。</p>
+<p>软件需要用MPAMCFG_PART_SEL选择当前要配置的partition ID和RIS，然后配置对应的寄存，<br>配置选中partition ID和RIS对应的资源限制。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">MPAMCFG_PART_SEL    配置partition ID和RIS</span><br><span class="line"></span><br><span class="line">MPAMCFG_CASSOC      Cache Maximum Associativity Partition</span><br><span class="line">MPAMCFG_CMAX        Cache Maximum Capacity Partition 配置cache使用的最大百分比</span><br><span class="line">MPAMCFG_CMIN        Cache Minimum Capacity Partition 配置cache使用的最小百分比，</span><br><span class="line">                    小于这个百分比的partition ID的优先级被提高，优先分cache。</span><br><span class="line">MPAMCFG_CPBM&lt;n&gt;     Cache Portion Bitmap Partition 按照portion的配置寄存器。配置的方式:</span><br><span class="line">                    1. 最大bit数，2. select出要配置的partition ID，3. 执行配置。</span><br><span class="line"></span><br><span class="line">MPAMCFG_MBW_MAX     Memory Bandwidth Maximum Partition</span><br><span class="line">MPAMCFG_MBW_MIN     Memory Bandwidth Minimum Partition</span><br><span class="line">MPAMCFG_MBW_PBM&lt;n&gt;  Bandwidth Portion Bitmap Partition</span><br><span class="line">MPAMCFG_MBW_PROP    Memory Bandwidth Proportional Stride Partition</span><br><span class="line">MPAMCFG_MBW_WINWD   Memory Bandwidth Partitioning Window Width</span><br><span class="line"></span><br><span class="line">MPAMCFG_PRI         Priority Partition  todo: 怎么搞的优先级？</span><br></pre></td></tr></table></figure>
+
+<h2 id="resource-monitor"><a href="#resource-monitor" class="headerlink" title="resource monitor"></a>resource monitor</h2><p>一个MSC上可能既有cache又有内存的monitor，相同种类里需要监控的partid和PMG又不一样，<br>对于某个type，特定partid和PMG的监控，需要先配置对应的监控控制寄存器，然后从对应的<br>counter里读监控得到的数据。</p>
+<p>每个MSC中，某种类型实际的monitor counter又可以有多个。这个配置可以在对应的ID寄存器<br>里查到，比如memory的MPAMF_MBWUMON_IDR.NUM_NON定义这个MSC有多少个内部的counter，<br>MPAM里叫做monitor instance。</p>
+<p>MPAM定义了一组控制寄存器和一个counter对外接口。所以，对于一个MSC，对于每个type，<br>每个instance，软件要先通过这些控制寄存器选择要配置的具体type/instance/partid+PMG，<br>再进行配置，或者读counter信息。</p>
+<p>比如，先配置MSMON_CFG_MON_SEL.RIS选择type，MSMON_CFG_MON_SEL.MON_SEL选择instance，<br>MSMON_CFG_MBWU_FLT.PARTID/PMG选择partid+PMG。然后配置MSMON_CFG_MBWU_CTL启动对应<br>的监控行为，读MSMON_MBWU得到监控数据。</p>
+<p>寄存器的具体定义如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">MSMON_CFG_MON_SEL         monitor选择寄存器，MON_SEL选择instance，RIS选择type</span><br><span class="line"></span><br><span class="line">MSMON_CAPT_EVNT           提供了一个软件控制接口把counter里的值保存到CAPTURE寄存</span><br><span class="line">                          器里，写NOW触发这个保存动作。通过如下CTL寄存器可以配置</span><br><span class="line"></span><br><span class="line">MSMON_CSU_CAPTURE         上次capture事件保存的cache使用量</span><br><span class="line">MSMON_MBWU_CAPTURE        上次capture事件保存的带宽使用量</span><br><span class="line">MSMON_MBWU_L_CAPTURE      MBWU长counter capture值</span><br><span class="line"></span><br><span class="line">MSMON_CFG_CSU_CTL         CSU控制寄存器，TYPE配置触发capture的源头，写如上NOW是其中一种</span><br><span class="line">                          PARTID/PMG过滤使能，EN使能monitor</span><br><span class="line">MSMON_CFG_CSU_FLT         CSU过滤寄存器，PARTID/PMG配置要过滤的参数，XCL配置是否只记录被修改的cache line</span><br><span class="line">MSMON_CFG_MBWU_CTL        MBWU控制寄存器，TYPE语义如上，各种overflow标记，EN使能monitor</span><br><span class="line">MSMON_CFG_MBWU_FLT        MBWU过滤寄存器，PARTID/PMG语义如上，RWBW配置过滤只读/只写/读写</span><br><span class="line"></span><br><span class="line">MSMON_CSU                 CSU counter，VALUE为cache使用量，NRDY指示数据是否就绪</span><br><span class="line">MSMON_MBWU                MBWU counter(31位)，VALUE为带宽使用量，NRDY语义如上</span><br><span class="line">MSMON_MBWU_L              MBWU长counter(44/63位)，用于长时间监控减少溢出，L_NRDY语义如上</span><br><span class="line"></span><br><span class="line">MSMON_OFLOW_MSI_ADDR_L/H  溢出中断MSI地址</span><br><span class="line">MSMON_OFLOW_MSI_ATTR      MSI属性配置</span><br><span class="line">MSMON_OFLOW_MSI_DATA      MSI数据</span><br><span class="line">MSMON_OFLOW_MSI_MPAM      MSI MPAM标识</span><br><span class="line">MSMON_OFLOW_MSI_SR        MSI状态寄存器</span><br></pre></td></tr></table></figure>
+<p>todo: PMG怎么配置？1. 硬件上是怎么过滤的partid和PMG都一样才能过滤。2. resctrl<br>怎么配置过滤多个对象。</p>
+<h2 id="SMMU-MPAM"><a href="#SMMU-MPAM" class="headerlink" title="SMMU MPAM"></a>SMMU MPAM</h2><p>SMMU上只是配置partid，联合内存或者cache上的控制单元实现内存或者cache资源的控制。</p>
+<p>SMMU上的STE/CD可以看作是具体外设在SMMU上的代理，所以对一个具体的外设只需要把partid<br>配置到SMMU上即可。</p>
+<h2 id="Partid-Narrow"><a href="#Partid-Narrow" class="headerlink" title="Partid Narrow"></a>Partid Narrow</h2><p>所谓Partid Narrow是进入MSC的partid可以通过提前配置好的映射被映射成另外一个partid，<br>后面的控制和检测都基于新的partid。</p>
+<p>todo: 创建/配置/查询，主要使用场景。</p>
+<h2 id="MPAM虚拟化"><a href="#MPAM虚拟化" class="headerlink" title="MPAM虚拟化"></a>MPAM虚拟化</h2><ol>
+<li>partition ID预留，2. 虚拟物理partition ID映射，3. MSC模拟。</li>
+</ol>
+<h2 id="Linux软件接口"><a href="#Linux软件接口" class="headerlink" title="Linux软件接口"></a>Linux软件接口</h2><p>Intel最早实现了MPAM类似的功能(RDT)，软件上用一个独立的文件系统resctrl向外导出使用接口。<br>文件系统层次结构如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line">/sys/fs/resctrl/</span><br><span class="line">├── cpus                     # 整个resctrl系统的CPU列表</span><br><span class="line">├── cpus_list                # 人类可读的CPU列表格式</span><br><span class="line">├── mon_groups/              # 监控组目录</span><br><span class="line">├── info/                    # 系统资源信息</span><br><span class="line">│   ├── L3/</span><br><span class="line">│   │   ├── cbm_mask</span><br><span class="line">│   │   ├── min_cbm_bits</span><br><span class="line">│   │   ├── num_closids</span><br><span class="line">│   │   └── shareable_bits</span><br><span class="line">│   ├── MB/</span><br><span class="line">│   │   ├── bandwidth_gran</span><br><span class="line">│   │   ├── delay_linear</span><br><span class="line">│   │   └── min_bandwidth</span><br><span class="line">│   └── last_cmd_status      # 最后一次命令执行状态</span><br><span class="line">├── mon_data/                # 根控制组的监控数据</span><br><span class="line">│   ├── mon_L3_00/</span><br><span class="line">│   │   ├── llc_occupancy</span><br><span class="line">│   │   ├── mbm_total_bytes</span><br><span class="line">│   │   └── mbm_local_bytes</span><br><span class="line">│   └── ...</span><br><span class="line">├── schemata                 # 资源分配方案</span><br><span class="line">├── size                     # 根控制组的缓存大小</span><br><span class="line">├── tasks                    # 根控制组的进程列表</span><br><span class="line">├── &lt;用户创建的目录&gt;/        # 用户自定义控制组</span><br><span class="line">│   ├── cpus</span><br><span class="line">│   ├── cpus_list</span><br><span class="line">│   ├── schemata</span><br><span class="line">│   ├── size</span><br><span class="line">│   ├── mon_groups/          # 该控制组的监控组</span><br><span class="line">│   ├── mon_data/            # 该控制组的监控数据</span><br><span class="line">│   └── tasks</span><br><span class="line">└── &lt;mon_groups创建的目录&gt;/  # 监控组目录</span><br><span class="line">    ├── mon_data/            # 监控组的具体监控数据</span><br><span class="line">    └── ...</span><br><span class="line">(AI生成)</span><br></pre></td></tr></table></figure>
+<p>resctrl使用层次化的结构控制资源，resctrl的根目录是全局资源，用户通过在resctrl<br>目录下创建目录，创建对应的控制组和监控组，可以看到在用户创建的目录下会新创建一整<br>套resctrl相关的控制和监控目录和文件。可以看到，用户创建的目录和对应的partition ID<br>对应起来，partition ID和CPU/线程的绑定关系通过配置cpus/cpus_list/tasks来实现。</p>
+<p>控制组创建后，会在控制组目录自动生成监控组控制目录(mon_groups)和监控组数据目录<br>(mon_data)。需要手动在mon_group里创建自定义监控组，监控组监控的事件要如何配置? todo</p>
+<h2 id="Linux内核实现"><a href="#Linux内核实现" class="headerlink" title="Linux内核实现"></a>Linux内核实现</h2><p>MPAM对外使用resctrl文件系统作为接口。以openEuler v6.6内核为例，驱动代码在<br>drivers/platform/mpam/。这个驱动是一个平台设备驱动，但是但是真正probe的地方在注<br>册的cpu online的会调函数里。</p>
+<p>核心数据结构:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">/* MPAM设备的分类，比如，cache/memory/IOMMU等 */</span><br><span class="line">struct mpam_class</span><br><span class="line">  +-&gt; components list</span><br><span class="line"></span><br><span class="line">/* 表示一个MSC设备 */</span><br><span class="line">struct mpam_msc</span><br><span class="line">  +-&gt; ris list</span><br><span class="line"></span><br><span class="line">/* 表示一个MSC上的一个resource type */</span><br><span class="line">struct mpam_msc_ris</span><br><span class="line"></span><br><span class="line">/* ? */</span><br><span class="line">struct mpam_component</span><br><span class="line">  +-&gt; ris list</span><br><span class="line"></span><br><span class="line">/* 和resctrl fs的交互的数据结构，怎么建立联系的？*/</span><br><span class="line">struct mpam_resctrl_res</span><br></pre></td></tr></table></figure>
+
+<p>MSC设备解析:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">mpam_msc_drv_probe                  &lt;-- probe以及创建MSC</span><br><span class="line">  +-&gt; acpi_mpam_parse_resources     &lt;-- 创建mpam_ris</span><br><span class="line">    +-&gt; mpam_ris_create</span><br><span class="line">      +-&gt; mpam_class_get            &lt;-- 如果还没有，就创建一个</span><br><span class="line">          /*</span><br><span class="line">           * class和component_id为入参，对于cache是ACPI表中的cache_reference，</span><br><span class="line">           * 对于memory是proximity_domain。所以compoment的语意是什么？</span><br><span class="line">           *</span><br><span class="line">           */</span><br><span class="line">      +-&gt; mpam_component_get</span><br><span class="line"></span><br><span class="line">mpam_discovery_cpu_online</span><br><span class="line">  +-&gt; mpam_msc_hw_probe             &lt;-- probe MSC硬件</span><br><span class="line">      /* work queue里执行 */</span><br><span class="line">  +-&gt; mpam_resctrl_setup</span><br><span class="line">    +-&gt; mpam_resctrl_resource_init  &lt;-- 创建mpam_resctrl_res数组</span><br><span class="line">    +-&gt; resctrl_init                &lt;-- 创建resctrl相关文件</span><br></pre></td></tr></table></figure>
+
+<p>resctrl文件创建:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">/* fs/resctrl/rdtgroup.c */</span><br><span class="line">resctrl_init</span><br><span class="line">  +-&gt; register_filesystem</span><br><span class="line">    +-&gt; rdt_init_fs_context</span><br><span class="line">          /* 创建resctrl各个文件的逻辑在get_tree里 */</span><br><span class="line">      +-&gt; rdt_fs_context_ops.get_tree</span><br><span class="line"></span><br><span class="line">rdt_get_tree</span><br><span class="line">      /*</span><br><span class="line">       * 增加resctrl下创建/销毁目录的回调函数: rdtgroup_mkdir/rdtgroup_rmdir</span><br><span class="line">       *</span><br><span class="line">       * resctrl增加控制和监控项目的时候，需要在resctrl sysfs下新增目录，resctrl</span><br><span class="line">       * 会在新增的目录中增加和顶层一样的目录和文件，相关代码逻辑就在rdtgroup_mkdir。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; rdtgroup_setup_root</span><br><span class="line">  +-&gt; rdt_enable_ctx</span><br><span class="line">  +-&gt; schemata_list_create</span><br><span class="line">  +-&gt; closid_init</span><br><span class="line">      /*</span><br><span class="line">       * resctrl把所有要增加的公共文件都定义在res_common_files数组里，每个文件一个</span><br><span class="line">       * 数组项，数组项中的fflags标记该文件增加到哪里。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; rdtgroup_add_files</span><br><span class="line">  +-&gt; rdtgroup_create_info_dir</span><br><span class="line">  +-&gt; mongroup_create_dir</span><br><span class="line">  +-&gt; mkdir_mondata_all</span><br><span class="line"></span><br><span class="line">rdtgroup_mkdir</span><br><span class="line">  +-&gt; rdtgroup_mkdir_ctrl_mon</span><br><span class="line">    +-&gt; mkdir_rdt_prepare</span><br><span class="line">  +-&gt; rdtgroup_mkdir_mon</span><br></pre></td></tr></table></figure>
+<p>resctrl和驱动的接口似乎是直接arch实现函数调用的… 如此粗暴…</p>
+<p>MPAM资源配置的一般逻辑是，用户已经知道整个系统的cache和memory相关控制节点的拓扑，<br>相关控制节点直接呈现在resctrl文件系统中。用户实际上通过resctrl把特性CPU或线程和<br>partid绑定，用户通过在各个控制节点上配置partid对应的控制和监控信息达到控制和监控<br>的功能。partid最终呈现对应的可能是一个个独立的目录。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/cache/" rel="tag"><i class="fa fa-tag"></i> cache</a>
+              <a href="/tags/ARM/" rel="tag"><i class="fa fa-tag"></i> ARM</a>
+              <a href="/tags/MPAM/" rel="tag"><i class="fa fa-tag"></i> MPAM</a>
+              <a href="/tags/%E5%86%85%E5%AD%98%E5%B8%A6%E5%AE%BD/" rel="tag"><i class="fa fa-tag"></i> 内存带宽</a>
+              <a href="/tags/resctrl/" rel="tag"><i class="fa fa-tag"></i> resctrl</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/KVM-ARM64-FP-SIMD-Lazy-Switch%E6%9C%BA%E5%88%B6%E5%8E%9F%E7%90%86/" rel="prev" title="KVM ARM64 FP/SIMD Lazy Switch机制原理">
+      <i class="fa fa-chevron-left"></i> KVM ARM64 FP/SIMD Lazy Switch机制原理
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/%E4%BD%BF%E7%94%A8QEMU-TCG%E7%8E%AF%E5%A2%83%E8%B0%83%E8%AF%95QEMU-KVM%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="next" title="使用QEMU TCG环境调试QEMU KVM虚拟化">
+      使用QEMU TCG环境调试QEMU KVM虚拟化 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%9C%80%E6%B1%82"><span class="nav-number">1.</span> <span class="nav-text">需求</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A6%82%E5%BF%B5%E5%92%8C%E6%A8%A1%E5%9E%8B"><span class="nav-number">2.</span> <span class="nav-text">概念和模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ID%E5%92%8C%E7%B3%BB%E7%BB%9F%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">3.</span> <span class="nav-text">ID和系统寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#resource-partitioning-control"><span class="nav-number">4.</span> <span class="nav-text">resource partitioning control</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#resource-monitor"><span class="nav-number">5.</span> <span class="nav-text">resource monitor</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SMMU-MPAM"><span class="nav-number">6.</span> <span class="nav-text">SMMU MPAM</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Partid-Narrow"><span class="nav-number">7.</span> <span class="nav-text">Partid Narrow</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#MPAM%E8%99%9A%E6%8B%9F%E5%8C%96"><span class="nav-number">8.</span> <span class="nav-text">MPAM虚拟化</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E8%BD%AF%E4%BB%B6%E6%8E%A5%E5%8F%A3"><span class="nav-number">9.</span> <span class="nav-text">Linux软件接口</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E5%86%85%E6%A0%B8%E5%AE%9E%E7%8E%B0"><span class="nav-number">10.</span> <span class="nav-text">Linux内核实现</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">295</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">105</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

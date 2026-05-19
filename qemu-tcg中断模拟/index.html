@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="记录qemu irq相关的代码逻辑，以riscv为例。分析使用的qemu代码的版本是7.1.50。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="qemu tcg中断模拟">
+<meta property="og:url" content="http://wangzhou.github.io/qemu-tcg%E4%B8%AD%E6%96%AD%E6%A8%A1%E6%8B%9F/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="记录qemu irq相关的代码逻辑，以riscv为例。分析使用的qemu代码的版本是7.1.50。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2022-07-25T07:44:42.000Z">
+<meta property="article:modified_time" content="2026-04-02T19:43:14.184Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="中断">
+<meta property="article:tag" content="QEMU">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/qemu-tcg%E4%B8%AD%E6%96%AD%E6%A8%A1%E6%8B%9F/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>qemu tcg中断模拟 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">应无所住 而生其心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">105</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">295</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/qemu-tcg%E4%B8%AD%E6%96%AD%E6%A8%A1%E6%8B%9F/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          qemu tcg中断模拟
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2022-07-25 15:44:42" itemprop="dateCreated datePublished" datetime="2022-07-25T15:44:42+08:00">2022-07-25</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-03 03:43:14" itemprop="dateModified" datetime="2026-04-03T03:43:14+08:00">2026-04-03</time>
+              </span>
+
+          
+            <div class="post-description">记录qemu irq相关的代码逻辑，以riscv为例。分析使用的qemu代码的版本是7.1.50。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>qemu的整个中断处理流程可以大概分为核内和核外，核内指的是CPU核在收到中断信号时的<br>处理逻辑，核外我们可以认为就是指各种中断控制器的处理逻辑。</p>
+<p>qemu tcg整体的翻译执行流程大概如下，这里描述的是核内模拟的顶层逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">setjmp;</span><br><span class="line"></span><br><span class="line">while (检查并处理中断或异常) &#123;</span><br><span class="line">       前端翻译;</span><br><span class="line">       后端翻译;</span><br><span class="line">       执行host执行改变guest CPU状态; // 有异常时longjmp到setjmp处</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>所以，实际响应并处理中断总是在一个tb翻译执行完。qemu有chained tb，如果一直在chained<br>tb里跳来跳去，那不是一直响应不了中断，为此qemu里的中断可以触发跳过一个tb的执行，<br>这样，一旦有中断来了，就可以快速响应，下面会介绍这个地方。</p>
+<p>riscv上核内和核外的中断信号接口用gpio管脚来模拟。CPU核通过如下函数注册一个向cpu<br>写入中断的接口。向一个gpio上写入信息，逻辑上应该触发gpio handler被调用一次。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">/* target/riscv/cpu.c */</span><br><span class="line">qdev_init_gpio_in(DEVICE(cpu), riscv_cpu_set_irq, 12)</span><br></pre></td></tr></table></figure>
+
+<p>从逻辑上分析，应该是中断控制器调用这个接口把中断写入到cpu。riscv上有多个中断控制<br>器: plic, aclint以及AIA, qemu上它们的模拟都在/hw/intc/下，对应文件分别是：sifive_plic.c，<br>riscv_aclint.c，riscv_aplic.c和riscv_imsic.c，其实AIA被实现为最后两个文件。plic/aplic<br>和外部设备相关，aclint是核内部的中断控制器，主要产生时钟中断和SWI，imsic则是为了<br>支持MSI和虚拟化中断直通。</p>
+<p>中断控制器里使用qdev_init_gpio_out创建一个输出的GPIO，然后使用qdev_connect_gpio_out<br>把输出GPIO和输入的GPIO连在一起，在中断控制器里使用qemu_set_irq/qemu_irq_raise向<br>CPU发中断，本质上是触发riscv_cpu_set_irq被调用到。至于gpio_in对应的qemu_irq.handler<br>如何被gpio_out看见，就是qemu_set_irq/qemu_irq_raise如何触发riscv_cpu_set_irq被调用，<br>其中的细节分析，我们放到本文的最后。</p>
+<p>如上，我们已经把核内和核外中断的大概逻辑梳理了下，下面重点看CPU核接收到中断的逻辑。<br>riscv上中断控制器的qemu模拟需要在独立的文档中描述。</p>
+<p>riscv_cpu_set_irq修改riscv系统寄存器mip，把中断类型写入到里面。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">riscv_cpu_set_irq</span><br><span class="line">     /* 可以看到这里是把中断无条件写入到mip里的 */</span><br><span class="line">  -&gt; riscv_cpu_update_mip</span><br><span class="line">       /*</span><br><span class="line">        * 写cpu-&gt;interrupt_request, 大循环里的cpu_handle_irq根据这个判断是否</span><br><span class="line">        * 要处理中断</span><br><span class="line">	*/</span><br><span class="line">    -&gt; cpu_interrupt</span><br><span class="line">      -&gt; cpu-&gt;interrupt_request |= mask;</span><br><span class="line">      -&gt; qatomic_set(&amp;cpu_neg(cpu)-&gt;icount_decr.u16.high, -1);</span><br></pre></td></tr></table></figure>
+<p>注意写icount_decr.u16.high的这个逻辑。qemu在一个tb的前端翻译的前后会插入一段翻译<br>的代码，相关逻辑在gen_intermediate_code-&gt;translator_loop-&gt;gen_tb_start/gen_tb_end，<br>gen_tb_start中产生的逻辑会检测如上icount_decr.u16.high的值，如果比0小，就会直接跳到<br>tb最后的一个label处，这个label在gen_tb_end里配置，这样，中断一旦写了icount_decr.u16.high<br>这个标记，tb执行的时候就会跳过当前tb的业务代码，相当于空执行了一个tb。这个跳转直接<br>跳过了chained tb的地方，所以可以从chained tb里出来。</p>
+<p>如上是中断上报CPU的模拟逻辑，报到CPU的中断需要在qemu翻译执行的大逻辑里处理，下面<br>描述这部分内容。上面一开始提到的“检查并处理中断或异常”处理中断的具体函数是cpu_handle_irq。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">/*</span><br><span class="line"> * cpu_handle_irq里调用cpu_exec_interrupt回调函数处理中断，riscv_cpu_exec_interrupt</span><br><span class="line"> * 从mip里拿到中断号, 最后调用riscv_cpu_do_interrupt处理中断。riscv_cpu_exec_interrupt在</span><br><span class="line"> * target/riscv/cpu_helper.c</span><br><span class="line"> */</span><br><span class="line">riscv_cpu_exec_interrupt</span><br><span class="line">     /* 拿到中断号, 具体的逻辑我们可以在下面打开看下 */</span><br><span class="line">  -&gt; interruptno = riscv_cpu_local_irq_pending(env);</span><br><span class="line">     /*</span><br><span class="line">      * 注意这里会配置exception_index这个值，这个值在异常处理</span><br><span class="line">      * cpu_handle_exception里也会读</span><br><span class="line">      */</span><br><span class="line">  -&gt; cs-&gt;exception_index = RISCV_EXCP_INT_FLAG | interruptno;</span><br><span class="line">     /* riscv在这个里一并处理异常和中断，改变机器的状态和pc，最后清exception_index */</span><br><span class="line">  -&gt; riscv_cpu_do_interrupt(cs);</span><br><span class="line">       /* RISCV_EXCP_NONE是-1 */</span><br><span class="line">    -&gt; cs-&gt;exception_index = RISCV_EXCP_NONE</span><br></pre></td></tr></table></figure>
+
+<p>可以看见如下的逻辑先计算出各个特权级中断的enable状态，然后用enable状态和cpu中已<br>保存的pending状态得到实际要处理的中断(A处的pending表示)，注意这个是一个临时变量<br>CPU中保存的pending依然在。随后，根据中断优先级和中断委托逻辑得到要真实触发的中断。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line">static int riscv_cpu_local_irq_pending(CPURISCVState *env)</span><br><span class="line">&#123;</span><br><span class="line">    int virq;</span><br><span class="line">    uint64_t irqs, pending, mie, hsie, vsie;</span><br><span class="line"></span><br><span class="line">    /* Determine interrupt enable state of all privilege modes */</span><br><span class="line">    if (riscv_cpu_virt_enabled(env)) &#123;</span><br><span class="line">	/* n: cpu目前处于v状体，所以，高特权级m/hs的中断是打开的 */</span><br><span class="line">        mie = 1;</span><br><span class="line">        hsie = 1;</span><br><span class="line">	/*</span><br><span class="line">	 * n: 对于vs的中断，当cpu现在状态是vs，就看SIE的配置，当cpu现在是vu，</span><br><span class="line">	 *    高特权级中断一定是开着，所以vs的中断是开着。</span><br><span class="line">	 */</span><br><span class="line">        vsie = (env-&gt;priv &lt; PRV_S) ||</span><br><span class="line">               (env-&gt;priv == PRV_S &amp;&amp; get_field(env-&gt;mstatus, MSTATUS_SIE));</span><br><span class="line">    &#125; else &#123;</span><br><span class="line">	/*</span><br><span class="line">	 * n: cpu不在v状体，所以，cpu可能在m，或者比m低，同样的逻辑，在m，就看</span><br><span class="line">	 *    MIE的配置，比m低，那m中断一定是开着。</span><br><span class="line">	 */</span><br><span class="line">        mie = (env-&gt;priv &lt; PRV_M) ||</span><br><span class="line">              (env-&gt;priv == PRV_M &amp;&amp; get_field(env-&gt;mstatus, MSTATUS_MIE));</span><br><span class="line">	/*</span><br><span class="line">	 * n: cpu不在v，cpu比S低，中断一定是开，cpu在S，就看SIE，cpu在M，</span><br><span class="line">	 *    hs的中断应该是关的啊，为啥这里没有涉及？</span><br><span class="line">	 */</span><br><span class="line">        hsie = (env-&gt;priv &lt; PRV_S) ||</span><br><span class="line">               (env-&gt;priv == PRV_S &amp;&amp; get_field(env-&gt;mstatus, MSTATUS_SIE));</span><br><span class="line">	/* n: 因为cpu不在v，那cpu的特权级一定比vs高，vs中断一定是关的 */</span><br><span class="line">        vsie = 0;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    /* Determine all pending interrupts */</span><br><span class="line">    pending = riscv_cpu_all_pending(env);     &lt;------- A</span><br><span class="line"></span><br><span class="line">    /*</span><br><span class="line">     * n: 中断来了，这里就有优先级的处理，大的分类上，M &gt; HS &gt; VS, 就是说有了M,</span><br><span class="line">     *    我们就先处理M的中断，依此类推。这里有一个问题，如果pending了多个中断，</span><br><span class="line">     *    高特权级的中断先处理了，低特权级的中断pending还在么？</span><br><span class="line">     *</span><br><span class="line">     *    从实现上，中断pending记录在env-&gt;mip里，暂时没有看见哪里会清mip。</span><br><span class="line">     */</span><br><span class="line">    /* n: 中断有pending, 并且没有被代理出去，并且中断enable是开的，我们才计算中断号 */</span><br><span class="line">    /* Check M-mode interrupts */</span><br><span class="line">    irqs = pending &amp; ~env-&gt;mideleg &amp; -mie;</span><br><span class="line">    if (irqs) &#123;</span><br><span class="line">        /* n: 计算一个特权级下最高优先级的中断 */</span><br><span class="line">        return riscv_cpu_pending_to_irq(env, IRQ_M_EXT, IPRIO_DEFAULT_M,</span><br><span class="line">                                        irqs, env-&gt;miprio);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    /* Check HS-mode interrupts */</span><br><span class="line">    irqs = pending &amp; env-&gt;mideleg &amp; ~env-&gt;hideleg &amp; -hsie;</span><br><span class="line">    if (irqs) &#123;</span><br><span class="line">        return riscv_cpu_pending_to_irq(env, IRQ_S_EXT, IPRIO_DEFAULT_S,</span><br><span class="line">                                        irqs, env-&gt;siprio);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    /* Check VS-mode interrupts */</span><br><span class="line">    irqs = pending &amp; env-&gt;mideleg &amp; env-&gt;hideleg &amp; -vsie;</span><br><span class="line">    if (irqs) &#123;</span><br><span class="line">        virq = riscv_cpu_pending_to_irq(env, IRQ_S_EXT, IPRIO_DEFAULT_S,</span><br><span class="line">                                        irqs &gt;&gt; 1, env-&gt;hviprio);</span><br><span class="line">        return (virq &lt;= 0) ? virq : virq + 1;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    /* Indicate no pending interrupt */</span><br><span class="line">    return RISCV_EXCP_NONE;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面分析下，qemu_set_irq/qemu_irq_raise如何触发riscv_cpu_set_irq被调用。</p>
+<p>qdev_init_gpio_in(DeviceState *dev, qemu_irq_handler handler, int n)给CPU核创建<br>n个中断gpio接口，每个中断gpio接口的中断处理函数都是handler，这里的dev就是CPU核的<br>父类，下面展开这个函数看下。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">qdev_init_gpio_in</span><br><span class="line">     /*</span><br><span class="line">      * dev里有gpios，它是一个元素为NameGPIOList的链表，每个NameGPIOList是一组gpio，</span><br><span class="line">      * NameGPIOList里直接嵌入了qemu_irq，每一个gpio都有一个，这样每个gpio都可以</span><br><span class="line">      * 当一个中断管脚使用。</span><br><span class="line">      *</span><br><span class="line">      * 这个函数就是创建dev里n个这样的gpio, 这个n个gpio被一个NameGPIOList所管理。</span><br><span class="line">      */</span><br><span class="line">  +-&gt;qdev_init_gpio_in_named_with_opaque</span><br></pre></td></tr></table></figure>
+
+<p>qdev_init_gpio_out(DeviceState *dev, qemu_irq *pins, int n)给dev创建n个中断输出<br>接口，这里可以把dev理解为中断控制器。需要注意的是，qemu_irq本来已经是指针了，这里<br>把指针的地址送进来是为了后续配置qemu_irq这个指针的值。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">qdev_init_gpio_out</span><br><span class="line">  +-&gt; qdev_init_gpio_out_named</span><br><span class="line">        /*</span><br><span class="line">	 * 给dev增加link属性，每个qemu_irq都增加了一个，link属性的名字是：unnamed-gpio-out[num],</span><br><span class="line">	 */</span><br><span class="line">    +-&gt; object_property_add_link</span><br></pre></td></tr></table></figure>
+
+<p>qdev_connect_gpio_out_named(DeviceState *dev, const char *name, int n, qemu_irq input_pin)<br>这个函数在中断控制器驱动里被调用，dev是中断控制器，input_pin是CPU核上的中断gpio,<br>通过name得到上面中断控制器增加的link属性的名字。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">qdev_connect_gpio_out_named</span><br><span class="line">      /*</span><br><span class="line">       * 这个函数把dev里的名字是propname的link和input_pin建立一个link。这里的关键</span><br><span class="line">       * 就是要搞懂set_link的本质。这个函数内部会调用object一层的set函数，这个函数</span><br><span class="line">       * 把link属性所对应的变量的地址直接设置成被指向目标的地址，具体就是把上面</span><br><span class="line">       * gpio_out的qemu_irq换成了gpio_in的qemu_irq。这样，使用中断控制器的qemu_irq</span><br><span class="line">       * 就可以直接触发CPU核的中断回调函数，因为经过这么link过后，中断控制器的qemu_irq</span><br><span class="line">       * 已经就是CPU核的qemu_irq。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; object_property_set_link(OBJECT(dev), propname, OBJECT(input_pin), ...)</span><br></pre></td></tr></table></figure>
+
+<p>中断控制器里在处理外设上报来的中断后，一般用qemu_set_irq/qemu_irq_raise把中断继续<br>上CPU核上报。需要注意的是，这里的qemu_irq是中断控制器上的，而上面的逻辑中，中断控制<br>器上的qemu_irq只是和CPU核的qemu_irq建立了link，但是，这里入参qemu_irq就是CPU核一侧<br>qemu_irq的指针，这样qemu_irq_raise中直接调用qemu_irq的handler发起中断的逻辑就都通了。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">qemu_irq_raise(qemu_irq irq)</span><br><span class="line">  +-&gt; qemu_set_irq</span><br><span class="line">    +-&gt; irq-&gt;handler</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"><i class="fa fa-tag"></i> 中断</a>
+              <a href="/tags/QEMU/" rel="tag"><i class="fa fa-tag"></i> QEMU</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/Linux%E5%86%85%E6%A0%B8riscv-entry-S%E5%88%86%E6%9E%90/" rel="prev" title="Linux内核riscv entry.S分析">
+      <i class="fa fa-chevron-left"></i> Linux内核riscv entry.S分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/qemu-tcg%E8%AE%BF%E5%AD%98%E6%8C%87%E4%BB%A4%E6%A8%A1%E6%8B%9F/" rel="next" title="qemu tcg访存指令模拟">
+      qemu tcg访存指令模拟 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">295</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">105</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

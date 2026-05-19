@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="Linux, Kernel, 计算机体系结构">
+<meta property="og:type" content="website">
+<meta property="og:title" content="tags">
+<meta property="og:url" content="http://wangzhou.github.io/tags/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="Linux, Kernel, 计算机体系结构">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2021-05-22T20:17:46.000Z">
+<meta property="article:modified_time" content="2026-04-02T19:43:14.300Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="Linux, Kernel, 计算机体系结构">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/tags/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : false,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>tags | Sherlock's blog
+</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">应无所住 而生其心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">105</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">295</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+  
+  
+
+          <div class="content page posts-expand">
+            
+
+    
+    
+    
+    <div class="post-block" lang="zh-CN">
+      <header class="post-header">
+
+<h1 class="post-title" itemprop="name headline">tags
+</h1>
+
+<div class="post-meta">
+  
+
+</div>
+
+</header>
+
+      
+      
+      
+      <div class="post-body">
+          <div class="tag-cloud">
+            <div class="tag-cloud-title">
+              目前共计 105 个标签
+            </div>
+            <div class="tag-cloud-tags">
+              <a href="/tags/ACPI/" style="font-size: 17px; color: #989898">ACPI</a> <a href="/tags/APUE/" style="font-size: 16px; color: #a2a2a2">APUE</a> <a href="/tags/ARM/" style="font-size: 12px; color: #ccc">ARM</a> <a href="/tags/ARM64/" style="font-size: 25px; color: #454545">ARM64</a> <a href="/tags/Block%E5%AD%90%E7%B3%BB%E7%BB%9F/" style="font-size: 12px; color: #ccc">Block子系统</a> <a href="/tags/CPU/" style="font-size: 12px; color: #ccc">CPU</a> <a href="/tags/C%E8%AF%AD%E8%A8%80/" style="font-size: 15px; color: #adadad">C语言</a> <a href="/tags/DMA/" style="font-size: 14px; color: #b7b7b7">DMA</a> <a href="/tags/DPDK/" style="font-size: 12px; color: #ccc">DPDK</a> <a href="/tags/GIC/" style="font-size: 13px; color: #c2c2c2">GIC</a> <a href="/tags/ISA/" style="font-size: 12px; color: #ccc">ISA</a> <a href="/tags/Inkscape/" style="font-size: 12px; color: #ccc">Inkscape</a> <a href="/tags/KVM/" style="font-size: 21px; color: #6f6f6f">KVM</a> <a href="/tags/Konata/" style="font-size: 12px; color: #ccc">Konata</a> <a href="/tags/LDAP/" style="font-size: 12px; color: #ccc">LDAP</a> <a href="/tags/LDD3/" style="font-size: 14px; color: #b7b7b7">LDD3</a> <a href="/tags/LVM/" style="font-size: 12px; color: #ccc">LVM</a> <a href="/tags/Linux%E5%86%85%E6%A0%B8/" style="font-size: 30px; color: #111">Linux内核</a> <a href="/tags/Linux%E7%94%A8%E6%88%B7%E6%80%81%E7%BC%96%E7%A8%8B/" style="font-size: 18px; color: #8e8e8e">Linux用户态编程</a> <a href="/tags/MPAM/" style="font-size: 12px; color: #ccc">MPAM</a> <a href="/tags/Makefile/" style="font-size: 12px; color: #ccc">Makefile</a> <a href="/tags/PCIe/" style="font-size: 26px; color: #3b3b3b">PCIe</a> <a href="/tags/PMU/" style="font-size: 12px; color: #ccc">PMU</a> <a href="/tags/QAT/" style="font-size: 12px; color: #ccc">QAT</a> <a href="/tags/QEMU/" style="font-size: 29px; color: #1b1b1b">QEMU</a> <a href="/tags/RAS/" style="font-size: 13px; color: #c2c2c2">RAS</a> <a href="/tags/RDMA/" style="font-size: 12px; color: #ccc">RDMA</a> <a href="/tags/RPM-YUM/" style="font-size: 13px; color: #c2c2c2">RPM/YUM</a> <a href="/tags/SMCCC/" style="font-size: 12px; color: #ccc">SMCCC</a> <a href="/tags/SMMU/" style="font-size: 20px; color: #797979">SMMU</a> <a href="/tags/UEFI/" style="font-size: 15px; color: #adadad">UEFI</a> <a href="/tags/ZIP/" style="font-size: 13px; color: #c2c2c2">ZIP</a> <a href="/tags/apt-dpkg/" style="font-size: 12px; color: #ccc">apt/dpkg</a> <a href="/tags/autoconf/" style="font-size: 12px; color: #ccc">autoconf</a> <a href="/tags/cache/" style="font-size: 14px; color: #b7b7b7">cache</a> <a href="/tags/cgroup/" style="font-size: 12px; color: #ccc">cgroup</a> <a href="/tags/cmake/" style="font-size: 12px; color: #ccc">cmake</a> <a href="/tags/crypto/" style="font-size: 15px; color: #adadad">crypto</a> <a href="/tags/dpdk/" style="font-size: 12px; color: #ccc">dpdk</a> <a href="/tags/dts/" style="font-size: 12px; color: #ccc">dts</a> <a href="/tags/ftrace/" style="font-size: 13px; color: #c2c2c2">ftrace</a> <a href="/tags/gdb/" style="font-size: 12px; color: #ccc">gdb</a> <a href="/tags/gem5/" style="font-size: 12px; color: #ccc">gem5</a> <a href="/tags/git/" style="font-size: 14px; color: #b7b7b7">git</a> <a href="/tags/glib/" style="font-size: 14px; color: #b7b7b7">glib</a> <a href="/tags/gpio/" style="font-size: 12px; color: #ccc">gpio</a> <a href="/tags/hash/" style="font-size: 12px; color: #ccc">hash</a> <a href="/tags/herd/" style="font-size: 12px; color: #ccc">herd</a> <a href="/tags/iommu/" style="font-size: 15px; color: #adadad">iommu</a> <a href="/tags/kvm/" style="font-size: 12px; color: #ccc">kvm</a> <a href="/tags/memory-barrier/" style="font-size: 12px; color: #ccc">memory barrier</a> <a href="/tags/meson/" style="font-size: 12px; color: #ccc">meson</a> <a href="/tags/mprotect/" style="font-size: 12px; color: #ccc">mprotect</a> <a href="/tags/opensbi/" style="font-size: 15px; color: #adadad">opensbi</a> <a href="/tags/openssl/" style="font-size: 12px; color: #ccc">openssl</a> <a href="/tags/openssl-engine/" style="font-size: 12px; color: #ccc">openssl engine</a> <a href="/tags/perf/" style="font-size: 17px; color: #989898">perf</a> <a href="/tags/python/" style="font-size: 12px; color: #ccc">python</a> <a href="/tags/reboot/" style="font-size: 12px; color: #ccc">reboot</a> <a href="/tags/resctrl/" style="font-size: 12px; color: #ccc">resctrl</a> <a href="/tags/riscv/" style="font-size: 25px; color: #454545">riscv</a> <a href="/tags/rootfs/" style="font-size: 12px; color: #ccc">rootfs</a> <a href="/tags/scatterlist/" style="font-size: 12px; color: #ccc">scatterlist</a> <a href="/tags/shell/" style="font-size: 16px; color: #a2a2a2">shell</a> <a href="/tags/tmux/" style="font-size: 12px; color: #ccc">tmux</a> <a href="/tags/uboot/" style="font-size: 12px; color: #ccc">uboot</a> <a href="/tags/vfio/" style="font-size: 13px; color: #c2c2c2">vfio</a> <a href="/tags/wireshark/" style="font-size: 12px; color: #ccc">wireshark</a> <a href="/tags/zswap/" style="font-size: 13px; color: #c2c2c2">zswap</a> <a href="/tags/%E4%B8%AD%E6%96%AD/" style="font-size: 22px; color: #646464">中断</a> <a href="/tags/%E4%BF%A1%E5%8F%B7/" style="font-size: 12px; color: #ccc">信号</a> <a href="/tags/%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C/" style="font-size: 12px; color: #ccc">内存屏障</a> <a href="/tags/%E5%86%85%E5%AD%98%E5%B8%A6%E5%AE%BD/" style="font-size: 12px; color: #ccc">内存带宽</a> <a href="/tags/%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B/" style="font-size: 13px; color: #c2c2c2">内存模型</a> <a href="/tags/%E5%86%85%E5%AD%98%E7%AE%A1%E7%90%86/" style="font-size: 23px; color: #5a5a5a">内存管理</a> <a href="/tags/%E5%8A%A0%E8%A7%A3%E5%AF%86/" style="font-size: 14px; color: #b7b7b7">加解密</a> <a href="/tags/%E5%8A%A8%E6%80%81%E5%BA%93/" style="font-size: 12px; color: #ccc">动态库</a> <a href="/tags/%E5%8C%85%E7%AE%A1%E7%90%86/" style="font-size: 14px; color: #b7b7b7">包管理</a> <a href="/tags/%E5%8D%8F%E7%A8%8B/" style="font-size: 12px; color: #ccc">协程</a> <a href="/tags/%E5%8E%9F%E5%AD%90%E6%8C%87%E4%BB%A4/" style="font-size: 12px; color: #ccc">原子指令</a> <a href="/tags/%E5%90%91%E9%87%8F/" style="font-size: 12px; color: #ccc">向量</a> <a href="/tags/%E5%A4%A7%E5%AD%A6/" style="font-size: 12px; color: #ccc">大学</a> <a href="/tags/%E5%AE%B9%E5%99%A8/" style="font-size: 12px; color: #ccc">容器</a> <a href="/tags/%E5%BC%80%E5%8F%91%E5%B7%A5%E5%85%B7/" style="font-size: 12px; color: #ccc">开发工具</a> <a href="/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/" style="font-size: 16px; color: #a2a2a2">数据结构</a> <a href="/tags/%E6%96%87%E4%BB%B6%E7%B3%BB%E7%BB%9F/" style="font-size: 15px; color: #adadad">文件系统</a> <a href="/tags/%E6%97%B6%E9%92%9F/" style="font-size: 12px; color: #ccc">时钟</a> <a href="/tags/%E6%B1%87%E7%BC%96/" style="font-size: 12px; color: #ccc">汇编</a> <a href="/tags/%E7%BC%96%E8%AF%91%E9%93%BE%E6%8E%A5/" style="font-size: 17px; color: #989898">编译链接</a> <a href="/tags/%E7%BD%91%E7%BB%9C/" style="font-size: 13px; color: #c2c2c2">网络</a> <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" style="font-size: 27px; color: #303030">虚拟化</a> <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" style="font-size: 28px; color: #262626">计算机体系结构</a> <a href="/tags/%E8%AF%BB%E4%B9%A6%E7%AC%94%E8%AE%B0/" style="font-size: 14px; color: #b7b7b7">读书笔记</a> <a href="/tags/%E8%B0%83%E5%BA%A6/" style="font-size: 18px; color: #8e8e8e">调度</a> <a href="/tags/%E8%BD%AC%E8%BD%BD/" style="font-size: 12px; color: #ccc">转载</a> <a href="/tags/%E8%BD%AF%E4%BB%B6%E5%BC%80%E5%8F%91/" style="font-size: 19px; color: #838383">软件开发</a> <a href="/tags/%E8%BD%AF%E4%BB%B6%E6%80%A7%E8%83%BD/" style="font-size: 15px; color: #adadad">软件性能</a> <a href="/tags/%E8%BD%AF%E4%BB%B6%E6%9E%B6%E6%9E%84/" style="font-size: 18px; color: #8e8e8e">软件架构</a> <a href="/tags/%E8%BD%AF%E4%BB%B6%E6%B5%8B%E8%AF%95/" style="font-size: 15px; color: #adadad">软件测试</a> <a href="/tags/%E8%BD%AF%E4%BB%B6%E8%B0%83%E8%AF%95/" style="font-size: 24px; color: #4f4f4f">软件调试</a> <a href="/tags/%E8%BF%90%E7%BB%B4/" style="font-size: 15px; color: #adadad">运维</a> <a href="/tags/%E9%94%81/" style="font-size: 14px; color: #b7b7b7">锁</a> <a href="/tags/%E9%9D%99%E6%80%81%E5%8D%9A%E5%AE%A2%E6%90%AD%E5%BB%BA/" style="font-size: 12px; color: #ccc">静态博客搭建</a> <a href="/tags/%E9%9D%A2%E5%90%91%E5%AF%B9%E8%B1%A1/" style="font-size: 12px; color: #ccc">面向对象</a> <a href="/tags/%E9%A1%B5%E8%A1%A8/" style="font-size: 14px; color: #b7b7b7">页表</a>
+            </div>
+          </div>
+        
+      </div>
+      
+      
+      
+    </div>
+    
+
+    
+    
+    
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">295</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">105</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

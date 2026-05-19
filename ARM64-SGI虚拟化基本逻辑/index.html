@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文整理ARM KVM中vSGI实现的基本逻辑。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ARM64 SGI虚拟化基本逻辑">
+<meta property="og:url" content="http://wangzhou.github.io/ARM64-SGI%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="本文整理ARM KVM中vSGI实现的基本逻辑。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-04-12T11:45:47.000Z">
+<meta property="article:modified_time" content="2026-04-02T19:43:14.180Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="中断">
+<meta property="article:tag" content="虚拟化">
+<meta property="article:tag" content="KVM">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/ARM64-SGI%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>ARM64 SGI虚拟化基本逻辑 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">应无所住 而生其心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">105</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">295</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/ARM64-SGI%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          ARM64 SGI虚拟化基本逻辑
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-04-12 19:45:47" itemprop="dateCreated datePublished" datetime="2025-04-12T19:45:47+08:00">2025-04-12</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-03 03:43:14" itemprop="dateModified" datetime="2026-04-03T03:43:14+08:00">2026-04-03</time>
+              </span>
+
+          
+            <div class="post-description">本文整理ARM KVM中vSGI实现的基本逻辑。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>物理SGI通过写ICC_SGI0R_EL1/ICC_SGI1R_EL1/ICC_ASGI1R_EL1触发。虚拟化下，vCPU写对<br>应的寄存器会触发trap到KVM。GICv3/v4.0需要通过list register向vCPU注入vSGI，GICv4.1<br>支持vCPU在线的时候通过GITS_SGIR寄存器直接向vCPU注入vSGI。</p>
+<p>如上的三个寄存器用来区分group和security，具体又和所在的EL级别有关系。ICC_SGI0R_EL1<br>表示触发一个group0的SGI，在各个特权级下，group0都是FIQ；ICC_SGI1R_EL1表示触发一个<br>group1的SGI，security类型和当前PE相同；ICC_ASGI1R_EL1也是触发group1的SGI，只是<br>security类型和当前PE不一样。</p>
+<p>如上各个寄存器的标记SGI的目标CPU、中断号以及是否做广播。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">       55     48      40  39     32        27  24 23     16 15        0</span><br><span class="line">+-----+---------+----+---+---------+------+------+---------+-----------+</span><br><span class="line">|     |affinity3|    |IRM|affinity2|      |SGI ID|affinity1|target list|</span><br><span class="line">+-----+---------+----+---+---------+------+------+---------+-----------+</span><br></pre></td></tr></table></figure>
+<p>使用affinity3/2/1以及target list标记系统里的CPU，这个和MPIDR_EL1寄存器标记CPU的<br>语意是一致的。IRM为1表示向所有CPU广播，IRM为0才用如上affinity/target list域段指定<br>目标CPU。</p>
+<p>其中，如上寄存器的target list和MPIDR_EL1的affinity0有所不同，前者16个bit表示具体<br>affinity1下的16个CPU，所以GIC支持向一个affinity1下的多个CPU发SGI多播。而MPIDR_EL1<br>的affinity0用8bit的位宽表示一个数。这里的设计看起来是对不上的。</p>
+<p>ICH_HCR_EL2.TC控制访问相关寄存器是否trap到EL2。</p>
+<p>GICv3/v4.0 vSGI需要使用list register由KVM注入vCPU。todo: …</p>
+<p>GICv4.1时，KVM通过写GITS_SGIR寄存器直接注入vSGI，GITS_SGIR使用vPEID和vINTID表示<br>目标vCPU和SGI中断号。KVM需要把收到的affinity3/2/1+target list转换成vPEID，然后使<br>用GITS_SGIR发送vSGI。</p>
+<p>ARM KVM下，vCPU中MPIDR_EL1由vcpu_id在KVM中转换计算得到对应的MPIDR_EL1的值，KVM保<br>存MPIDR_EL1和vPEID的映射关系。注意，vcpu_id在每个VM里，从0开始依次编号；MPIDR是<br>ARM下硬件标记CPU编号的方式；vPEID是GIC视角的vCPU编号，在host上这个是vCPU的唯一编<br>号。</p>
+<p>直接使用GITS_SGIR还需要哪些前置的配置？KVM配置ITS的寄存器把信息传给硬件，硬件需<br>要知道vCPU当前在哪个物理CPU上，才能转发给对应的GICR；GICR需要知道vCPU当前是否在线，<br>在线直接注入，不在线就把信息记录下，触发doorbell中断，doorbell中断处理里触发vCPU<br>上线响应vSGI中断。所以，这里至少需要这两个对应的前置配置，第一个配置复用VMAPP/VMOVP<br>等配置，其实就是在vPE table里找见对应vPE对应的GICR，第二是否在线的配置也是复用vPE<br>是否在线的检测，即vPE table里保存的LPI pending table是否和GICR上配置的一样。除此<br>之外，增加VSGI命令: </p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">VSGI vPEID, vINTID, enable, group, priority, clear</span><br></pre></td></tr></table></figure>
+<p>这个命令配置一个vSGI中断的基本信息。这些基本信息是保存在LPI pending table的空余<br>空间里。</p>
+<p>另外，GICv4.1的SGI直通是个半虚拟化的特性。GICD_TYPE2.nASSGIcap表示是否支持SGI直通，<br>guest内核驱动配置GICD_CTL.nASSGIrep可以使能这个特性。GICD_TYPE2.nASSGIcap在host读<br>的时候是0。kvm在模拟gicv3的时候把GICD_TYPE2.nASSGIcap暴露给了guest系统。这样guest<br>内核gic驱动就可以检测并配置GICD_TYPE2.nASSGIrep。</p>
+<h2 id="KVM代码分析"><a href="#KVM代码分析" class="headerlink" title="KVM代码分析"></a>KVM代码分析</h2><p>具体到代码层面，vSGI大概可以分为”数据流”和”控制流”，前者是vCPU发起一个vSGI的流程，<br>后者是之前为整个通路做的准备。</p>
+<p>“数据流”即为ICC_SGI1R_EL1 trap的逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">kvm_handle_sys_reg</span><br><span class="line">  ...</span><br><span class="line">  +-&gt; access_gic_sgi</span><br><span class="line">        /*</span><br><span class="line">         * 从affinity的语意转换到vPEID的语意。</span><br><span class="line">         */</span><br><span class="line">    +-&gt; vgic_v3_dispatch_sgi</span><br><span class="line">      +-&gt; vgic_v3_queue_sgi         // 得到vSGI对应的vgic_irq irq</span><br><span class="line"></span><br><span class="line">        +-&gt; vgic_queue_irq_unlock                      &lt;--- GICv3/v4.0的注入逻辑</span><br><span class="line"></span><br><span class="line">        +-&gt; irq_set_irqchip_state(irq-&gt;host_irq, ...)  &lt;--- GICv4.1的vSGI直通逻辑 </span><br><span class="line">          +-&gt; chip-&gt;irq_set_irqchip_state</span><br><span class="line">                /*</span><br><span class="line">                 * GITS_SGIR触发vSGI的逻辑, 如下GICv4.1-sgi里的irq_set_irqchip_state，</span><br><span class="line">                 * 实际就是写GITS_SGIR寄存器。</span><br><span class="line">                 */</span><br><span class="line">            +-&gt; its_sgi_set_irqchip_state</span><br><span class="line">                ...</span><br></pre></td></tr></table></figure>
+
+<p>下面看整个通路是怎么准备好的。</p>
+<p>GIC里有很多irq_chip和irq_domain，irq-gic-v3-its.c里有：”GICv4-vpe”，”GICv4.1-vpe”，<br>“GICv4.1-sgi”以及”ITS”对应的chip和domain，irq-gic-v3.c里有：”GICv3”对应的chip和domain。<br>GICv3/ITS是非虚拟化相关的，其它类型的chip/domain都和虚拟化有关系。irq_chip封装特<br>定中断控制器的回调函数，irq_domain封装linux内核中断分配、中断映射等逻辑，内核给<br>它管理的每个中断创建一个irq_desc，其中保存逻辑中断号、irq_data以及irq_chip。</p>
+<p>这里只看和SGI虚拟化相关的逻辑。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">its_init</span><br><span class="line">      /*</span><br><span class="line">       * 初始化vpe_domain_ops以及sgi_domain_ops, 这两者都是在后面的its_alloc_vcpu_irq</span><br><span class="line">       * 里使用。而its_alloc_vcpu_irq是kvm初始化模拟gic时，vgic_v4_init里调用的。</span><br><span class="line">       *</span><br><span class="line">       * 其中vpe_domain_ops是its_vpe_domain_ops，sgi_domain_ops在GICv4.1时是</span><br><span class="line">       * its_sgi_domain_ops。</span><br><span class="line">       */</span><br><span class="line">  +-&gt; its_init_v4</span><br></pre></td></tr></table></figure>
+
+<p>KVM里模拟GIC，初始化GIC的逻辑。这里会使用如上的vpe_domain_ops和sgi_domain_ops。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">vgic_v4_init</span><br><span class="line">  +-&gt; its_alloc_vcpu_irq</span><br><span class="line">    +-&gt; vm-&gt;domain = irq_domain_create_hierarchy(gic_domain, 0, vm-&gt;nr_vpes,</span><br><span class="line">                                                 vm-&gt;fwnode, vpe_domain_ops, vm)</span><br><span class="line">    +-&gt; vpe_base_irq = irq_domain_alloc_irqs</span><br><span class="line"></span><br><span class="line">        /* 对VM里的每个vCPU调用该函数，如下的逻辑和vSGI有关系 */</span><br><span class="line">    +-&gt; its_alloc_vcpu_sgis</span><br><span class="line">      +-&gt; irq_domain_alloc_named_id_fwnode</span><br><span class="line">      +-&gt; vpe-&gt;sgi_domain = irq_domain_create_linear(vpe-&gt;fwnode, 16,</span><br><span class="line">                                                     sgi_domain_ops, vpe)</span><br><span class="line">          /* 为每个vCPU分配16个vSGI */</span><br><span class="line">      +-&gt; sgi_base = irq_domain_alloc_irqs(vpe-&gt;sgi_domain, 16, NUMA_NO_NODE, vpe)</span><br><span class="line">            /* 为每个vSGI挂上its_sgi_irq_chip，即为GICv4.1-sgi irq_chip */</span><br><span class="line">        +-&gt; its_sgi_irq_domain_alloc</span><br></pre></td></tr></table></figure>
+
+<p>vgic_irq里的host_irq获取逻辑如下，这个irq应该不是一个真实的irq，而是借助这个irq<br>直接调用到了GICv4.1-sgi irq_chip中的vSGI操作函数。对vSGI使能/关闭/配置优先级等<br>操作归根到底是在host上使用VSGI。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">kvm_vcpu_ioctl KVM_RUN</span><br><span class="line">  ...</span><br><span class="line">  +-&gt; vgic_v3_map_resources</span><br><span class="line">    +-&gt; vgic_v4_configure_vsgis</span><br><span class="line"></span><br><span class="line">          /* 下线VM的所有vCPU */</span><br><span class="line">      +-&gt; kvm_arm_halt_guest</span><br><span class="line">      +-&gt; vgic_v4_enable_vsgis</span><br><span class="line">            /*</span><br><span class="line">             * 把上面sgi_domain中的irq传给对应的host_irq，通过对应的irq就可以直接</span><br><span class="line">             * 调用GICv4.1-sgi irq_chip里的回调。可以看到这些回调里调用的都是VSGI</span><br><span class="line">             * 命令。</span><br><span class="line">             */</span><br><span class="line">        +-&gt; irq-&gt;host_irq = irq_find_mapping(vpe-&gt;sgi_domain, i)</span><br><span class="line">        +-&gt; vgic_v4_sync_sgi_config(vpe, irq)</span><br><span class="line">        +-&gt; irq_domain_activate_irq</span><br><span class="line">        +-&gt; irq_set_irqchip_state</span><br><span class="line">          /*</span><br><span class="line">           * 上线VM的所有vCPU，这里面应该会有VMAPP的操作，就会把vPE到GICR的关系</span><br><span class="line">           * 告诉给硬件。</span><br><span class="line">           */</span><br><span class="line">      +-&gt; kvm_arm_resume_guest</span><br></pre></td></tr></table></figure>
+
+<h2 id="SGI内核代码分析"><a href="#SGI内核代码分析" class="headerlink" title="SGI内核代码分析"></a>SGI内核代码分析</h2><p>Linux内核SGI相关逻辑可以参考<a href="https://wangzhou.github.io/Linux%E5%86%85%E6%A0%B8%E9%87%8CIPI%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">这里</a>。</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E4%B8%AD%E6%96%AD/" rel="tag"><i class="fa fa-tag"></i> 中断</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"><i class="fa fa-tag"></i> 虚拟化</a>
+              <a href="/tags/KVM/" rel="tag"><i class="fa fa-tag"></i> KVM</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/ARM64-LPI%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="prev" title="ARM64 LPI虚拟化基本逻辑">
+      <i class="fa fa-chevron-left"></i> ARM64 LPI虚拟化基本逻辑
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/ARM64%E6%97%B6%E9%92%9F%E8%99%9A%E6%8B%9F%E5%8C%96%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="next" title="ARM64时钟虚拟化基本逻辑">
+      ARM64时钟虚拟化基本逻辑 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#KVM%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">2.</span> <span class="nav-text">KVM代码分析</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SGI%E5%86%85%E6%A0%B8%E4%BB%A3%E7%A0%81%E5%88%86%E6%9E%90"><span class="nav-number">3.</span> <span class="nav-text">SGI内核代码分析</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">295</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">105</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>

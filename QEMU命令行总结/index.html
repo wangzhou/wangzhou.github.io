@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="收集qemu各种配置命令。这里一般不区分kvm和tcg，在需要区分的时候，再作说明。如果qemu命令和平台相关，则使用ARM64平台。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="QEMU命令行总结">
+<meta property="og:url" content="http://wangzhou.github.io/QEMU%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%80%BB%E7%BB%93/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="收集qemu各种配置命令。这里一般不区分kvm和tcg，在需要区分的时候，再作说明。如果qemu命令和平台相关，则使用ARM64平台。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2025-01-19T14:02:21.000Z">
+<meta property="article:modified_time" content="2026-04-02T19:43:14.184Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="虚拟化">
+<meta property="article:tag" content="QEMU">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/QEMU%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%80%BB%E7%BB%93/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>QEMU命令行总结 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">应无所住 而生其心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">105</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">295</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/QEMU%E5%91%BD%E4%BB%A4%E8%A1%8C%E6%80%BB%E7%BB%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          QEMU命令行总结
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2025-01-19 22:02:21" itemprop="dateCreated datePublished" datetime="2025-01-19T22:02:21+08:00">2025-01-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2026-04-03 03:43:14" itemprop="dateModified" datetime="2026-04-03T03:43:14+08:00">2026-04-03</time>
+              </span>
+
+          
+            <div class="post-description">收集qemu各种配置命令。这里一般不区分kvm和tcg，在需要区分的时候，再作说明。如果qemu命令和平台相关，则使用ARM64平台。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="固件相关"><a href="#固件相关" class="headerlink" title="固件相关"></a>固件相关</h2><ul>
+<li>DTS</li>
+</ul>
+<p>  ARM64 qemu默认使用的是DTS，在不加-bios启动命令的时候就是用DTS启动系统的，qemu<br>  代码会根据qemu命令行参数生成DTS并放置到内存的特定位置。</p>
+<ul>
+<li>ACPI</li>
+</ul>
+<p>  ARM64 qemu使用-bios可以指定EDK2的UEFI固件，这时qemu使用ACPI的方式启动，和DTS一<br>  样，qemu代码会自动生成ACPI表格。</p>
+<p>  qemu会把各种固件作为submodule加到qemu的仓库里，编译过程生成的各种固件保存在<br>  qemu/pc-bios/。</p>
+<p>  也可以用如下的方式直接下载EDK2代码仓编译QEMU_EFI.fd固件:</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">git clone https://github.com/tianocore/edk2.git</span><br><span class="line">git submodule update --init</span><br><span class="line">source edksetup.sh</span><br><span class="line">make -C BaseTools</span><br><span class="line">build -a AARCH64 -t GCC5 -p ArmVirtPkg/ArmVirtQemu.dsc</span><br><span class="line">cd Build/ArmVirtQemu-AARCH64/DEBUGFS_GCC5/FV/</span><br></pre></td></tr></table></figure>
+<p>  编译好的QEMU_EFI.fd放在如上FV目录下，这样自行编译的固件是带调试打印的，guest<br>  启动，QEMU_EFI.fd运行时会有很多调试信息打印出来。注意，编译过程中可能提示启动<br>  中缺少必要的工具，直接安装对应的工具就好。比如如果缺acpi的相关工具，就ubuntu<br>  下就：sudo apt install acpica-tools。QEMU_EFI.fd的编译是参考<a target="_blank" rel="noopener" href="https://www.kraxel.org/blog/2022/05/edk2-virt-quickstart">这里</a>。</p>
+<h2 id="CPU"><a href="#CPU" class="headerlink" title="CPU"></a>CPU</h2><ul>
+<li>基本</li>
+</ul>
+<p> CPU的类型可以按如下配置。在tcg模式下，qemu支持很多不同的CPU类型，具体定义在<br> qemu/target/arm/tcg/cpu64.c的ARMCPUInfo aarch64_cpus里，指定具体的CPU name即可<br> 模拟对应种类的核；kvm模式下，一般使用-cpu host，即虚机CPU和host CPU是一致的；<br> 也可以用-cpu max指定使用尽可能多的CPU feature。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-cpu name</span><br></pre></td></tr></table></figure>
+
+<p> 多核系统上，qemu支持用如下的方式配置虚机的CPU拓扑结构：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-smp cpus=8,maxcpus=32,sockets=2,clusters=4,cores=2,threads=2</span><br></pre></td></tr></table></figure>
+<p>  表示系统最大支持32个逻辑core，启动其中8个，系统中有2个socket，一个socket里有4<br>  个cluster，一个cluster里有2个物理核，一个物理核有2个逻辑核。</p>
+<p>  可见，maxcpus = sockets * clusters * cores * threads。</p>
+<p>  如上启动的8个core，会依次分配到第一个socket里的前两个cluster。按照如下冷插的方<br>  式可以指定启动core的具体位置。</p>
+<ul>
+<li>冷插</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-device host-arm-cpu,id=core_x,socket-id=x,cluster-id=y,core-id=z,thread-id=n</span><br></pre></td></tr></table></figure>
+<p>  如上的方式可以指定具体位置的CPU核。</p>
+<ul>
+<li>热插拔</li>
+</ul>
+<p>  如上的配置中，maxcpus大于系统启动的core数，差值就是支持热插的core的个数，可以<br>  通过qemu monitor的命令进行CPU热插拔。（注意：ARM64的热插拔社区还是支持中）</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">(qemu) device_add cortex-a57-arm-cpu,id=core2,core-id=2</span><br><span class="line">...</span><br><span class="line">(qemu) device_del core2</span><br></pre></td></tr></table></figure>
+<p>  如上是tcg模式的CPU热插拔，KVM时把CPU类型改成: host-arm-cpu</p>
+<p>  如果qemu启动的时候指定了socket/cluster/core/thread等参数，可以使用如下的方式热<br>  插CPU，如果对应的位置已经有CPU存在，会报错提示。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">(qemu) device_add cortex-a57-arm-cpu,id=core_x,socket-id=x,cluster-id=y,core-id=z,thread-id=n</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>NUMA</li>
+</ul>
+<p> 虚拟机的NUMA拓扑也是可以配置的，虚拟机的NUMA一般要和host NUMA配置的一致，这样<br> 性能最高。注意，这里有两层逻辑，第一层是虚拟机自己NUMA的配置，第二层是和host<br> NUMA的映射关系。</p>
+<p> 如下的配置是把虚拟机里对应的vCPU分配给对应的虚拟机NUMA节点。完整的带内存的NUMA<br> 配置，以及和host的绑定关系，在后面总结。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-numa node,memdev=mem0,nodeid=0,cpus=0-15 \</span><br><span class="line">-numa node,memdev=mem1,nodeid=1,cpus=16-31 \</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>cache</li>
+</ul>
+<p>  qemu可以根据命令行配置的cache拓扑，生成DTS或ACPI中的对应表格，guest内核根据对应<br>  的表示就可以知道guest系统的cache拓扑结构。</p>
+<p>  目前，qemu中的该特性还处于社区开发阶段。对应的补丁如下，前者是框架相关的支持，<br>  后者是ARM体系结构上的支持。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">[PATCH v3 0/7] Introduce SMP Cache Topology</span><br><span class="line">[RFC,0/5] Specifying cache topology on ARM</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>单点特性</li>
+</ul>
+<p>  qemu支持单点开关一些特性，把它们总结在这里。qemu文档里有相关介绍，位置在<br>  qemu/docs/system/arm/cpu-features.rst。如下的配置改成off，即把对应特性关闭了。</p>
+<ul>
+<li>SVE/SVE2/PMU</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-cpu host,pmu=on,sve=on,sve128=on,sve256=on</span><br></pre></td></tr></table></figure>
+
+<h2 id="内存"><a href="#内存" class="headerlink" title="内存"></a>内存</h2><ul>
+<li>基本</li>
+</ul>
+<p>  简单配置虚拟机的内存是4096MB。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-m 4096M</span><br></pre></td></tr></table></figure>
+<p>  如下配置是各种内存插拔的基础，如下具体的配置是最大支持内存是4G，启动自带的内存<br>  是1024MB，还有三个内存插槽可以插内存。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-m 1024M,slots=3,maxmem=4G</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>冷插</li>
+</ul>
+<p>  qemu代码里对内存的各种插拔有文档描述，相关文档在qemu/docs/memory-hotplug.txt。<br>  如下是一个实例的内存冷插的配置，这个配置具有一定的代表性，object表示一个内存后端<br>  对象，device表示一个内存前端设备，前端设备通过memdev和后端对象关联在一起。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">qemu [...] -m 6GB,slots=4,maxmem=10G \</span><br><span class="line">  -object memory-backend-file,id=mem1,size=1G,mem-path=/mnt/hugepages-1G \</span><br><span class="line">  -device pc-dimm,id=dimm1,memdev=mem1 \</span><br><span class="line">  -object memory-backend-file,id=mem2,size=256M,mem-path=/mnt/hugepages-2MB \</span><br><span class="line">  -device pc-dimm,id=dimm2,memdev=mem2</span><br></pre></td></tr></table></figure>
+<p>  如上大页的使用需要作提前的配置，具体方法在Linux内核代码文档里描述，具体路径在：<br>  Linux/Documentation/admin-guide/mm/hugetlbpage.rst。</p>
+<p>  基本逻辑是，qemu可以使用-mem-path指定guest内存使用host上的大页，host可以在内核<br>  cmdline或者sysfs文件系统指定预留的大页，然后通过mount -f hugetlbfs [大页参数] nonte /mnt/xxx<br>  挂载对应大页文件系统，随后系统在对应挂载点下mmap分配内存就可以分配到对应的大页。<br>  qemu -mem-path的参数就是对应大页文件系统的挂载目录。</p>
+<ul>
+<li>热插拔</li>
+</ul>
+<p>  在qemu monitor里运行命令进行热插，针对pc-dimm和nvdimm，有如下类似的热插拔命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">(qemu) object_add memory-backend-ram,id=mem1,size=1G</span><br><span class="line">(qemu) device_add pc-dimm,id=dimm1,memdev=mem1</span><br></pre></td></tr></table></figure>
+<p>  对应的热拔命令，device和object的参数是对应的id：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">(qemu) device_del dimm1</span><br><span class="line">(qemu) object_del mem1</span><br></pre></td></tr></table></figure>
+<p>  对于nvdimm，需要先在-machine里加上nvdimm使能，比如-machine virt,nvdimm=on。<br>  qemu代码里有nvdimm的使用说明：qemu/docs/nvdimm.txt，简单使用如下：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">(qemu) object_add memory-backend-ram,id=mem1,size=1G</span><br><span class="line">(qemu) device_add nvdimm,id=nvdimm1,memdev=mem1</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>NUMA</li>
+</ul>
+<p>  qemu的内存可以和host的特定NUMA绑定，如下配置了虚机上的两个NUMA节点，并且把这两个<br>  NUMA节点的内存分别和host上NUMA node0以及node1节点上的内存绑定。注意，这里只是<br>  绑定内存，CPU并没有绑定。可以在host使用taskset把vCPU线程做范围绑核或者一对一的<br>  固定绑核。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">-m 4096M \</span><br><span class="line">-object memory-backend-ram,id=mem0,size=2048M,host-nodes=0,policy=bind \</span><br><span class="line">-object memory-backend-ram,id=mem1,size=2048M,host-nodes=1,policy=bind \</span><br><span class="line">-numa node,memdev=mem0,nodeid=0,cpus=0-15 \</span><br><span class="line">-numa node,memdev=mem1,nodeid=1,cpus=16-31 \</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>pc-dimm/nv-dimm</li>
+</ul>
+<p>  qemu monitor里运行info memory_size_summary, 如上冷插的pc-dimm/nv-dimm都显示在<br>  plugged memory一栏里，在linux系统内运行free命令，只有pc-dimm被看作系统内存。</p>
+<h2 id="中断"><a href="#中断" class="headerlink" title="中断"></a>中断</h2><p> ARM64 qemu为kvm模式时，host可以采用GICv3或GICv4的实现，guest上一般都是GICv3。<br> host采用GICv3时，虚拟机中断需要kvm显示注入，host采用GICv4以及以上版本时，GIC支持<br> 虚拟中断直通，其中GICv4.0/v4.1支持vLPI直通，GICv4.1支持vSGI直通。</p>
+<p> guest GIC和host对guest GIC的模拟实现是两个独立的逻辑，host采用不同的模拟实现方式<br> 只对guest的vLPI以及vSGI的性能有影响。</p>
+<p> 因为qemu使用的都是GICv3，所以qemu的配置都是一样的。如下的kernel_irqchip=on表示，<br> 这个GICv3的中断控制器是在host内核模拟出来的。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-machine virt,kernel_irqchip=on,gic-version=3</span><br></pre></td></tr></table></figure>
+
+<p> 在host内核的cmdline里使用参数控制host模拟guest GIC的方式，如下打开GICv4中vLPI<br> 直通的支持。这里只是enable GICv4.0/v4.1，KVM会根据实际硬件的支持情况，进一步决定<br> 是否支持vSGI中断直通。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kvm-arm.vgic_v4_enable=1</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>伪vNMI/硬件vNMI</li>
+</ul>
+<h2 id="IOMMU"><a href="#IOMMU" class="headerlink" title="IOMMU"></a>IOMMU</h2><ul>
+<li>vsmmu</li>
+</ul>
+<p>  qemu支持完全用软件模拟的SMMU，可以使用如下命令行使能。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">qemu-system-aarch64 -machine virt,iommu=smmuv3</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>iommufd</li>
+</ul>
+<p>  当前社区正在引入iommufd支持，iommufd将逐步取代vfio的一部分功能，如下是基于iommufd<br>  的vfio设备直通的配置。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-object iommufd,id=iommufd0</span><br><span class="line">-device vfio-pci,host=0000:02:00.0,iommufd=iommufd0</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>vSVA</li>
+</ul>
+<h2 id="PCIe"><a href="#PCIe" class="headerlink" title="PCIe"></a>PCIe</h2><p>  qemu代码里有关于PCIe相关的配置，具体位置在：qemu/docs/pcie.txt。关于PCIe switch<br>  的配置可以参考<a href="https://wangzhou.github.io/How-to-assign-more-than-31-VFs-to-one-VM/">这里</a>，关于PCIe热插拔的配置可以参考<a href="https://wangzhou.github.io/qemu%E9%87%8Cpci%E8%AE%BE%E5%A4%87%E7%9A%84%E7%83%AD%E6%8F%92%E6%8B%94/">这里</a>。</p>
+<h2 id="网络"><a href="#网络" class="headerlink" title="网络"></a>网络</h2><ul>
+<li>virtio-net</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-netdev tap,id=net,script=./qemu-ifup-nat,downscript=./qemu-ifdown-nat \</span><br><span class="line">-device virtio-net-pci,netdev=net,id=net1 \</span><br></pre></td></tr></table></figure>
+<p>  如上的配置会在host创建tap0，在guest创建一个virtio-net-pci设备，配置对应的IP后，<br>  guest和host可以通过网络进行通信。</p>
+<p>  其中qemu-ifup-nat的内容为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">ifconfig $1 192.168.10.1 up</span><br></pre></td></tr></table></figure>
+
+<p>  其中qemu-ifdown-nat的内容为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line">ifconfig $1 192.168.10.2 up</span><br></pre></td></tr></table></figure>
+
+<h2 id="存储"><a href="#存储" class="headerlink" title="存储"></a>存储</h2><ul>
+<li>基本</li>
+</ul>
+<p>  可以通过如下的方式创建一个文件，格式化成某种文件系统，然后使用-hda指定给qemu<br>  使用。虚机启动后guest Linux系统下会看到诸如/dev/vda的存储设备，直接mount上就<br>  可以使用。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">qemu-img create -f raw block.img 10MB</span><br><span class="line">mkfs.ext4 block.img</span><br><span class="line">qemu-system-arm64 -hda block.img</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>virtio-blk</li>
+</ul>
+<p>  先用dd命令创建如下boot.img文件，如下配置创建一个virtio-blk-pci的virtio设备，它<br>  接在对应的PCIe总线下，后端的存储设备用的是boot.img。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">-device pcie-root-port,port=0x8,chassis=0,id=pci.0,bus=pcie.0,multifunction=on,addr=0x3 \</span><br><span class="line">-device pcie-root-port,port=0x9,chassis=1,id=pci.1,bus=pcie.0,addr=0x3.0x1 \</span><br><span class="line">-device virtio-blk-pci,drive=drive0,id=virtblk0,num-queues=8,packed=on,bus=pci.1 \</span><br><span class="line">-drive file=./boot.img,if=none,id=drive0,format=raw</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>virtio-scsi</p>
+</li>
+<li><p>安装Linux发行版</p>
+</li>
+</ul>
+<p>  一般调试我们都是用minifs的内存文件系统，实际使用虚机的时候，需要在虚机上安装<br>  Linux发行版，实际使用都用virsh命令操作，直接使用qemu命令行的方式可以参考<a href="https://wangzhou.github.io/%E5%9C%A8qemu%E8%99%9A%E6%8B%9F%E6%9C%BA%E4%B8%8A%E5%AE%89%E8%A3%85Linux%E5%8F%91%E8%A1%8C%E7%89%88/">这里</a>。</p>
+<h2 id="虚拟机热迁移"><a href="#虚拟机热迁移" class="headerlink" title="虚拟机热迁移"></a>虚拟机热迁移</h2><ul>
+<li>基本热迁移</li>
+</ul>
+<p>  热迁移是qemu的基本特性，迁入端迁出端qemu的配置要完全一致。其中迁入端qemu需要增<br>  加如下命令，表示迁入端的IP和port。(这里是在同一台机器上做迁移，所以IP的地方是0)</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-incoming tcp:0:6666</span><br></pre></td></tr></table></figure>
+<p>  迁入端启动后会停下来等待即将到来的迁出端。</p>
+<p>  迁出端启动后进入qemu monitor输入迁移命令。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">migrate -d tcp:0:6666</span><br></pre></td></tr></table></figure>
+<p>  迁入端在完成迁移后即进入stop状态，在monitor里运行cont命令可以继续运行迁入端虚机。</p>
+<ul>
+<li>带VFIO设备热迁移</li>
+</ul>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-object iommufd,id=iommufd0</span><br><span class="line">-device vfio-pci,host=0000:02:00.0,iommufd=iommufd0,enable-migration=on</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>热迁移和热插拔联合</li>
+</ul>
+<p>  热迁移要保证迁移的两端虚机配置一致，其中包含热插拔的设备。</p>
+<h2 id="虚拟机和物理机通信"><a href="#虚拟机和物理机通信" class="headerlink" title="虚拟机和物理机通信"></a>虚拟机和物理机通信</h2><ul>
+<li>9p文件系统</li>
+</ul>
+<p>  通过9p文件系统的虚机和物理机之间通信可以参考<a href="https://wangzhou.github.io/Guest-and-host-communication-for-QEMU/">这里</a>。</p>
+<ul>
+<li>网络</li>
+</ul>
+<p>  按如上网络章节中的方式通过网络通信。</p>
+<h2 id="qemu-kvm调试选项"><a href="#qemu-kvm调试选项" class="headerlink" title="qemu/kvm调试选项"></a>qemu/kvm调试选项</h2><ul>
+<li><p>qemu启动/停止</p>
+</li>
+<li><p>qemu monitor</p>
+</li>
+</ul>
+<p>  qemu monitor的使用方式收集在<a href="https://wangzhou.github.io/qemu-monitor%E4%BB%8B%E7%BB%8D/">这里</a>。</p>
+<p>  monitor支持通过telnet/tcp/udp/unix domain使用，所以可以用程序和monitor做交互。<br>  例如，可以在qemu命令行里加上如下配置：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-monitor tcp:127.0.0.1:3333,server,nowait</span><br></pre></td></tr></table></figure>
+<p>  monitor会监听对应ip:port上的消息，然后就可以向对应的ip:port发monitor命令来控制<br>  虚机，比如如下的脚本把虚机直接关掉：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">#!/bin/bash</span><br><span class="line"></span><br><span class="line">nc 127.0.0.1 3333 &lt;&lt; EOF</span><br><span class="line">q</span><br><span class="line">EOF</span><br></pre></td></tr></table></figure>
+<p>  使用unix domain的方式为：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-monitor unix:/tmp/monitor,server,nowait</span><br></pre></td></tr></table></figure>
+<p> 可以通过如下方式给monitor发信息，unix domain使用文件作为通信的接口。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">echo &quot;command send to monitor&quot; | nc -U /tmp/monitor</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>telnet/串口</li>
+</ul>
+<p>  qemu支持串口从telnet导出。</p>
+<ul>
+<li>qemu trace</li>
+</ul>
+<p>  qemu里打开或者增加trace的方法可以参考<a href="https://wangzhou.github.io/qemu%E9%87%8C%E5%A2%9E%E5%8A%A0trace%E7%9A%84%E6%96%B9%E6%B3%95/">这里</a>。</p>
+<ul>
+<li>kvm trace</li>
+</ul>
+<p>  Linux内核在KVM里加了很多tracepoint点，调试的时候可以在ftrace里打开对应tracepoint。</p>
+<ul>
+<li>qemu tcg调试</li>
+</ul>
+<p>  qemu tcg基本调试的方法可以参考<a href="https://wangzhou.github.io/qemu%E8%B0%83%E8%AF%95%E6%96%B9%E6%B3%95/">这里</a>。</p>
+<ul>
+<li>qemu中的各种输出保存到文件</li>
+</ul>
+<p>  写脚本做测试时，一般我们把qemu相关的各种输出保存到文件里，对文件做过滤检测其中<br>  相关信息。如下配置一个多路chardev，为其指定输出日志保存文件，并把它作为串口。<br>  qemu运行中的guest内核以及shell中的输出都会保存到指定的日志文件里。注意，这里要<br>  用display none而不是nographic。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">-display none \</span><br><span class="line">-chardev stdio,mux=on,logfile=./qemu_log,id=char0 \</span><br><span class="line">-serial chardev:char0</span><br></pre></td></tr></table></figure>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"><i class="fa fa-tag"></i> 虚拟化</a>
+              <a href="/tags/QEMU/" rel="tag"><i class="fa fa-tag"></i> QEMU</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/QEMU-CPU-model%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/" rel="prev" title="QEMU CPU model的基本逻辑">
+      <i class="fa fa-chevron-left"></i> QEMU CPU model的基本逻辑
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/kvm-unit-test%E9%80%9F%E8%AE%B0/" rel="next" title="kvm unit test速记">
+      kvm unit test速记 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9B%BA%E4%BB%B6%E7%9B%B8%E5%85%B3"><span class="nav-number">1.</span> <span class="nav-text">固件相关</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CPU"><span class="nav-number">2.</span> <span class="nav-text">CPU</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%86%85%E5%AD%98"><span class="nav-number">3.</span> <span class="nav-text">内存</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%AD%E6%96%AD"><span class="nav-number">4.</span> <span class="nav-text">中断</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#IOMMU"><span class="nav-number">5.</span> <span class="nav-text">IOMMU</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PCIe"><span class="nav-number">6.</span> <span class="nav-text">PCIe</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BD%91%E7%BB%9C"><span class="nav-number">7.</span> <span class="nav-text">网络</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AD%98%E5%82%A8"><span class="nav-number">8.</span> <span class="nav-text">存储</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%83%AD%E8%BF%81%E7%A7%BB"><span class="nav-number">9.</span> <span class="nav-text">虚拟机热迁移</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%99%9A%E6%8B%9F%E6%9C%BA%E5%92%8C%E7%89%A9%E7%90%86%E6%9C%BA%E9%80%9A%E4%BF%A1"><span class="nav-number">10.</span> <span class="nav-text">虚拟机和物理机通信</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#qemu-kvm%E8%B0%83%E8%AF%95%E9%80%89%E9%A1%B9"><span class="nav-number">11.</span> <span class="nav-text">qemu&#x2F;kvm调试选项</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">295</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">105</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
