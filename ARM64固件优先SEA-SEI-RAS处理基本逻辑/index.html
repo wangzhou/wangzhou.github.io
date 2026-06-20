@@ -31,7 +31,7 @@
 <meta property="og:description" content="分析ARM64架构上固件优先模式的SEA&#x2F;SEI RAS错误处理流程，包括异常触发、固件处理、OS处理及关键数据结构。">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-05-08T16:26:54.000Z">
-<meta property="article:modified_time" content="2026-05-24T23:20:28.879Z">
+<meta property="article:modified_time" content="2026-06-20T04:42:48.076Z">
 <meta property="article:author" content="Sherlock Wang">
 <meta property="article:tag" content="ARM64">
 <meta property="article:tag" content="Linux内核">
@@ -235,7 +235,7 @@
                   <i class="far fa-calendar-check"></i>
                 </span>
                 <span class="post-meta-item-text">更新于</span>
-                <time title="修改时间：2026-05-25 07:20:28" itemprop="dateModified" datetime="2026-05-25T07:20:28+08:00">2026-05-25</time>
+                <time title="修改时间：2026-06-20 12:42:48" itemprop="dateModified" datetime="2026-06-20T12:42:48+08:00">2026-06-20</time>
               </span>
 
           
@@ -273,6 +273,12 @@
 <p>注意，整个硬件系统分很多部件，比如很多L3/内存相关的部件OS里是看不见的，而core上<br>报SEA/SEI是core和这些OS看不见部件综合作用的结果，这些部件可以有私有的配置，这些<br>私有的配置甚至可以决定给core是否返回可以触发core SEA/SEI的信号，这些私有配置有些<br>还可以决定是否这些私有模块发现错误的时候直接报RAS相关的中断上来。</p>
 <h2 id="Linux内核处理"><a href="#Linux内核处理" class="headerlink" title="Linux内核处理"></a>Linux内核处理</h2><figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// arch/arm64/mm/fault.c</span></span><br><span class="line">do_sea(<span class="keyword">unsigned</span> <span class="keyword">long</span> addr, <span class="keyword">unsigned</span> <span class="keyword">int</span> esr, struct pt_regs *regs)</span><br><span class="line">&#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="function">arm64_notify_die</span></span><br><span class="line"><span class="function">        <span class="title">if</span> <span class="params">(user_mode(regs))</span>   &lt;--- 用户态触发错误时，会向进程发信号，终止进程</span></span><br><span class="line"><span class="function">            arm64_force_sig_fault</span></span><br><span class="line"><span class="function">        <span class="keyword">else</span>                   &lt;--- 如果是内核触发，会做一系列的处理后panic内核</span></span><br><span class="line"><span class="function">            <span class="title">die</span><span class="params">(str, regs, err)</span></span></span><br><span class="line"><span class="function">                ...</span></span><br><span class="line"><span class="function">                __<span class="title">die</span><span class="params">()</span></span></span><br><span class="line"><span class="function">                <span class="title">crash_kexec</span><span class="params">()</span>  &lt;--- 注意crash要显式调用，不然不会有vmcore</span></span><br><span class="line"><span class="function">                <span class="title">panic</span><span class="params">()</span></span></span><br><span class="line"><span class="function">&#125;</span></span><br></pre></td></tr></table></figure>
 <p>注意，有的时候，一个RAS错误源头可能触发一个SEA和一个SEI，如果在SEA处理逻辑还没有<br>关中断的时候，SEI被taken了，那么SEI看到的信息是SEA的栈信息，无法打印出实际触发这个<br>RAS错误的栈。这个时候可以hack下这里的do_sea，一进来就panic内核，这样可以看到触发<br>RAS错误的栈。</p>
+<h2 id="RAS处理中上下文保存和恢复"><a href="#RAS处理中上下文保存和恢复" class="headerlink" title="RAS处理中上下文保存和恢复"></a>RAS处理中上下文保存和恢复</h2><p>EL级别切换示意：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">+-------------+</span><br><span class="line">| EL0/EL1/EL2 |</span><br><span class="line">+-------------+</span><br><span class="line">      |        \</span><br><span class="line">      |         \</span><br><span class="line">      |          \</span><br><span class="line">      |           v</span><br><span class="line">      |          +-------+</span><br><span class="line"> SEA  |          |  EL2  |</span><br><span class="line">      |          +-------+</span><br><span class="line">      |           ^</span><br><span class="line">      |          /</span><br><span class="line">      |         /</span><br><span class="line">      v        /</span><br><span class="line">+-------------+</span><br><span class="line">|     EL3     |</span><br><span class="line">+-------------+</span><br></pre></td></tr></table></figure>
+<p>逻辑上看，比EL3低的特权级发生SEA时，CPU直接跳到EL3，EL3这时是知道EL0/EL1/EL2的上<br>下文的。EL3在做完RAS相关处理后，需要把控制转移到EL2异常入口处理，这个转移过程逻辑<br>上应该模拟EL0/EL1/EL2直接到EL2异常的过程，这样到EL2后，EL2异常处理先保存EL0/EL1/EL2<br>的上下文，然后进入EL2处理，各种信息不会丢失。理论上看，EL3应该把之前的上下文放到<br>GPR和EL2相关的寄存器上，SPSR_EL3配置为一个固定PSTATE值，模拟EL0/EL1/EL2异常进入EL2<br>时EL2 PSTATE的值(这个值是进入EL2时的新PSTATE值，一般是一个固定的值)。</p>
+<p>总结下EL3中的配置：</p>
+<p>X0-X31 = EL0/EL1/EL2进入EL3的上下文<br>SPSR_EL2 = EL0/EL1/EL2进入EL3的SPSR_EL3<br>SPSR_EL3 = 一个固定的PSTATE<br>…<br>ERET到EL2</p>
+<p>实际上，在RAS处理的流程中，之前EL0/EL1/EL2的PSTATE的值，已经不重要了。所以，直接<br>把SPSR_EL3配置成一个固定的值就好。</p>
 
     </div>
 
@@ -381,7 +387,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E5%86%85%E6%A0%B8%E5%A4%84%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">Linux内核处理</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91"><span class="nav-number">1.</span> <span class="nav-text">基本逻辑</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E5%86%85%E6%A0%B8%E5%A4%84%E7%90%86"><span class="nav-number">2.</span> <span class="nav-text">Linux内核处理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RAS%E5%A4%84%E7%90%86%E4%B8%AD%E4%B8%8A%E4%B8%8B%E6%96%87%E4%BF%9D%E5%AD%98%E5%92%8C%E6%81%A2%E5%A4%8D"><span class="nav-number">3.</span> <span class="nav-text">RAS处理中上下文保存和恢复</span></a></li></ol></div>
       </div>
       <!--/noindex-->
 
