@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+  <meta http-equiv="Cache-Control" content="no-transform">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Noto Serif SC:300,300italic,400,400italic,700,700italic|Roboto Mono:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"wangzhou.github.io","root":"/","scheme":"Gemini","version":"7.8.0","exturl":true,"sidebar":{"position":"right","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":true,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":"valine","storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":false,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="收集和ARM TLB硬件相关的知识，基于ARM构架。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CPU TLB的基本逻辑">
+<meta property="og:url" content="http://wangzhou.github.io/CPU-TLB%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/index.html">
+<meta property="og:site_name" content="Sherlock&#39;s blog">
+<meta property="og:description" content="收集和ARM TLB硬件相关的知识，基于ARM构架。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-22T08:14:31.000Z">
+<meta property="article:modified_time" content="2026-07-22T08:39:06.400Z">
+<meta property="article:author" content="Sherlock Wang">
+<meta property="article:tag" content="计算机体系结构">
+<meta property="article:tag" content="ARM64">
+<meta property="article:tag" content="虚拟化">
+<meta property="article:tag" content="CPU">
+<meta property="article:tag" content="TLB">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://wangzhou.github.io/CPU-TLB%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>CPU TLB的基本逻辑 | Sherlock's blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Sherlock's blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">应无所住 而生其心</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags" rel="section"><i class="fa fa-tags fa-fw"></i>标签<span class="badge">105</span></a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives" rel="section"><i class="fa fa-archive fa-fw"></i>归档<span class="badge">297</span></a>
+
+  </li>
+        <li class="menu-item menu-item-reprint">
+
+    <a href="/categories/reprint" rel="section"><i class="fa fa-archive fa-fw"></i>转载</a>
+
+  </li>
+        <li class="menu-item menu-item-read">
+
+    <a href="/categories/read" rel="section"><i class="fa fa-th fa-fw"></i>读书笔记</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>搜索
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="搜索..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://wangzhou.github.io/CPU-TLB%E7%9A%84%E5%9F%BA%E6%9C%AC%E9%80%BB%E8%BE%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/yase.svg">
+      <meta itemprop="name" content="Sherlock Wang">
+      <meta itemprop="description" content="Linux, Kernel, 计算机体系结构">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Sherlock's blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          CPU TLB的基本逻辑
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+              
+
+              <time title="创建时间：2026-07-22 16:14:31 / 修改时间：16:39:06" itemprop="dateCreated datePublished" datetime="2026-07-22T16:14:31+08:00">2026-07-22</time>
+            </span>
+
+          
+            <div class="post-description">收集和ARM TLB硬件相关的知识，基于ARM构架。</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="TLB保存类型"><a href="#TLB保存类型" class="headerlink" title="TLB保存类型"></a>TLB保存类型</h2><p>TLB在硬件内部一般有三种保存情况：</p>
+<ol>
+<li><p>stage1 TLB，host使用的TLB。</p>
+</li>
+<li><p>combine TLB，也就是stage1和stage2最后综合得到的TLB。</p>
+</li>
+<li><p>stage2 TLB，也就是保存IPA-&gt;PA的对应的TLB。</p>
+<p>注意，在虚拟化的场景之下，如果只有combine TLB，TLB miss的成本会比较高，因为<br>为了地址翻译还需要做stage2的page table walk。有了stage2 TLB，可以立即得到IPA<br>对应的实际物理地址。</p>
+</li>
+</ol>
+<p>从一条TLB覆盖范围看，又可以分为三种情况：</p>
+<ol>
+<li><p>覆盖一个基础页的大小。</p>
+</li>
+<li><p>覆盖一个block页的大小。</p>
+</li>
+<li><p>覆盖一个CONT PTE的大小。</p>
+</li>
+</ol>
+<p>一般来说一个PE有一个独立的结构来保存TLB，但是，ARM上新增加了CnP这个特性，可以多个<br>PE之间共享TLB。具体定义是，如果多个PE的TTBRx_ELx的页表是一样的(包括VMID，ASID)，<br>同时TTBRx_ELx.CNP配置为1，那么多个PE上的相同TLB可以共享一个TLB。实际实现时，一般<br>是一个物理核的多个逻辑核共享TLB。</p>
+<p>注意，在虚拟化的情况下，需要TTBRx_EL1.CNP和VTTBR_EL2.CNP都是1，才会创建共享的TLB。<br>一个直观的硬件实现是，当硬件发现满足共享TLB的条件的时候，就去查找有无共享TLB，如果<br>没有就创建一个TLB，并打上共享的标记，如果找见共享TLB就直接使用。</p>
+<h2 id="TLBI指令"><a href="#TLBI指令" class="headerlink" title="TLBI指令"></a>TLBI指令</h2><p>从如上的TLB类型的角度看下TLBI指令都有哪些。TLB是key-value的存储结构，key是一组数据<br>的集合，硬件执行TLBI指令就是根据TLBI指令带的输入，去匹配TLB的key，匹配上了，就把<br>对应的TLB无效化。</p>
+<p>一个贴近真实硬件的条目模型如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">tlb_entry</span> &#123;</span></span><br><span class="line">    <span class="comment">/* -- key --  */</span></span><br><span class="line">    u64 in_addr;        <span class="comment">// 输入地址: VA(stage1/combined)或IPA(stage2)</span></span><br><span class="line">    u8  regime;         <span class="comment">// 各种EL1&amp;0/EL2/EL2&amp;0/EL3 translation regime (安全状态NS/S/Realm)</span></span><br><span class="line">    u16 vmid;</span><br><span class="line">    u16 asid;</span><br><span class="line">    u8  size;</span><br><span class="line">    <span class="comment">/* -- value -- */</span></span><br><span class="line">    u64 pa;</span><br><span class="line">    <span class="comment">/* -- attrs-- */</span></span><br><span class="line">    ...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>TLBI指令名可以拆成三段来读：TLBI &lt;操作&gt;&lt;级别&gt;&lt;范围&gt;。</p>
+<ul>
+<li>操作:<ul>
+<li>VA        : 按VA失效(带ASID)。</li>
+<li>VAA       : 按VA失效，但忽略ASID(all-ASID)。</li>
+<li>ASID      : 按ASID整体失效。</li>
+<li>VMALL     : 当前VMID下，该regime的stage1/combined条目全清(不按地址)。</li>
+<li>VMALLS12  : 当前VMID下，stage1 + stage2 + combined全清。</li>
+<li>IPAS2     : 按IPA失效，只失效stage2条目。</li>
+<li>ALL       : 该级别regime全清(不看VMID/ASID)。</li>
+<li>R*        : 按地址范围(Range)失效，一条指令失效一段区间。</li>
+</ul>
+</li>
+<li>级别: E1/E2/E3。</li>
+<li>范围: 无后缀=本PE local; IS=inner-shareable广播; OS=outer-shareable; nXS=不等XS。</li>
+</ul>
+<p>注意，如上ELx级别不是直接指对应EL级别的TLB，ELx结合当前机器所处在的状态(HCR_EL2.E2H/TGE)<br>会最终决定无效化作用于哪个translation regime，translation regime的定义可以参考<a href="https://wangzhou.github.io/ARM64%E7%B3%BB%E7%BB%9F%E5%AF%84%E5%AD%98%E5%99%A8%E6%80%BB%E7%BB%93/">这里</a>。<br>简单讲，EL1&amp;0 translation regime表示虚机S1+S2的翻译，EL2&amp;0 translation regime表示<br>VHE host的翻译，EL2 translation regime表示nVHE hypervisor的翻译。</p>
+<p>VHE场景下，TLBI xEL1x + TGE为1，表示EL2&amp;0 translation regime，TLBI xEL1x + TGE为0<br>表示EL1&amp;0 translation regime。所以，guest/host内核使用相同的TLBI xEL1x指令，在guest<br>和host下均可以做正确的TLBI操作。</p>
+<p>TLBI xIPAx表示对stage2 TLB的无效化。</p>
+<h2 id="TLBI使用场景"><a href="#TLBI使用场景" class="headerlink" title="TLBI使用场景"></a>TLBI使用场景</h2><h3 id="Host上TLBI的使用"><a href="#Host上TLBI的使用" class="headerlink" title="Host上TLBI的使用"></a>Host上TLBI的使用</h3><p>todo: Host上使用TLBI的场景。</p>
+<h3 id="虚机上TLBI的使用"><a href="#虚机上TLBI的使用" class="headerlink" title="虚机上TLBI的使用"></a>虚机上TLBI的使用</h3><p>从三个视角看下：guest自己发TLBI，host上刷stage2 TLB，host(KVM)替guest无效TLB。</p>
+<ul>
+<li>Guest在EL1自己发TLBI</li>
+</ul>
+<p>Guest执行tlbi vae1is无效化TLB为EL1&amp;0 regime，而当前VTTBR_EL2.VMID就是该guest的VMID，<br>硬件自动把失效锁定在这台guest。默认KVM不trap guest的TLBI(HCR_EL2.TTLB=0)，guest的<br>TLBI原生执行、原生按VMID隔离，host完全不参与。IS广播在物理上发给inner-shareable域内<br>所有PE，但每个PE按标签匹配：别的guest(VMID不同)、host(regime=EL2&amp;0，压根不匹配)<br>都不会误伤。</p>
+<ul>
+<li>无效stage2 TLB</li>
+</ul>
+<p>S2页表发生变化，都要刷新S2 TLB。由于如上的存储结构，无效stage2 TLB后，还要无效下<br>虚机的combined TLB:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//__kvm_tlb_flush_vmid_ipa</span></span><br><span class="line">__tlbi(ipas2e1is, ipa);   <span class="comment">// (1) 打stage2-only条目: 按IPA精确失效</span></span><br><span class="line">dsb(ish);                 <span class="comment">//     等广播完成，保证(2)能看到(1)的效果</span></span><br><span class="line">__tlbi(vmalle1is);        <span class="comment">// (2) 打combined(S1+S2)条目: 只能按VMID全清</span></span><br><span class="line">dsb(ish);</span><br><span class="line">isb();</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Host(KVM)在EL2替guest无效化guest TLB</li>
+</ul>
+<p>如上，如果stage2页表有变动，就要无效S2 TLB，S1 combined的TLB信息也不对了，这时就<br>需要EL2把EL1的combined TLB也刷掉。</p>
+<p>看下具体做法。VHE下host平时是{E2H,TGE}={1,1}，此时tlbi *E1打的是EL2&amp;0 regime对应<br>的TLB(host自己)，打不到guest的EL1&amp;0 regime的TLB。所以KVM的做法是临时把TGE清0：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// arch/arm64/kvm/hyp/vhe/tlb.c __tlb_switch_to_guest</span></span><br><span class="line">__load_stage2(mmu, mmu-&gt;arch);      <span class="comment">// 先把目标VM的VMID装进VTTBR_EL2</span></span><br><span class="line">val = read_sysreg(hcr_el2);</span><br><span class="line">val &amp;= ~HCR_TGE;                    <span class="comment">// TGE: 1 -&gt; 0</span></span><br><span class="line">write_sysreg(val, hcr_el2);</span><br><span class="line">isb();</span><br><span class="line"><span class="comment">// ...此刻tlbi *E1命中的是guest的EL1&amp;0(且限定当前VMID)。</span></span><br></pre></td></tr></table></figure>
+<p>刷完再把TGE置回1。</p>
+<h2 id="虚机上CnP的软件支持"><a href="#虚机上CnP的软件支持" class="headerlink" title="虚机上CnP的软件支持"></a>虚机上CnP的软件支持</h2><p>如下是和虚机上CnP软硬件逻辑相关的一个问题。这个是一个独立问题，先在这个文档中记录。</p>
+<p>kvm_arch_vcpu_load里会有：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">/*                                                                      </span><br><span class="line"> * We guarantee that both TLBs and I-cache are private to each          </span><br><span class="line"> * vcpu. If detecting that a vcpu from the same VM has                  </span><br><span class="line"> * previously run on the same physical CPU, call into the               </span><br><span class="line"> * hypervisor code to nuke the relevant contexts.                       </span><br><span class="line"> *                                                                      </span><br><span class="line"> * We might get preempted before the vCPU actually runs, but            </span><br><span class="line"> * over-invalidation doesn&#x27;t affect correctness.                        </span><br><span class="line"> */                                                                     </span><br><span class="line">if (*last_ran != vcpu-&gt;vcpu_idx) &#123;                                      </span><br><span class="line">        kvm_call_hyp(__kvm_flush_cpu_context, mmu);                     </span><br><span class="line">        *last_ran = vcpu-&gt;vcpu_idx;                                     </span><br><span class="line">&#125;                                                                       </span><br></pre></td></tr></table></figure>
+<p>上线的时候检测，如果这个物理CPU跑过同一个VM上的其它vCPU，就先无效下这个物理CPU<br>上虚机的TLB，因为其它vCPU的TLB可能和上线vCPU的ASID/VA相同、PA不同(what?)。这个支<br>持确保vCPU的TLB始终是private的。</p>
+<p>但是，如上逻辑在使能CnP的虚机还正确么？当前的软件是，只要检测到host支持CnP，S2就<br>会把CnP配置上，guest默认也会配置上CnP，这样，从硬件配置角度看，虚机的CnP是全部打<br>开的。</p>
+<p>当多个vCPU同时在多个thread上运行时，CnP会实际运行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">ASID1 VA1 PA1         ASID1 VA1 PA2</span><br><span class="line">vcpu0 s1 cnp = 1      vcpu1 s1 cnp = 1</span><br><span class="line">+---------+           +---------+</span><br><span class="line">| thread0 |           | thread1 |</span><br><span class="line">+---------+           +---------+</span><br><span class="line">          \          /</span><br><span class="line">           \        /</span><br><span class="line">            +------+       s2 cnp = 1 </span><br><span class="line">            | core |</span><br><span class="line">            +------+</span><br></pre></td></tr></table></figure>
+<p>这样逻辑上会错，但是这种情况是违反ARM构架的。(上面的场景也可能是CnP打开的, 为啥<br>上面就不违反ARM构架?)</p>
+
+    </div>
+
+    
+    
+    
+        <div class="reward-container">
+  <div></div>
+  <button onclick="var qr = document.getElementById('qr'); qr.style.display = (qr.style.display === 'none') ? 'block' : 'none';">
+    赞赏
+  </button>
+  <div id="qr" style="display: none;">
+      
+      <div style="display: inline-block;">
+        <img src="/images/weixinpay.svg" alt="Sherlock Wang 微信支付">
+        <p>微信支付</p>
+      </div>
+
+  </div>
+</div>
+
+
+      <footer class="post-footer">
+          
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E4%BD%93%E7%B3%BB%E7%BB%93%E6%9E%84/" rel="tag"><i class="fa fa-tag"></i> 计算机体系结构</a>
+              <a href="/tags/ARM64/" rel="tag"><i class="fa fa-tag"></i> ARM64</a>
+              <a href="/tags/%E8%99%9A%E6%8B%9F%E5%8C%96/" rel="tag"><i class="fa fa-tag"></i> 虚拟化</a>
+              <a href="/tags/CPU/" rel="tag"><i class="fa fa-tag"></i> CPU</a>
+              <a href="/tags/TLB/" rel="tag"><i class="fa fa-tag"></i> TLB</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/qemu%E6%A8%A1%E6%8B%9FARM%E6%9E%B6%E6%9E%84%E7%BB%BC%E5%90%88%E5%88%86%E6%9E%90-KVM/" rel="prev" title="qemu模拟ARM架构综合分析-KVM">
+      <i class="fa fa-chevron-left"></i> qemu模拟ARM架构综合分析-KVM
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+    
+  
+  <div class="comments">
+  <script src="https://utteranc.es/client.js" repo="wangzhou/blog_comments" issue-term="pathname" theme="github-light" crossorigin="anonymous" async></script>
+  </div>
+  
+  
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#TLB%E4%BF%9D%E5%AD%98%E7%B1%BB%E5%9E%8B"><span class="nav-number">1.</span> <span class="nav-text">TLB保存类型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TLBI%E6%8C%87%E4%BB%A4"><span class="nav-number">2.</span> <span class="nav-text">TLBI指令</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TLBI%E4%BD%BF%E7%94%A8%E5%9C%BA%E6%99%AF"><span class="nav-number">3.</span> <span class="nav-text">TLBI使用场景</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Host%E4%B8%8ATLBI%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="nav-number">3.1.</span> <span class="nav-text">Host上TLBI的使用</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%99%9A%E6%9C%BA%E4%B8%8ATLBI%E7%9A%84%E4%BD%BF%E7%94%A8"><span class="nav-number">3.2.</span> <span class="nav-text">虚机上TLBI的使用</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%99%9A%E6%9C%BA%E4%B8%8ACnP%E7%9A%84%E8%BD%AF%E4%BB%B6%E6%94%AF%E6%8C%81"><span class="nav-number">4.</span> <span class="nav-text">虚机上CnP的软件支持</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Sherlock Wang"
+      src="/images/yase.svg">
+  <p class="site-author-name" itemprop="name">Sherlock Wang</p>
+  <div class="site-description" itemprop="description">Linux, Kernel, 计算机体系结构</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+        
+          <span class="site-state-item-count">297</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">分类</span>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags">
+          
+        <span class="site-state-item-count">105</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <span class="exturl" data-url="aHR0cHM6Ly9naXRodWIuY29tL3dhbmd6aG91" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;wangzhou"><i class="fab fa-github fa-fw"></i>GitHub</span>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 2021 – 
+  <span itemprop="copyrightYear">2026</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Sherlock Wang</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/jquery@3/dist/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/gh/fancyapps/fancybox@3/dist/jquery.fancybox.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+
+<script src="/js/schemes/pisces.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+<script>
+document.querySelectorAll('.pdfobject-container').forEach(element => {
+  let url = element.dataset.target;
+  let pdfOpenParams = {
+    navpanes : 0,
+    toolbar  : 0,
+    statusbar: 0,
+    pagemode : 'thumbs',
+    view     : 'FitH'
+  };
+  let pdfOpenFragment = '#' + Object.entries(pdfOpenParams).map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join('&');
+  let fullURL = `/lib/pdf/web/viewer.html?file=${encodeURIComponent(url)}${pdfOpenFragment}`;
+
+  if (NexT.utils.supportsPDFs()) {
+    element.innerHTML = `<embed class="pdfobject" src="${url + pdfOpenFragment}" type="application/pdf" style="height: ${element.dataset.height};">`;
+  } else {
+    element.innerHTML = `<iframe src="${fullURL}" style="height: ${element.dataset.height};" frameborder="0"></iframe>`;
+  }
+});
+</script>
+
+
+
+
+  
+
+  
+
+</body>
+</html>
