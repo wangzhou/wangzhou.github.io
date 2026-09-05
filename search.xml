@@ -11093,4 +11093,25 @@ shadow: files ldap
         <tag>锁</tag>
       </tags>
   </entry>
+  <entry>
+    <title>如何在MacBook上使用ARM嵌套虚拟化</title>
+    <url>/%E5%A6%82%E4%BD%95%E5%9C%A8MacBook%E4%B8%8A%E4%BD%BF%E7%94%A8ARM%E5%B5%8C%E5%A5%97%E8%99%9A%E6%8B%9F%E5%8C%96/</url>
+    <content><![CDATA[<h2 id="基本逻辑"><a href="#基本逻辑" class="headerlink" title="基本逻辑"></a>基本逻辑</h2><p>Apple从M2芯片开始就支持了ARM的嵌套虚拟化特性，本文记录在M5芯片上使用嵌套虚拟化的<br>步骤。</p>
+<p>测试的基本环境是：host就用本机的macOS 26.4；第一层虚机(L1)使用主线QEMU(11.1.50)，<br>最新主线QEMU在HVF(类似Linux KVM，苹果的内核虚拟机)中支持了ARM版本的嵌套虚拟化，<br>支持的补丁可以参考<span class="exturl" data-url="aHR0cHM6Ly9wYXRjaHdvcmsub3psYWJzLm9yZy9wcm9qZWN0L3FlbXUtZGV2ZWwvY292ZXIvMjAyNjAzMDYwNzU3NTYuODg5MjItMS1tb2hhbWVkQHVucHJlZGljdGFibGUuZnIv">这里<i class="fa fa-external-link-alt"></i></span>; L1的文件系统使用openEuler的qcow2文件系统，也可以使用其它<br>发行版的qcow2文件系统。</p>
+<p>使能嵌套虚拟化后，L1虚机直接就是一个基于EL2带/dev/kvm的完整系统，在L1系统里可以<br>方便地验证需要KVM的测试场景，比如可以直接在L1测试验证AI沙箱场景，会方便很多。</p>
+<p>具体命令和注意事项直接如下。</p>
+<h2 id="编译QEMU以及L1启动命令"><a href="#编译QEMU以及L1启动命令" class="headerlink" title="编译QEMU以及L1启动命令"></a>编译QEMU以及L1启动命令</h2><p>编译命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">// QEMU源码目录</span><br><span class="line">./configure \</span><br><span class="line">  --target-list=aarch64-softmmu,arm-softmmu \</span><br><span class="line">  --enable-hvf \</span><br><span class="line">  --enable-virtfs \</span><br><span class="line">  --disable-werror</span><br><span class="line">make -j10</span><br></pre></td></tr></table></figure>
+
+<p>L1启动命令：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">~/repos/qemu/build/qemu-system-aarch64 \</span><br><span class="line">  -machine virt,gic-version=3,virtualization=on \</span><br><span class="line">  -cpu host \</span><br><span class="line">  -accel hvf \</span><br><span class="line">  -boot menu=on,splash-time=0 \</span><br><span class="line">  -m 16G \</span><br><span class="line">  -smp 10 \</span><br><span class="line">  -drive file=~/ISO/openEuler-24.03-LTS-SP2-aarch64.qcow2,format=qcow2,if=virtio \</span><br><span class="line">  -netdev user,id=net0,hostfwd=tcp::2222-:22,hostfwd=tcp::4000-:4000,hostfwd=udp::123-:123 \</span><br><span class="line">  -device virtio-net-pci,netdev=net0 \</span><br><span class="line">  -nographic \</span><br><span class="line">  -bios /opt/homebrew/share/qemu/edk2-aarch64-code.fd \</span><br><span class="line">  -fsdev local,id=fsdev0,path=/Users/sherlock,security_model=none \</span><br><span class="line">  -device virtio-9p-pci,fsdev=fsdev0,mount_tag=hostshare \</span><br><span class="line">  -rtc clock=host</span><br></pre></td></tr></table></figure>
+<p>注意，需要增加：-boot menu=on,splash-time=0，否则QEMU启动卡在BIOS阶段无法进入guest<br>内核。</p>
+<p>进入L1系统后，可以看见/dev/kvm，并且可以继续启动L2虚机。</p>
+]]></content>
+      <tags>
+        <tag>虚拟化</tag>
+        <tag>KVM</tag>
+        <tag>QEMU</tag>
+      </tags>
+  </entry>
 </search>
